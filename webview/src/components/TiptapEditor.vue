@@ -232,32 +232,23 @@ function setupDragHandles(ed: typeof editor.value) {
     // Skip if already set up
     if (block.dataset.dragBlock) return;
     
-    // Find the position of this node in the document
-    const pos = ed.view.state.doc.resolve(0);
-    // Walk through to find block positions
-    let found = false;
-    for (let i = 0; i <= ed.view.state.doc.content.size; i++) {
-      const $pos = ed.view.state.doc.resolve(i);
-      if ($pos.parent.isBlock && $pos.parent.type.spec.group?.includes('block')) {
-        const domPos = ed.view.domAtPos($pos.before(1));
-        if (domPos.node === block || (domPos.node as HTMLElement)?.contains(block as HTMLElement)) {
-          block.dataset.dragPos = String($pos.before(1));
-          found = true;
+    // Find the position of this block using coordinates
+    const rect = block.getBoundingClientRect();
+    const centerX = rect.left + rect.width / 2;
+    const centerY = rect.top + rect.height / 2;
+    
+    const coords = ed.view.posAtCoords({ left: centerX, top: centerY });
+    if (coords) {
+      // Get the resolved position and find the block start
+      const $pos = ed.view.state.doc.resolve(coords.pos);
+      // Walk up to find a block node
+      for (let depth = $pos.depth; depth >= 0; depth--) {
+        const node = $pos.node(depth);
+        if (node.isBlock && depth > 0) {
+          // Set the position to the start of this block
+          block.dataset.dragPos = String($pos.before(depth));
           break;
         }
-      }
-    }
-    
-    if (!found) {
-      // Try another approach - find the closest ProseMirror node
-      const pmNode = block.closest('.ProseMirror');
-      if (pmNode) {
-        // Use coords to find position
-        const rect = block.getBoundingClientRect();
-        const centerX = rect.left + rect.width / 2;
-        const centerY = rect.top + rect.height / 2;
-        const coords = ed.view.coordsAtPos(ed.view.state.selection.from);
-        // For simplicity, use the first child position approach
       }
     }
     
@@ -480,6 +471,9 @@ function onEditorDblClick(e: MouseEvent) {
     if (pos) {
       const $pos = editor.value.state.doc.resolve(pos.pos);
       if ($pos.parent.type.name === 'image' || $pos.nodeAfter?.type.name === 'image') {
+        // Select the image node first so getAttributes() returns correct values
+        editor.value.chain().setNodeSelection(pos.pos).run();
+        
         // Open the image alt dialog
         openImageAltDialog();
       }
@@ -495,32 +489,36 @@ onMounted(() => {
     
     // Mouse move for resize dragging
     editorDom.addEventListener('mousemove', (e: MouseEvent) => {
-      if (!editor.value || !resizeState?.active) return;
+      if (!editor.value) return;
+      
+      // Get resize state from plugin state instead of local variable
+      const state = imageResizeKey.getState(editor.value.state) as ResizeState | null;
+      if (!state?.active) return;
       
       const img = editorDom.querySelector('img.ProseMirror-selectednode') as HTMLImageElement;
       if (!img) return;
       
-      const dx = e.clientX - resizeState.startX;
-      const dy = e.clientY - resizeState.startY;
+      const dx = e.clientX - state.startX;
+      const dy = e.clientY - state.startY;
       
-      let newWidth = resizeState.startWidth;
-      let newHeight = resizeState.startHeight;
+      let newWidth = state.startWidth;
+      let newHeight = state.startHeight;
       
       // Calculate new dimensions based on handle being dragged
       // For simplicity, we'll resize proportionally based on corner
-      const aspectRatio = resizeState.startWidth / resizeState.startHeight;
+      const aspectRatio = state.startWidth / state.startHeight;
       
-      if (resizeState.handle === 'se' || resizeState.handle === 'e') {
-        newWidth = Math.max(20, resizeState.startWidth + dx);
+      if (state.handle === 'se' || state.handle === 'e') {
+        newWidth = Math.max(20, state.startWidth + dx);
         newHeight = newWidth / aspectRatio;
-      } else if (resizeState.handle === 'sw' || resizeState.handle === 'w') {
-        newWidth = Math.max(20, resizeState.startWidth - dx);
+      } else if (state.handle === 'sw' || state.handle === 'w') {
+        newWidth = Math.max(20, state.startWidth - dx);
         newHeight = newWidth / aspectRatio;
-      } else if (resizeState.handle === 'ne' || resizeState.handle === 'n') {
-        newHeight = Math.max(20, resizeState.startHeight - dy);
+      } else if (state.handle === 'ne' || state.handle === 'n') {
+        newHeight = Math.max(20, state.startHeight - dy);
         newWidth = newHeight * aspectRatio;
-      } else if (resizeState.handle === 's' || resizeState.handle === 'nw' || resizeState.handle === 'nw') {
-        newHeight = Math.max(20, resizeState.startHeight + dy);
+      } else if (state.handle === 's' || state.handle === 'nw') {
+        newHeight = Math.max(20, state.startHeight + dy);
         newWidth = newHeight * aspectRatio;
       }
       
@@ -531,30 +529,34 @@ onMounted(() => {
     
     // Mouse up for resize dragging
     editorDom.addEventListener('mouseup', (e: MouseEvent) => {
-      if (!editor.value || !resizeState?.active) return;
+      if (!editor.value) return;
+      
+      // Get resize state from plugin state instead of local variable
+      const state = imageResizeKey.getState(editor.value.state) as ResizeState | null;
+      if (!state?.active) return;
       
       const img = editorDom.querySelector('img.ProseMirror-selectednode') as HTMLImageElement;
       if (!img) return;
       
-      const dx = e.clientX - resizeState.startX;
-      const dy = e.clientY - resizeState.startY;
+      const dx = e.clientX - state.startX;
+      const dy = e.clientY - state.startY;
       
-      const aspectRatio = resizeState.startWidth / resizeState.startHeight;
+      const aspectRatio = state.startWidth / state.startHeight;
       
-      let newWidth = resizeState.startWidth;
-      let newHeight = resizeState.startHeight;
+      let newWidth = state.startWidth;
+      let newHeight = state.startHeight;
       
-      if (resizeState.handle === 'se' || resizeState.handle === 'e') {
-        newWidth = Math.max(20, resizeState.startWidth + dx);
+      if (state.handle === 'se' || state.handle === 'e') {
+        newWidth = Math.max(20, state.startWidth + dx);
         newHeight = newWidth / aspectRatio;
-      } else if (resizeState.handle === 'sw' || resizeState.handle === 'w') {
-        newWidth = Math.max(20, resizeState.startWidth - dx);
+      } else if (state.handle === 'sw' || state.handle === 'w') {
+        newWidth = Math.max(20, state.startWidth - dx);
         newHeight = newWidth / aspectRatio;
-      } else if (resizeState.handle === 'ne' || resizeState.handle === 'n') {
-        newHeight = Math.max(20, resizeState.startHeight - dy);
+      } else if (state.handle === 'ne' || state.handle === 'n') {
+        newHeight = Math.max(20, state.startHeight - dy);
         newWidth = newHeight * aspectRatio;
-      } else if (resizeState.handle === 's' || resizeState.handle === 'nw') {
-        newHeight = Math.max(20, resizeState.startHeight + dy);
+      } else if (state.handle === 's' || state.handle === 'nw') {
+        newHeight = Math.max(20, state.startHeight + dy);
         newWidth = newHeight * aspectRatio;
       }
       
@@ -570,8 +572,20 @@ onMounted(() => {
         editor.value.view.dispatch(tr);
       }
       
-      // Reset resize state
-      resizeState = null;
+      // Reset resize state in plugin
+      const { tr } = editor.value.state;
+      tr.setMeta(imageResizeKey, {
+        active: false,
+        pos: null,
+        handle: null,
+        startX: 0,
+        startY: 0,
+        startWidth: 0,
+        startHeight: 0,
+        originalWidth: 0,
+        originalHeight: 0,
+      });
+      editor.value.view.dispatch(tr);
     });
   });
 });

@@ -44,10 +44,8 @@ export const DragHandleExtension = Extension.create<DragHandleOptions>({
             if (meta) {
               return { ...state, ...meta };
             }
-            // Reset state if no drag meta
-            if (!tr.getMeta('dragHandle')) {
-              return { dragging: false, draggedPos: null, dropPos: null };
-            }
+            // Preserve state for transactions without dragHandlePluginKey meta
+            // State is only explicitly reset via cancelDrag or endDrag
             return state;
           },
         },

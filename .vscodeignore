@@ -1,0 +1,14 @@
+.DS_Store
+.eslintrc.json
+.gitignore
+.vscode/**
+*.vsix
+node_modules/**
+package-lock.json
+src/**
+scripts/**
+test/**
+tsconfig.json
+webview/**
+docs/v1/**
+dist/test/**

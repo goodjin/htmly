@@ -1,4 +1,4 @@
-import { ref, onMounted, onBeforeUnmount } from 'vue';
+import { ref } from 'vue';
 import type { ExtToWebMsg, WebToExtMsg, EditorMode } from '../../../src/shared/types';
 
 // VS Code API injected by the extension host
@@ -8,7 +8,20 @@ declare function acquireVsCodeApi(): {
   setState(state: Record<string, unknown>): void;
 };
 
-const vscode = typeof acquireVsCodeApi !== 'undefined' ? acquireVsCodeApi() : null;
+// Lazy singleton — deferred so test globals can be set before first call.
+let _api: ReturnType<typeof acquireVsCodeApi> | null | undefined;
+
+function getVsApi(): ReturnType<typeof acquireVsCodeApi> | null {
+  if (_api === undefined) {
+    _api = typeof acquireVsCodeApi !== 'undefined' ? acquireVsCodeApi() : null;
+  }
+  return _api;
+}
+
+/** Reset the cached VS Code API handle (test helper). */
+export function __resetVsApiForTest(): void {
+  _api = undefined;
+}
 
 export function useVSCode() {
   const initialContent = ref('');
@@ -16,7 +29,7 @@ export function useVSCode() {
   const isDark = ref(true);
 
   function postMessage(msg: WebToExtMsg) {
-    vscode?.postMessage(msg);
+    getVsApi()?.postMessage(msg);
   }
 
   function onMessage(handler: (msg: ExtToWebMsg) => void) {
