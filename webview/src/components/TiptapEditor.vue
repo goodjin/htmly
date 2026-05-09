@@ -14,6 +14,14 @@ import TableHeader from '@tiptap/extension-table-header';
 import Placeholder from '@tiptap/extension-placeholder';
 import TextStyle from '@tiptap/extension-text-style';
 import Color from '@tiptap/extension-color';
+import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight';
+import { createLowlight } from 'lowlight';
+import javascript from 'highlight.js/lib/languages/javascript';
+import typescript from 'highlight.js/lib/languages/typescript';
+import css from 'highlight.js/lib/languages/css';
+import xml from 'highlight.js/lib/languages/xml';
+import python from 'highlight.js/lib/languages/python';
+import json from 'highlight.js/lib/languages/json';
 import { NodeSelection } from '@tiptap/pm/state';
 import LinkDialog from './LinkDialog.vue';
 import ImageDialog from './ImageDialog.vue';
@@ -58,12 +66,24 @@ interface FormatPainterState {
   textAlign: 'left' | 'center' | 'right' | null;
 }
 
+// Create lowlight instance with common languages for syntax highlighting
+const lowlight = createLowlight({
+  javascript,
+  typescript,
+  css,
+  xml,
+  python,
+  json,
+});
+
 const editor = useEditor({
   content: props.modelValue,
   extensions: [
     StarterKit.configure({
       // Disable StarterKit's built-in input rules since we control them via the MarkdownShortcutsExtension
       inputRules: false,
+      // Disable StarterKit's built-in code block since we use CodeBlockLowlight for syntax highlighting
+      codeBlock: false,
     }),
     Underline,
     Link.configure({ openOnClick: false }),
@@ -77,6 +97,13 @@ const editor = useEditor({
     Placeholder.configure({ placeholder: 'Start writing HTML…' }),
     TextStyle,
     Color,
+    CodeBlockLowlight.configure({
+      lowlight,
+      defaultLanguage: 'plaintext',
+      HTMLAttributes: {
+        class: 'code-block',
+      },
+    }),
     SlashCommandsExtension,
     MarkdownShortcutsExtension.configure({
       enabled: props.enableMarkdownShortcuts !== false,

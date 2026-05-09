@@ -18,6 +18,7 @@
     "@tiptap/extension-bullet-list": "^2.4.0",
     "@tiptap/extension-code": "^2.4.0",
     "@tiptap/extension-code-block": "^2.4.0",
+    "@tiptap/extension-code-block-lowlight": "^2.27.2",
     "@tiptap/extension-color": "^2.4.0",
     "@tiptap/extension-document": "^2.4.0",
     "@tiptap/extension-heading": "^2.4.0",
@@ -43,6 +44,8 @@
     "@tiptap/starter-kit": "^2.27.2",
     "@tiptap/suggestion": "^2.27.2",
     "@tiptap/vue-3": "^2.4.0",
+    "highlight.js": "^11.11.1",
+    "lowlight": "^3.3.0",
     "vue": "^3.4.0"
   },
   "devDependencies": {
