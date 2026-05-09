@@ -76,6 +76,9 @@ const lowlight = createLowlight({
   json,
 });
 
+// Drag overlay ref for positioning handles outside ProseMirror DOM
+const dragOverlay = ref<HTMLElement | null>(null);
+
 const editor = useEditor({
   content: props.modelValue,
   extensions: [
@@ -224,6 +227,12 @@ function setupDragHandles(ed: typeof editor.value) {
   const editorDom = ed.view.dom as HTMLElement;
   if (!editorDom) return;
   
+  // Clean up existing handles from overlay before re-creating
+  if (dragOverlay.value) {
+    const existingHandles = dragOverlay.value.querySelectorAll('.drag-handle');
+    existingHandles.forEach(h => h.remove());
+  }
+  
   // Find all direct children of the editor which are block elements
   const blockSelector = 'p, h1, h2, h3, h4, h5, h6, ul, ol, blockquote, pre, table';
   const blocks = editorDom.querySelectorAll(blockSelector);
@@ -256,7 +265,7 @@ function setupDragHandles(ed: typeof editor.value) {
     if (block.dataset.dragPos) {
       block.dataset.dragBlock = 'true';
       
-      // Create and insert drag handle
+      // Create drag handle
       const handle = document.createElement('div');
       handle.className = 'drag-handle';
       handle.contentEditable = 'false';
@@ -264,12 +273,9 @@ function setupDragHandles(ed: typeof editor.value) {
       handle.innerHTML = '⠿';
       handle.title = 'Drag to reorder';
       
-      // Style the drag handle
+      // Style the drag handle - absolute positioned within overlay
       handle.style.cssText = `
         position: absolute;
-        left: -24px;
-        top: 50%;
-        transform: translateY(-50%);
         width: 20px;
         height: 24px;
         display: flex;
@@ -281,16 +287,29 @@ function setupDragHandles(ed: typeof editor.value) {
         color: var(--vscode-editor-foreground, #ccc);
         font-size: 14px;
         user-select: none;
+        z-index: 10;
+        pointer-events: auto;
       `;
       
-      // Show on hover
-      block.style.position = 'relative';
-      block.addEventListener('mouseenter', () => {
+      // Position handle relative to the overlay based on block position
+      // Store block reference for positioning updates
+      (handle as any)._blockRef = block;
+      
+      // Initial positioning
+      const overlayRect = dragOverlay.value?.getBoundingClientRect();
+      if (overlayRect && dragOverlay.value) {
+        const blockRect = block.getBoundingClientRect();
+        handle.style.left = `${blockRect.left - overlayRect.left - 24}px`;
+        handle.style.top = `${blockRect.top - overlayRect.top + blockRect.height / 2 - 12}px`;
+      }
+      
+      // Show handle on hover (using handle's own mouse events)
+      handle.addEventListener('mouseenter', () => {
         if (!getDragState().active) {
           handle.style.opacity = '0.6';
         }
       });
-      block.addEventListener('mouseleave', () => {
+      handle.addEventListener('mouseleave', () => {
         if (!getDragState().active) {
           handle.style.opacity = '0';
         }
@@ -317,7 +336,8 @@ function setupDragHandles(ed: typeof editor.value) {
         cancelDrag(ed.view);
       });
       
-      block.insertBefore(handle, block.firstChild);
+      // Add handle to overlay instead of block
+      dragOverlay.value?.appendChild(handle);
     }
   });
   
@@ -639,6 +659,9 @@ function onEditorDrop(e: DragEvent) {
 <template>
   <EditorContent :editor="editor" class="editor-wrap" @click="handleEditorClick" @dblclick="onEditorDblClick" @dragover.prevent="onEditorDragOver" @drop="onEditorDrop" />
 
+  <!-- Drag handle overlay - outside ProseMirror DOM to prevent getHTML() from capturing handles -->
+  <div ref="dragOverlay" class="drag-overlay" :style="{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, pointerEvents: 'none', overflow: 'hidden' }"></div>
+
   <BubbleMenu
     v-if="editor"
     :editor="editor"
@@ -768,10 +791,6 @@ function onEditorDrop(e: DragEvent) {
 
 /* Drag handle styles */
 .drag-handle {
-  position: absolute;
-  left: -24px;
-  top: 50%;
-  transform: translateY(-50%);
   width: 20px;
   height: 24px;
   display: flex;
@@ -784,6 +803,7 @@ function onEditorDrop(e: DragEvent) {
   font-size: 14px;
   user-select: none;
   z-index: 10;
+  pointer-events: auto;
 }
 
 .drag-handle:hover {
@@ -792,12 +812,6 @@ function onEditorDrop(e: DragEvent) {
 
 .drag-handle:active {
   cursor: grabbing;
-}
-
-/* Block elements need relative positioning for drag handles */
-:deep(.tiptap-editor > *),
-:deep(.ProseMirror > *) {
-  position: relative;
 }
 
 /* Drop indicator */
