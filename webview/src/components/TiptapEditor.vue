@@ -16,6 +16,7 @@ import TextStyle from '@tiptap/extension-text-style';
 import Color from '@tiptap/extension-color';
 import LinkDialog from './LinkDialog.vue';
 import { escapeHtml } from '../core/htmlUtils';
+import { SlashCommandsExtension } from '../extensions/slashCommands';
 
 const props = defineProps<{
   modelValue: string;   // HTML string
@@ -41,6 +42,7 @@ const editor = useEditor({
     Placeholder.configure({ placeholder: 'Start writing HTML…' }),
     TextStyle,
     Color,
+    SlashCommandsExtension,
   ],
   editorProps: {
     attributes: { class: 'tiptap-editor' },
