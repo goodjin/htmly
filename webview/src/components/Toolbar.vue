@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue';
 import type { Editor } from '@tiptap/core';
 import type { EditorMode } from '../../../src/shared/types';
+import { escapeHtml } from '../core/htmlUtils';
 import LinkDialog from './LinkDialog.vue';
 import ImageDialog from './ImageDialog.vue';
 
@@ -67,13 +68,14 @@ function onLinkConfirm(payload: { url: string; text: string }) {
   if (!props.editor) return;
   const { url, text } = payload;
   const chain = props.editor.chain().focus();
+  const safeUrl = escapeHtml(url);
 
   if (text && !props.editor.state.selection.empty) {
-    chain.setLink({ href: url }).run();
+    chain.setLink({ href: safeUrl }).run();
   } else if (text) {
-    chain.insertContent(`<a href="${url}">${text}</a>`).run();
+    chain.insertContent(`<a href="${safeUrl}">${escapeHtml(text)}</a>`).run();
   } else {
-    chain.setLink({ href: url }).run();
+    chain.setLink({ href: safeUrl }).run();
   }
   linkDialogVisible.value = false;
 }
@@ -137,6 +139,14 @@ function onImageConfirm(payload: { src: string; alt: string }) {
           <span class="btn-icon"><s>S</s></span>
           <span class="btn-label">Strike</span>
         </button>
+        <button
+          title="Highlight"
+          :class="{ active: editor?.isActive('highlight') }"
+          @mousedown="btn(() => editor?.chain().focus().toggleHighlight().run())"
+        >
+          <span class="btn-icon"><mark>H</mark></span>
+          <span class="btn-label">Highlight</span>
+        </button>
       </div>
 
       <div class="toolbar-group">
@@ -145,7 +155,7 @@ function onImageConfirm(payload: { src: string; alt: string }) {
           :class="{ active: editor?.isActive('bulletList') }"
           @mousedown="btn(() => editor?.chain().focus().toggleBulletList().run())"
         >
-          <span class="btn-icon">≡</span>
+          <span class="btn-icon">•</span>
           <span class="btn-label">Bullet</span>
         </button>
         <button
