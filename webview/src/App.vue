@@ -151,6 +151,7 @@ onBeforeUnmount(() => {
         v-if="mode === 'wysiwyg'"
         ref="tiptapRef"
         :model-value="visualHtml"
+        :enable-markdown-shortcuts="settings.enableMarkdownShortcuts"
         @update:model-value="onVisualContentChange"
       />
       <SplitPane

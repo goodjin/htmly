@@ -17,9 +17,11 @@ import Color from '@tiptap/extension-color';
 import LinkDialog from './LinkDialog.vue';
 import { escapeHtml } from '../core/htmlUtils';
 import { SlashCommandsExtension } from '../extensions/slashCommands';
+import { MarkdownShortcutsExtension } from '../extensions/markdownShortcuts';
 
 const props = defineProps<{
   modelValue: string;   // HTML string
+  enableMarkdownShortcuts?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -29,7 +31,10 @@ const emit = defineEmits<{
 const editor = useEditor({
   content: props.modelValue,
   extensions: [
-    StarterKit,
+    StarterKit.configure({
+      // Disable StarterKit's built-in input rules since we control them via the MarkdownShortcutsExtension
+      inputRules: false,
+    }),
     Underline,
     Link.configure({ openOnClick: false }),
     Image,
@@ -43,6 +48,9 @@ const editor = useEditor({
     TextStyle,
     Color,
     SlashCommandsExtension,
+    MarkdownShortcutsExtension.configure({
+      enabled: props.enableMarkdownShortcuts !== false,
+    }),
   ],
   editorProps: {
     attributes: { class: 'tiptap-editor' },
