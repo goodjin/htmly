@@ -95,6 +95,7 @@ export class HtmlyEditorProvider implements vscode.CustomTextEditorProvider {
     // Helper to read current settings
     const getSettings = (): HtmlySettings => ({
       showButtonLabels: vscode.workspace.getConfiguration('htmly').get<boolean>('showButtonLabels', true),
+      autoHideToolbarInPreview: vscode.workspace.getConfiguration('htmly').get<boolean>('autoHideToolbarInPreview', true),
     });
 
     // Webview → Extension
@@ -167,7 +168,7 @@ export class HtmlyEditorProvider implements vscode.CustomTextEditorProvider {
 
     // Settings changes
     const configSub = vscode.workspace.onDidChangeConfiguration((e) => {
-      if (e.affectsConfiguration('htmly.showButtonLabels')) {
+      if (e.affectsConfiguration('htmly.showButtonLabels') || e.affectsConfiguration('htmly.autoHideToolbarInPreview')) {
         this.postMessage(webviewPanel, {
           type: 'settings',
           settings: getSettings(),

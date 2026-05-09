@@ -2,6 +2,7 @@ export type EditorMode = 'wysiwyg' | 'source' | 'preview' | 'split';
 
 export interface HtmlySettings {
   showButtonLabels: boolean;
+  autoHideToolbarInPreview: boolean;
 }
 
 // Messages from extension → webview

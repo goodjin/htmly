@@ -11,11 +11,14 @@ const props = defineProps<{
   dirty: boolean;
   readOnly: boolean;
   showButtonLabels: boolean;
+  autoHideToolbarInPreview: boolean;
 }>();
 
 const emit = defineEmits<{
   setMode: [mode: EditorMode];
 }>();
+
+const toolbarHidden = computed(() => props.mode === 'preview' && props.autoHideToolbarInPreview);
 
 const currentColor = computed(() => {
   if (!props.editor) return '#000000';
@@ -86,7 +89,7 @@ function onImageConfirm(payload: { src: string; alt: string }) {
 </script>
 
 <template>
-  <div class="toolbar" :class="{ 'hide-labels': !showButtonLabels }">
+  <div v-if="!toolbarHidden" class="toolbar" :class="{ 'hide-labels': !showButtonLabels }">
     <template v-if="mode === 'wysiwyg'">
       <div class="toolbar-group">
         <select

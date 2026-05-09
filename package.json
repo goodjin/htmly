@@ -54,6 +54,11 @@
           "type": "boolean",
           "default": true,
           "description": "Show text labels below toolbar buttons"
+        },
+        "htmly.autoHideToolbarInPreview": {
+          "type": "boolean",
+          "default": true,
+          "description": "Hide toolbar when in Preview mode"
         }
       }
     },

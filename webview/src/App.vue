@@ -132,6 +132,7 @@ onBeforeUnmount(() => {
       :dirty="isDirty"
       :read-only="readOnly"
       :show-button-labels="settings.showButtonLabels"
+      :auto-hide-toolbar-in-preview="settings.autoHideToolbarInPreview"
       @set-mode="setMode"
     />
 
