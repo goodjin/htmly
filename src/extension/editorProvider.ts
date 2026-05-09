@@ -1,33 +1,83 @@
 import * as vscode from 'vscode';
-import * as path from 'path';
-import * as fs from 'fs';
-import { EditorMode, ExtToWebMsg, WebToExtMsg } from '../shared/types';
+import { EditorMode, ExtToWebMsg, WebToExtMsg, HtmlySettings } from '../shared/types';
 
 export class HtmlyEditorProvider implements vscode.CustomTextEditorProvider {
   public static readonly viewType = 'htmly.editor';
+  private static readonly modeOrder: EditorMode[] = ['wysiwyg', 'source', 'preview'];
+  private static readonly LARGE_FILE_THRESHOLD = 500 * 1024; // 500 KB
 
-  // Track mode per document URI
   private modeMap = new Map<string, EditorMode>();
+  private ackModeMap = new Map<string, EditorMode>();
+  private panels = new Map<string, vscode.WebviewPanel>();
+  private activePanel: vscode.WebviewPanel | undefined;
 
   constructor(private readonly context: vscode.ExtensionContext) {}
 
-  public static register(context: vscode.ExtensionContext): vscode.Disposable {
-    const provider = new HtmlyEditorProvider(context);
-    const disposable = vscode.window.registerCustomEditorProvider(
+  public register(): vscode.Disposable {
+    return vscode.window.registerCustomEditorProvider(
       HtmlyEditorProvider.viewType,
-      provider,
+      this,
       {
         webviewOptions: { retainContextWhenHidden: true },
         supportsMultipleEditorsPerDocument: false,
       }
     );
-    return disposable;
+  }
+
+  public cycleActiveMode(): void {
+    if (!this.activePanel) {
+      return;
+    }
+
+    const entry = this.getActivePanelEntry();
+    if (!entry) {
+      return;
+    }
+
+    const [documentUri] = entry;
+    const currentMode = this.ackModeMap.get(documentUri) ?? this.modeMap.get(documentUri) ?? 'wysiwyg';
+    const currentIndex = HtmlyEditorProvider.modeOrder.indexOf(currentMode);
+    const nextMode = HtmlyEditorProvider.modeOrder[(currentIndex + 1) % HtmlyEditorProvider.modeOrder.length];
+
+    this.setActiveMode(nextMode);
+  }
+
+  public setActiveMode(mode: EditorMode): void {
+    if (!this.activePanel) {
+      return;
+    }
+
+    const entry = this.getActivePanelEntry();
+    if (!entry) {
+      return;
+    }
+
+    const [documentUri, panel] = entry;
+    this.modeMap.set(documentUri, mode);
+    this.ackModeMap.set(documentUri, mode);
+    this.postMessage(panel, { type: 'setMode', mode });
+  }
+
+  public getTestState(): { active: boolean; documentUri?: string; mode?: EditorMode } {
+    if (!this.activePanel) {
+      return { active: false };
+    }
+
+    const entry = this.getActivePanelEntry();
+    const documentUri = entry?.[0];
+
+    return {
+      active: true,
+      documentUri,
+      mode: documentUri
+        ? this.ackModeMap.get(documentUri) ?? this.modeMap.get(documentUri) ?? 'wysiwyg'
+        : undefined,
+    };
   }
 
   public async resolveCustomTextEditor(
     document: vscode.TextDocument,
-    webviewPanel: vscode.WebviewPanel,
-    _token: vscode.CancellationToken
+    webviewPanel: vscode.WebviewPanel
   ): Promise<void> {
     webviewPanel.webview.options = {
       enableScripts: true,
@@ -39,7 +89,13 @@ export class HtmlyEditorProvider implements vscode.CustomTextEditorProvider {
     webviewPanel.webview.html = this.getWebviewHtml(webviewPanel.webview);
 
     const docKey = document.uri.toString();
-    const currentMode: EditorMode = this.modeMap.get(docKey) ?? 'wysiwyg';
+    this.panels.set(docKey, webviewPanel);
+    this.activePanel = webviewPanel;
+
+    // Helper to read current settings
+    const getSettings = (): HtmlySettings => ({
+      showButtonLabels: vscode.workspace.getConfiguration('htmly').get<boolean>('showButtonLabels', true),
+    });
 
     // Webview → Extension
     webviewPanel.webview.onDidReceiveMessage((msg: WebToExtMsg) => {
@@ -54,15 +110,33 @@ export class HtmlyEditorProvider implements vscode.CustomTextEditorProvider {
             type: 'theme',
             isDark: vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Dark,
           });
+          this.postMessage(webviewPanel, {
+            type: 'dirty',
+            isDirty: document.isDirty,
+          });
+          this.postMessage(webviewPanel, {
+            type: 'settings',
+            settings: getSettings(),
+          });
+          if (document.getText().length > HtmlyEditorProvider.LARGE_FILE_THRESHOLD) {
+            this.postMessage(webviewPanel, { type: 'readOnly', enabled: true });
+          }
           break;
 
         case 'contentUpdate':
-          this.applyEdit(document, msg.content);
+          this.applyEdit(document, msg.content, webviewPanel);
           break;
 
         case 'modeChanged':
           this.modeMap.set(docKey, msg.mode);
+          this.ackModeMap.set(docKey, msg.mode);
           break;
+      }
+    });
+
+    const viewStateSub = webviewPanel.onDidChangeViewState((e) => {
+      if (e.webviewPanel.active) {
+        this.activePanel = e.webviewPanel;
       }
     });
 
@@ -84,28 +158,61 @@ export class HtmlyEditorProvider implements vscode.CustomTextEditorProvider {
       });
     });
 
+    // Save events — notify webview of dirty state
+    const saveSub = vscode.workspace.onDidSaveTextDocument((saved) => {
+      if (saved.uri.toString() === docKey) {
+        this.postMessage(webviewPanel, { type: 'dirty', isDirty: false });
+      }
+    });
+
+    // Settings changes
+    const configSub = vscode.workspace.onDidChangeConfiguration((e) => {
+      if (e.affectsConfiguration('htmly.showButtonLabels')) {
+        this.postMessage(webviewPanel, {
+          type: 'settings',
+          settings: getSettings(),
+        });
+      }
+    });
+
     webviewPanel.onDidDispose(() => {
+      this.panels.delete(docKey);
+      this.ackModeMap.delete(docKey);
+      if (this.activePanel === webviewPanel) {
+        this.activePanel = undefined;
+      }
       docChangeSub.dispose();
       themeSub.dispose();
+      viewStateSub.dispose();
+      saveSub.dispose();
+      configSub.dispose();
     });
   }
 
-  public toggleMode(mode: EditorMode, uri: vscode.Uri, panel?: vscode.WebviewPanel): void {
-    this.modeMap.set(uri.toString(), mode);
-  }
+  private applyEdit(document: vscode.TextDocument, newContent: string, panel?: vscode.WebviewPanel): void {
+    if (document.getText() === newContent) {
+      return;
+    }
 
-  private applyEdit(document: vscode.TextDocument, newContent: string): void {
     const edit = new vscode.WorkspaceEdit();
     edit.replace(
       document.uri,
-      new vscode.Range(0, 0, document.lineCount, 0),
+      new vscode.Range(document.positionAt(0), document.positionAt(document.getText().length)),
       newContent
     );
-    vscode.workspace.applyEdit(edit);
+    vscode.workspace.applyEdit(edit).then(() => {
+      if (panel) {
+        this.postMessage(panel, { type: 'dirty', isDirty: document.isDirty });
+      }
+    });
   }
 
   private postMessage(panel: vscode.WebviewPanel, msg: ExtToWebMsg): void {
     panel.webview.postMessage(msg);
+  }
+
+  private getActivePanelEntry(): [string, vscode.WebviewPanel] | undefined {
+    return [...this.panels.entries()].find(([, panel]) => panel === this.activePanel);
   }
 
   private getWebviewHtml(webview: vscode.Webview): string {
@@ -119,7 +226,7 @@ export class HtmlyEditorProvider implements vscode.CustomTextEditorProvider {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}'; img-src ${webview.cspSource} data: blob:; font-src ${webview.cspSource};">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}'; img-src ${webview.cspSource} data: blob:; font-src ${webview.cspSource}; frame-src ${webview.cspSource} data: blob:; child-src ${webview.cspSource} data: blob:;">
   <link rel="stylesheet" href="${styleUri}">
   <title>Htmly</title>
 </head>

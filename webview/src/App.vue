@@ -1,16 +1,25 @@
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount } from 'vue';
-import type { EditorMode } from '../../src/shared/types';
+import { computed, ref, watch, onMounted, onBeforeUnmount } from 'vue';
+import type { EditorMode, HtmlySettings } from '../../src/shared/types';
 import { useVSCode } from './composables/useVSCode';
+import { extractBodyContent, replaceBodyContent } from './core/htmlUtils';
 import Toolbar from './components/Toolbar.vue';
 import TiptapEditor from './components/TiptapEditor.vue';
 import CodeEditor from './components/CodeEditor.vue';
+import PreviewPane from './components/PreviewPane.vue';
+import SearchBar from './components/SearchBar.vue';
 
 const { onMessage, notifyReady, sendContentUpdate, sendModeChanged, isDark } = useVSCode();
 
 const content = ref('');
 const mode = ref<EditorMode>('wysiwyg');
 const initialized = ref(false);
+const isDirty = ref(false);
+const readOnly = ref(false);
+const settings = ref<HtmlySettings>({ showButtonLabels: true });
+const modeOrder: EditorMode[] = ['wysiwyg', 'source', 'preview'];
+
+const visualHtml = computed(() => extractBodyContent(content.value));
 
 // Debounce content updates sent to extension
 let debounceTimer: ReturnType<typeof setTimeout> | null = null;
@@ -22,13 +31,35 @@ function onContentChange(newHtml: string) {
   }, 300);
 }
 
-function toggleMode() {
-  const next: EditorMode = mode.value === 'wysiwyg' ? 'source' : 'wysiwyg';
+function setMode(next: EditorMode) {
+  if (readOnly.value && next !== 'source') return;
   mode.value = next;
   sendModeChanged(next);
 }
 
+function cycleMode() {
+  const currentIndex = modeOrder.indexOf(mode.value);
+  const next = modeOrder[(currentIndex + 1) % modeOrder.length];
+  setMode(next);
+}
+
+function onVisualContentChange(bodyHtml: string) {
+  onContentChange(replaceBodyContent(content.value, bodyHtml));
+}
+
 const tiptapRef = ref<InstanceType<typeof TiptapEditor> | null>(null);
+const showSearch = ref(false);
+
+// Close search bar when mode changes
+watch(mode, () => { showSearch.value = false; });
+
+// Ctrl+F / Cmd+F toggles search bar in WYSIWYG mode
+function onGlobalKeydown(e: KeyboardEvent) {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'f' && mode.value === 'wysiwyg') {
+    e.preventDefault();
+    showSearch.value = !showSearch.value;
+  }
+}
 
 // Register message handler
 const unsubscribe = onMessage((msg) => {
@@ -40,28 +71,57 @@ const unsubscribe = onMessage((msg) => {
       break;
 
     case 'contentChanged':
-      // External file change (e.g. git checkout) — only update if not actively editing
+      // External file change (e.g. git checkout) — cancel any pending
+      // debounced contentUpdate to avoid echoing stale content back.
+      if (debounceTimer) {
+        clearTimeout(debounceTimer);
+        debounceTimer = null;
+      }
       content.value = msg.content;
       break;
 
     case 'setMode':
-      mode.value = msg.mode;
+      setMode(msg.mode);
+      break;
+
+    case 'cycleMode':
+      cycleMode();
       break;
 
     case 'theme':
       isDark.value = msg.isDark;
+      break;
+
+    case 'dirty':
+      isDirty.value = msg.isDirty;
+      break;
+
+    case 'readOnly':
+      readOnly.value = msg.enabled;
+      if (msg.enabled) {
+        mode.value = 'source';
+        sendModeChanged('source');
+      }
+      break;
+
+    case 'settings':
+      settings.value = msg.settings;
       break;
   }
 });
 
 onMounted(() => {
   notifyReady();
+  document.addEventListener('keydown', onGlobalKeydown);
 });
 
 onBeforeUnmount(() => {
   unsubscribe();
+  document.removeEventListener('keydown', onGlobalKeydown);
   if (debounceTimer) clearTimeout(debounceTimer);
 });
+
+
 </script>
 
 <template>
@@ -69,21 +129,37 @@ onBeforeUnmount(() => {
     <Toolbar
       :editor="tiptapRef?.editor"
       :mode="mode"
-      @toggle-mode="toggleMode"
+      :dirty="isDirty"
+      :read-only="readOnly"
+      :show-button-labels="settings.showButtonLabels"
+      @set-mode="setMode"
     />
 
-    <div class="editor-area" v-if="initialized">
+    <div v-if="initialized" :key="mode" class="editor-area">
+      <div v-if="readOnly" class="large-file-banner">
+        Large file — Source-only mode (WYSIWYG disabled for files over 500 KB)
+      </div>
+      <SearchBar
+        v-if="mode === 'wysiwyg'"
+        :editor="tiptapRef?.editor"
+        :visible="showSearch"
+        @close="showSearch = false"
+      />
       <TiptapEditor
         v-if="mode === 'wysiwyg'"
         ref="tiptapRef"
-        :model-value="content"
-        @update:model-value="onContentChange"
+        :model-value="visualHtml"
+        @update:model-value="onVisualContentChange"
       />
       <CodeEditor
-        v-else
+        v-else-if="mode === 'source'"
         :model-value="content"
         :is-dark="isDark"
         @update:model-value="onContentChange"
+      />
+      <PreviewPane
+        v-else
+        :html="content"
       />
     </div>
 
@@ -113,5 +189,14 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: center;
   color: var(--vscode-descriptionForeground, #888);
+}
+
+.large-file-banner {
+  padding: 6px 12px;
+  font-size: 12px;
+  background: var(--vscode-editorWarning-foreground, #cca700);
+  color: #1e1e1e;
+  text-align: center;
+  flex-shrink: 0;
 }
 </style>
