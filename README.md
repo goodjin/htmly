@@ -71,6 +71,19 @@ npm run test:e2e
 npm run preview
 ```
 
+## Setting as Default Editor
+
+To use Htmly Editor as the default for all HTML files, add to your VS Code settings.json:
+
+```json
+"workbench.editorAssociations": {
+  "*.html": "htmly.editor",
+  "*.htm": "htmly.editor"
+}
+```
+
+Or open any HTML file and use "Reopen Editor With..." → "Htmly Editor" → "Set as default".
+
 ## Key Files and Architecture
 
 ### Extension Entry

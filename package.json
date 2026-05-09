@@ -86,6 +86,11 @@
           "type": "string",
           "default": "#0e639c",
           "description": "Primary accent color for the editor theme"
+        },
+        "htmly.useAsDefaultEditor": {
+          "type": "boolean",
+          "default": false,
+          "description": "Use Htmly Editor as the default editor for HTML files (requires restart or re-open of existing files)"
         }
       }
     },
