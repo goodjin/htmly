@@ -57,6 +57,30 @@ const currentColor = computed(() => {
 
 const isLinkActive = computed(() => props.editor?.isActive('link') ?? false);
 
+// Table-related computed state
+const isTableActive = computed(() => props.editor?.isActive('table') ?? false);
+const isTableRow = computed(() => {
+  if (!props.editor) return false;
+  return props.editor.isActive('tableRow');
+});
+const isTableHeader = computed(() => props.editor?.isActive('tableHeader') ?? false);
+const isTableCell = computed(() => props.editor?.isActive('tableCell') ?? false);
+const canMerge = computed(() => {
+  if (!props.editor) return false;
+  const { from, to } = props.editor.state.selection;
+  return from !== to; // Selection has more than one cell
+});
+const canSplit = computed(() => {
+  if (!props.editor) return false;
+  const attrs = props.editor.getAttributes('tableCell');
+  return attrs.colspan !== undefined && attrs.colspan > 1 || attrs.rowspan !== undefined && attrs.rowspan > 1;
+});
+const currentCellBgColor = computed(() => {
+  if (!props.editor) return '#ffffff';
+  const attrs = props.editor.getAttributes('tableCell');
+  return attrs.backgroundColor ?? '#ffffff';
+});
+
 const linkDialogVisible = ref(false);
 const linkInitialUrl = ref('');
 const linkInitialText = ref('');
@@ -116,6 +140,40 @@ function unlink() {
 function onImageConfirm(payload: { src: string; alt: string }) {
   props.editor?.chain().focus().setImage({ src: payload.src, alt: payload.alt }).run();
   imageDialogVisible.value = false;
+}
+
+// Table operations
+function addTableRow() {
+  props.editor?.chain().focus().addRowAfter().run();
+}
+
+function deleteTableRow() {
+  props.editor?.chain().focus().deleteRow().run();
+}
+
+function addTableColumn() {
+  props.editor?.chain().focus().addColumnAfter().run();
+}
+
+function deleteTableColumn() {
+  props.editor?.chain().focus().deleteColumn().run();
+}
+
+function mergeTableCells() {
+  props.editor?.chain().focus().mergeCells().run();
+}
+
+function splitTableCells() {
+  props.editor?.chain().focus().splitCell().run();
+}
+
+function toggleTableHeaderRow() {
+  props.editor?.chain().focus().toggleHeaderRow().run();
+}
+
+function onCellBgColorChange(e: Event) {
+  const value = (e.target as HTMLInputElement).value;
+  props.editor?.chain().focus().setCellAttribute('backgroundColor', value).run();
 }
 </script>
 
@@ -313,6 +371,73 @@ function onImageConfirm(payload: { src: string; alt: string }) {
           <span class="btn-label">Paint</span>
         </button>
       </div>
+
+      <!-- Table operations - only shown when cursor is in a table -->
+      <div v-if="isTableActive" class="toolbar-group">
+        <button
+          title="Add Row Below"
+          @mousedown="btn(addTableRow)"
+        >
+          <span class="btn-icon">+Row</span>
+          <span class="btn-label">Add Row</span>
+        </button>
+        <button
+          title="Delete Row"
+          @mousedown="btn(deleteTableRow)"
+        >
+          <span class="btn-icon">-Row</span>
+          <span class="btn-label">Del Row</span>
+        </button>
+        <button
+          title="Add Column After"
+          @mousedown="btn(addTableColumn)"
+        >
+          <span class="btn-icon">+Col</span>
+          <span class="btn-label">Add Col</span>
+        </button>
+        <button
+          title="Delete Column"
+          @mousedown="btn(deleteTableColumn)"
+        >
+          <span class="btn-icon">-Col</span>
+          <span class="btn-label">Del Col</span>
+        </button>
+        <button
+          title="Merge Cells"
+          @mousedown="btn(mergeTableCells)"
+        >
+          <span class="btn-icon">⤫</span>
+          <span class="btn-label">Merge</span>
+        </button>
+        <button
+          title="Split Cell"
+          @mousedown="btn(splitTableCells)"
+        >
+          <span class="btn-icon">⤧</span>
+          <span class="btn-label">Split</span>
+        </button>
+        <button
+          title="Toggle Header Row"
+          :class="{ active: isTableHeader }"
+          @mousedown="btn(toggleTableHeaderRow)"
+        >
+          <span class="btn-icon">Hdr</span>
+          <span class="btn-label">Hdr Row</span>
+        </button>
+        <label
+          class="color-picker-label cell-bg-label"
+          title="Cell Background Color"
+        >
+          <span class="btn-icon"><span class="cell-bg-preview" :style="{ backgroundColor: currentCellBgColor }"></span></span>
+          <input
+            type="color"
+            class="color-input"
+            :value="currentCellBgColor"
+            @input="onCellBgColorChange"
+          />
+          <span class="btn-label">Cell BG</span>
+        </label>
+      </div>
     </template>
 
     <div class="toolbar-spacer" />
@@ -475,5 +600,29 @@ button.active {
   padding: 0 4px;
   cursor: default;
   flex-shrink: 0;
+}
+
+.cell-bg-label {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  cursor: pointer;
+  padding: 3px 5px;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  position: relative;
+}
+
+.cell-bg-label:hover {
+  background: var(--vscode-toolbar-hoverBackground, #2a2d2e);
+  border-color: var(--vscode-panel-border, #3c3c3c);
+}
+
+.cell-bg-preview {
+  width: 16px;
+  height: 16px;
+  border-radius: 2px;
+  border: 1px solid var(--vscode-panel-border, #3c3c3c);
+  display: inline-block;
 }
 </style>
