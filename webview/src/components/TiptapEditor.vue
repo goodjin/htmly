@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onBeforeUnmount, watch, ref } from 'vue';
+import { onBeforeUnmount, watch, ref, onMounted, nextTick } from 'vue';
 import { useEditor, EditorContent, BubbleMenu } from '@tiptap/vue-3';
 import StarterKit from '@tiptap/starter-kit';
 import Underline from '@tiptap/extension-underline';
@@ -18,6 +18,14 @@ import LinkDialog from './LinkDialog.vue';
 import { escapeHtml } from '../core/htmlUtils';
 import { SlashCommandsExtension } from '../extensions/slashCommands';
 import { MarkdownShortcutsExtension } from '../extensions/markdownShortcuts';
+import { 
+  DragHandleExtension, 
+  startDrag, 
+  updateDropPosition, 
+  endDrag,
+  cancelDrag,
+  getDragState 
+} from '../extensions/dragHandle';
 
 const props = withDefaults(defineProps<{
   modelValue: string;   // HTML string
@@ -70,9 +78,49 @@ const editor = useEditor({
     MarkdownShortcutsExtension.configure({
       enabled: props.enableMarkdownShortcuts !== false,
     }),
+    DragHandleExtension,
   ],
   editorProps: {
     attributes: { class: 'tiptap-editor' },
+    handleDragStart: (view, event) => {
+      const target = event.target as HTMLElement;
+      const dragHandle = target.closest('.drag-handle');
+      if (!dragHandle) return false;
+      
+      const blockElement = dragHandle.closest('[data-drag-block]') as HTMLElement;
+      if (!blockElement || !blockElement.dataset.dragPos) return false;
+      
+      const pos = parseInt(blockElement.dataset.dragPos, 10);
+      const node = view.state.doc.nodeAt(pos);
+      if (!node) return false;
+      
+      event.dataTransfer!.effectAllowed = 'move';
+      event.dataTransfer!.setData('text/plain', '');
+      
+      startDrag(view, pos, node);
+      return true;
+    },
+    handleDragOver: (view, event) => {
+      if (!getDragState().active) return false;
+      
+      const coords = { left: event.clientX, top: event.clientY };
+      const pos = view.posAtCoords(coords);
+      if (!pos) return false;
+      
+      updateDropPosition(view, pos.pos);
+      return true;
+    },
+    handleDrop: (view, event) => {
+      if (!getDragState().active) return false;
+      
+      event.preventDefault();
+      endDrag(view);
+      return true;
+    },
+    handleDragEnd: (view) => {
+      cancelDrag(view);
+      return false;
+    },
   },
   onUpdate({ editor }) {
     emit('update:modelValue', editor.getHTML());
@@ -90,6 +138,159 @@ watch(
     }
   }
 );
+
+// Set up drag handles when editor is ready
+watch(editor, (newEditor) => {
+  if (newEditor) {
+    nextTick(() => {
+      setupDragHandles(newEditor);
+    });
+  }
+}, { immediate: true });
+
+// Also set up drag handles when content changes (after transactions)
+watch(
+  () => editor.value?.state,
+  () => {
+    if (editor.value) {
+      nextTick(() => {
+        setupDragHandles(editor.value!);
+      });
+    }
+  }
+);
+
+function setupDragHandles(ed: typeof editor.value) {
+  if (!ed) return;
+  
+  const editorDom = ed.view.dom as HTMLElement;
+  if (!editorDom) return;
+  
+  // Find all direct children of the editor which are block elements
+  const blockSelector = 'p, h1, h2, h3, h4, h5, h6, ul, ol, blockquote, pre, table';
+  const blocks = editorDom.querySelectorAll(blockSelector);
+  
+  blocks.forEach((block) => {
+    // Skip if already set up
+    if (block.dataset.dragBlock) return;
+    
+    // Find the position of this node in the document
+    const pos = ed.view.state.doc.resolve(0);
+    // Walk through to find block positions
+    let found = false;
+    for (let i = 0; i <= ed.view.state.doc.content.size; i++) {
+      const $pos = ed.view.state.doc.resolve(i);
+      if ($pos.parent.isBlock && $pos.parent.type.spec.group?.includes('block')) {
+        const domPos = ed.view.domAtPos($pos.before(1));
+        if (domPos.node === block || (domPos.node as HTMLElement)?.contains(block as HTMLElement)) {
+          block.dataset.dragPos = String($pos.before(1));
+          found = true;
+          break;
+        }
+      }
+    }
+    
+    if (!found) {
+      // Try another approach - find the closest ProseMirror node
+      const pmNode = block.closest('.ProseMirror');
+      if (pmNode) {
+        // Use coords to find position
+        const rect = block.getBoundingClientRect();
+        const centerX = rect.left + rect.width / 2;
+        const centerY = rect.top + rect.height / 2;
+        const coords = ed.view.coordsAtPos(ed.view.state.selection.from);
+        // For simplicity, use the first child position approach
+      }
+    }
+    
+    // Only add drag handle if we found a valid position
+    if (block.dataset.dragPos) {
+      block.dataset.dragBlock = 'true';
+      
+      // Create and insert drag handle
+      const handle = document.createElement('div');
+      handle.className = 'drag-handle';
+      handle.contentEditable = 'false';
+      handle.draggable = true;
+      handle.innerHTML = '⠿';
+      handle.title = 'Drag to reorder';
+      
+      // Style the drag handle
+      handle.style.cssText = `
+        position: absolute;
+        left: -24px;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 20px;
+        height: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: grab;
+        opacity: 0;
+        transition: opacity 0.15s;
+        color: var(--vscode-editor-foreground, #ccc);
+        font-size: 14px;
+        user-select: none;
+      `;
+      
+      // Show on hover
+      block.style.position = 'relative';
+      block.addEventListener('mouseenter', () => {
+        if (!getDragState().active) {
+          handle.style.opacity = '0.6';
+        }
+      });
+      block.addEventListener('mouseleave', () => {
+        if (!getDragState().active) {
+          handle.style.opacity = '0';
+        }
+      });
+      
+      // Add drag events to handle
+      handle.addEventListener('dragstart', (e: DragEvent) => {
+        if (!ed) return;
+        const pos = parseInt(block.dataset.dragPos!, 10);
+        const node = ed.view.state.doc.nodeAt(pos);
+        if (!node) return;
+        
+        handle.style.opacity = '1';
+        handle.style.cursor = 'grabbing';
+        e.dataTransfer!.effectAllowed = 'move';
+        e.dataTransfer!.setData('text/plain', '');
+        
+        startDrag(ed.view, pos, node);
+      });
+      
+      handle.addEventListener('dragend', () => {
+        handle.style.opacity = '0';
+        handle.style.cursor = 'grab';
+        cancelDrag(ed.view);
+      });
+      
+      block.insertBefore(handle, block.firstChild);
+    }
+  });
+  
+  // Set up drag over handling on the editor container
+  editorDom.addEventListener('dragover', (e: DragEvent) => {
+    if (!ed || !getDragState().active) return;
+    e.preventDefault();
+    e.dataTransfer!.dropEffect = 'move';
+    
+    const coords = { left: e.clientX, top: e.clientY };
+    const pos = ed.view.posAtCoords(coords);
+    if (pos) {
+      updateDropPosition(ed.view, pos.pos);
+    }
+  });
+  
+  editorDom.addEventListener('drop', (e: DragEvent) => {
+    if (!ed) return;
+    e.preventDefault();
+    endDrag(ed.view);
+  });
+}
 
 onBeforeUnmount(() => {
   editor.value?.destroy();
@@ -298,5 +499,53 @@ function btn(action: () => void) {
 
 .bubble-menu button.active mark {
   background: #facc15;
+}
+
+/* Drag handle styles */
+.drag-handle {
+  position: absolute;
+  left: -24px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 20px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: grab;
+  opacity: 0;
+  transition: opacity 0.15s;
+  color: var(--vscode-editor-foreground, #ccc);
+  font-size: 14px;
+  user-select: none;
+  z-index: 10;
+}
+
+.drag-handle:hover {
+  opacity: 1 !important;
+}
+
+.drag-handle:active {
+  cursor: grabbing;
+}
+
+/* Block elements need relative positioning for drag handles */
+:deep(.tiptap-editor > *),
+:deep(.ProseMirror > *) {
+  position: relative;
+}
+
+/* Drop indicator */
+:deep(.drag-drop-indicator) {
+  height: 2px;
+  background: var(--vscode-focusBorder, #0e639c);
+  margin: 4px 0;
+  border-radius: 1px;
+  pointer-events: none;
+}
+
+/* Dragging state */
+:deep(.dragging) {
+  opacity: 0.5;
 }
 </style>
