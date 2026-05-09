@@ -1,8 +1,15 @@
 export type EditorMode = 'wysiwyg' | 'source' | 'preview' | 'split';
 
 export interface HtmlySettings {
+  defaultMode: EditorMode;
   showButtonLabels: boolean;
   autoHideToolbarInPreview: boolean;
+  defaultFontSize: number;
+  enableMarkdownShortcuts: boolean;
+  splitScreenDirection: 'horizontal' | 'vertical';
+  customTheme: {
+    primaryColor: string;
+  };
 }
 
 // Messages from extension → webview

@@ -93,10 +93,20 @@ export class HtmlyEditorProvider implements vscode.CustomTextEditorProvider {
     this.activePanel = webviewPanel;
 
     // Helper to read current settings
-    const getSettings = (): HtmlySettings => ({
-      showButtonLabels: vscode.workspace.getConfiguration('htmly').get<boolean>('showButtonLabels', true),
-      autoHideToolbarInPreview: vscode.workspace.getConfiguration('htmly').get<boolean>('autoHideToolbarInPreview', true),
-    });
+    const getSettings = (): HtmlySettings => {
+      const config = vscode.workspace.getConfiguration('htmly');
+      return {
+        defaultMode: config.get<EditorMode>('defaultMode', 'wysiwyg'),
+        showButtonLabels: config.get<boolean>('showButtonLabels', true),
+        autoHideToolbarInPreview: config.get<boolean>('autoHideToolbarInPreview', true),
+        defaultFontSize: config.get<number>('defaultFontSize', 14),
+        enableMarkdownShortcuts: config.get<boolean>('enableMarkdownShortcuts', true),
+        splitScreenDirection: config.get<'horizontal' | 'vertical'>('splitScreenDirection', 'horizontal'),
+        customTheme: {
+          primaryColor: config.get<string>('customTheme.primaryColor', '#0e639c'),
+        },
+      };
+    };
 
     // Webview → Extension
     webviewPanel.webview.onDidReceiveMessage((msg: WebToExtMsg) => {
@@ -168,7 +178,15 @@ export class HtmlyEditorProvider implements vscode.CustomTextEditorProvider {
 
     // Settings changes
     const configSub = vscode.workspace.onDidChangeConfiguration((e) => {
-      if (e.affectsConfiguration('htmly.showButtonLabels') || e.affectsConfiguration('htmly.autoHideToolbarInPreview')) {
+      if (
+        e.affectsConfiguration('htmly.defaultMode') ||
+        e.affectsConfiguration('htmly.showButtonLabels') ||
+        e.affectsConfiguration('htmly.autoHideToolbarInPreview') ||
+        e.affectsConfiguration('htmly.defaultFontSize') ||
+        e.affectsConfiguration('htmly.enableMarkdownShortcuts') ||
+        e.affectsConfiguration('htmly.splitScreenDirection') ||
+        e.affectsConfiguration('htmly.customTheme.primaryColor')
+      ) {
         this.postMessage(webviewPanel, {
           type: 'settings',
           settings: getSettings(),

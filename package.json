@@ -50,6 +50,12 @@
     "configuration": {
       "title": "Htmly",
       "properties": {
+        "htmly.defaultMode": {
+          "type": "string",
+          "enum": ["wysiwyg", "source", "preview", "split"],
+          "default": "wysiwyg",
+          "description": "Default editor mode when opening a file"
+        },
         "htmly.showButtonLabels": {
           "type": "boolean",
           "default": true,
@@ -59,6 +65,27 @@
           "type": "boolean",
           "default": true,
           "description": "Hide toolbar when in Preview mode"
+        },
+        "htmly.defaultFontSize": {
+          "type": "number",
+          "default": 14,
+          "description": "Default font size for the editor"
+        },
+        "htmly.enableMarkdownShortcuts": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable markdown shortcuts (e.g., # for headings, ** for bold)"
+        },
+        "htmly.splitScreenDirection": {
+          "type": "string",
+          "enum": ["horizontal", "vertical"],
+          "default": "horizontal",
+          "description": "Direction of the split screen (horizontal: left-right, vertical: top-bottom)"
+        },
+        "htmly.customTheme.primaryColor": {
+          "type": "string",
+          "default": "#0e639c",
+          "description": "Primary accent color for the editor theme"
         }
       }
     },
