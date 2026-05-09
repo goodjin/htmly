@@ -6,6 +6,8 @@ import { defaultKeymap, history, historyKeymap } from '@codemirror/commands';
 import { html } from '@codemirror/lang-html';
 import { oneDark } from '@codemirror/theme-one-dark';
 import { syntaxHighlighting, defaultHighlightStyle } from '@codemirror/language';
+import { search, searchKeymap } from '@codemirror/search';
+import { abbreviationTracker, expandAbbreviation } from '@emmetio/codemirror6-plugin';
 
 const props = defineProps<{
   modelValue: string;
@@ -40,10 +42,16 @@ onMounted(() => {
         lineNumbers(),
         history(),
         highlightActiveLine(),
-        keymap.of([...defaultKeymap, ...historyKeymap]),
+        keymap.of([...defaultKeymap, ...historyKeymap, ...searchKeymap]),
+        search(),
         html(),
         theme,
         updateListener,
+        abbreviationTracker(),
+        keymap.of([{
+          key: 'Tab',
+          run: expandAbbreviation,
+        }]),
         EditorView.theme({
           '&': { height: '100%' },
           '.cm-scroller': { overflow: 'auto' },
