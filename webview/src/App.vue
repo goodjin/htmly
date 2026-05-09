@@ -7,6 +7,7 @@ import Toolbar from './components/Toolbar.vue';
 import TiptapEditor from './components/TiptapEditor.vue';
 import CodeEditor from './components/CodeEditor.vue';
 import PreviewPane from './components/PreviewPane.vue';
+import SplitPane from './components/SplitPane.vue';
 import SearchBar from './components/SearchBar.vue';
 
 const { onMessage, notifyReady, sendContentUpdate, sendModeChanged, isDark } = useVSCode();
@@ -151,6 +152,13 @@ onBeforeUnmount(() => {
         ref="tiptapRef"
         :model-value="visualHtml"
         @update:model-value="onVisualContentChange"
+      />
+      <SplitPane
+        v-else-if="mode === 'split'"
+        :content="content"
+        :is-dark="isDark"
+        :split-direction="settings.splitScreenDirection"
+        @update:content="onContentChange"
       />
       <CodeEditor
         v-else-if="mode === 'source'"
