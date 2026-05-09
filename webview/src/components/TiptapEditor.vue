@@ -19,14 +19,33 @@ import { escapeHtml } from '../core/htmlUtils';
 import { SlashCommandsExtension } from '../extensions/slashCommands';
 import { MarkdownShortcutsExtension } from '../extensions/markdownShortcuts';
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   modelValue: string;   // HTML string
   enableMarkdownShortcuts?: boolean;
-}>();
+  formatPainterActive?: boolean;
+  formatPainterState?: FormatPainterState | null;
+}>(), {
+  formatPainterActive: false,
+  formatPainterState: null,
+});
 
 const emit = defineEmits<{
   'update:modelValue': [html: string];
+  'format-painter-applied': [];
 }>();
+
+// Format painter state interface
+interface FormatPainterState {
+  bold: boolean;
+  italic: boolean;
+  underline: boolean;
+  strike: boolean;
+  code: boolean;
+  highlight: boolean;
+  link: { href: string } | null;
+  textColor: string | null;
+  textAlign: 'left' | 'center' | 'right' | null;
+}
 
 const editor = useEditor({
   content: props.modelValue,
@@ -78,6 +97,49 @@ onBeforeUnmount(() => {
 
 defineExpose({ editor });
 
+// Format painter: handle click to apply formatting
+function handleEditorClick(e: MouseEvent) {
+  if (!props.formatPainterActive || !editor.value || !props.formatPainterState) return;
+  
+  const target = e.target as HTMLElement;
+  // Don't intercept clicks on UI elements
+  if (target.closest('.bubble-menu') || target.closest('.dialog') || target.closest('.search-bar')) {
+    return;
+  }
+  
+  const pos = editor.value.view.posAtCoords({ left: e.clientX, top: e.clientY });
+  if (!pos) return;
+  
+  const state = props.formatPainterState;
+  const chain = editor.value.chain().focus();
+  
+  // Set selection at click position
+  chain.setTextSelection(pos.pos);
+  
+  // Apply the stored formatting
+  if (state.bold) chain.toggleBold().run();
+  if (state.italic) chain.toggleItalic().run();
+  if (state.underline) chain.toggleUnderline().run();
+  if (state.strike) chain.toggleStrike().run();
+  if (state.code) chain.toggleCode().run();
+  if (state.highlight) chain.toggleHighlight().run();
+  
+  if (state.link) {
+    chain.setLink({ href: state.link.href }).run();
+  }
+  
+  if (state.textColor) {
+    chain.setColor(state.textColor).run();
+  }
+  
+  if (state.textAlign) {
+    chain.setTextAlign(state.textAlign).run();
+  }
+  
+  // Emit that format was applied (for single-use mode deactivation)
+  emit('format-painter-applied');
+}
+
 // Link dialog state for BubbleMenu
 const linkDialogVisible = ref(false);
 const linkInitialUrl = ref('');
@@ -117,7 +179,7 @@ function btn(action: () => void) {
 </script>
 
 <template>
-  <EditorContent :editor="editor" class="editor-wrap" />
+  <EditorContent :editor="editor" class="editor-wrap" @click="handleEditorClick" />
 
   <BubbleMenu
     v-if="editor"

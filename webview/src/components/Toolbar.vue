@@ -13,11 +13,40 @@ const props = defineProps<{
   readOnly: boolean;
   showButtonLabels: boolean;
   autoHideToolbarInPreview: boolean;
+  formatPainterActive?: boolean;
 }>();
 
 const emit = defineEmits<{
   setMode: [mode: EditorMode];
+  activateFormatPainter: [multiUse: boolean];
 }>();
+
+// Format painter double-click detection
+let formatPainterClickTimer: ReturnType<typeof setTimeout> | null = null;
+let formatPainterClickCount = 0;
+
+function onFormatPainterClick(e: MouseEvent) {
+  e.preventDefault();
+  formatPainterClickCount++;
+  
+  if (formatPainterClickCount === 1) {
+    // First click - wait to see if it's a double-click
+    formatPainterClickTimer = setTimeout(() => {
+      // Single click - activate for single use
+      emit('activateFormatPainter', false);
+      formatPainterClickCount = 0;
+      formatPainterClickTimer = null;
+    }, 200);
+  } else if (formatPainterClickCount === 2) {
+    // Double click - activate for multi use
+    if (formatPainterClickTimer) {
+      clearTimeout(formatPainterClickTimer);
+      formatPainterClickTimer = null;
+    }
+    emit('activateFormatPainter', true);
+    formatPainterClickCount = 0;
+  }
+}
 
 const toolbarHidden = computed(() => props.mode === 'preview' && props.autoHideToolbarInPreview);
 
@@ -274,6 +303,14 @@ function onImageConfirm(payload: { src: string; alt: string }) {
         >
           <span class="btn-icon">—</span>
           <span class="btn-label">HR</span>
+        </button>
+        <button
+          title="Format Painter (click once or double-click to keep active)"
+          :class="{ active: formatPainterActive }"
+          @click="onFormatPainterClick"
+        >
+          <span class="btn-icon">🎨</span>
+          <span class="btn-label">Paint</span>
         </button>
       </div>
     </template>

@@ -51,14 +51,83 @@ function onVisualContentChange(bodyHtml: string) {
 const tiptapRef = ref<InstanceType<typeof TiptapEditor> | null>(null);
 const showSearch = ref(false);
 
-// Close search bar when mode changes
-watch(mode, () => { showSearch.value = false; });
+// Format painter state
+const formatPainterActive = ref(false);
+const formatPainterMultiUse = ref(false);
+
+interface FormatPainterState {
+  bold: boolean;
+  italic: boolean;
+  underline: boolean;
+  strike: boolean;
+  code: boolean;
+  highlight: boolean;
+  link: { href: string } | null;
+  textColor: string | null;
+  textAlign: 'left' | 'center' | 'right' | null;
+}
+
+const formatPainterState = ref<FormatPainterState | null>(null);
+
+function activateFormatPainter(multiUse: boolean) {
+  if (!tiptapRef.value?.editor) return;
+  
+  const editor = tiptapRef.value.editor;
+  const state = editor.state;
+  const { from, to } = state.selection;
+  
+  // Capture formatting at current selection
+  const marks = state.doc.resolve(from).marks();
+  const linkMark = marks.find(m => m.type.name === 'link');
+  
+  formatPainterState.value = {
+    bold: editor.isActive('bold'),
+    italic: editor.isActive('italic'),
+    underline: editor.isActive('underline'),
+    strike: editor.isActive('strike'),
+    code: editor.isActive('code'),
+    highlight: editor.isActive('highlight'),
+    link: linkMark ? { href: linkMark.attrs.href } : null,
+    textColor: editor.getAttributes('textStyle').color ?? null,
+    textAlign: editor.isActive({ textAlign: 'left' }) ? 'left' 
+             : editor.isActive({ textAlign: 'center' }) ? 'center'
+             : editor.isActive({ textAlign: 'right' }) ? 'right'
+             : null,
+  };
+  
+  formatPainterMultiUse.value = multiUse;
+  formatPainterActive.value = true;
+}
+
+function deactivateFormatPainter() {
+  formatPainterActive.value = false;
+  formatPainterMultiUse.value = false;
+  formatPainterState.value = null;
+}
+
+function onFormatPainterApplied() {
+  // If not multi-use mode, deactivate after applying
+  if (!formatPainterMultiUse.value) {
+    deactivateFormatPainter();
+  }
+}
+
+// Close search bar and format painter when mode changes
+watch(mode, () => { 
+  showSearch.value = false;
+  deactivateFormatPainter();
+});
 
 // Ctrl+F / Cmd+F toggles search bar in WYSIWYG mode
+// Escape deactivates format painter
 function onGlobalKeydown(e: KeyboardEvent) {
   if ((e.ctrlKey || e.metaKey) && e.key === 'f' && mode.value === 'wysiwyg') {
     e.preventDefault();
     showSearch.value = !showSearch.value;
+  }
+  
+  if (e.key === 'Escape' && formatPainterActive.value) {
+    deactivateFormatPainter();
   }
 }
 
@@ -134,7 +203,9 @@ onBeforeUnmount(() => {
       :read-only="readOnly"
       :show-button-labels="settings.showButtonLabels"
       :auto-hide-toolbar-in-preview="settings.autoHideToolbarInPreview"
+      :format-painter-active="formatPainterActive"
       @set-mode="setMode"
+      @activate-format-painter="activateFormatPainter"
     />
 
     <div v-if="initialized" :key="mode" class="editor-area">
@@ -152,7 +223,10 @@ onBeforeUnmount(() => {
         ref="tiptapRef"
         :model-value="visualHtml"
         :enable-markdown-shortcuts="settings.enableMarkdownShortcuts"
+        :format-painter-active="formatPainterActive"
+        :format-painter-state="formatPainterState"
         @update:model-value="onVisualContentChange"
+        @format-painter-applied="onFormatPainterApplied"
       />
       <SplitPane
         v-else-if="mode === 'split'"
