@@ -14,7 +14,9 @@ import TableHeader from '@tiptap/extension-table-header';
 import Placeholder from '@tiptap/extension-placeholder';
 import TextStyle from '@tiptap/extension-text-style';
 import Color from '@tiptap/extension-color';
+import { NodeSelection } from '@tiptap/pm/state';
 import LinkDialog from './LinkDialog.vue';
+import ImageDialog from './ImageDialog.vue';
 import { escapeHtml } from '../core/htmlUtils';
 import { SlashCommandsExtension } from '../extensions/slashCommands';
 import { MarkdownShortcutsExtension } from '../extensions/markdownShortcuts';
@@ -26,6 +28,7 @@ import {
   cancelDrag,
   getDragState 
 } from '../extensions/dragHandle';
+import { ImageResizeExtension, imageResizeKey, type ResizeState } from '../extensions/imageResize';
 
 const props = withDefaults(defineProps<{
   modelValue: string;   // HTML string
@@ -79,6 +82,7 @@ const editor = useEditor({
       enabled: props.enableMarkdownShortcuts !== false,
     }),
     DragHandleExtension,
+    ImageResizeExtension,
   ],
   editorProps: {
     attributes: { class: 'tiptap-editor' },
@@ -119,6 +123,33 @@ const editor = useEditor({
     },
     handleDragEnd: (view) => {
       cancelDrag(view);
+      return false;
+    },
+    handlePaste: (view, event) => {
+      // Handle image paste from clipboard
+      const items = event.clipboardData?.items;
+      if (!items) return false;
+      
+      for (const item of items) {
+        if (item.type.startsWith('image/')) {
+          event.preventDefault();
+          const file = item.getAsFile();
+          if (!file) return false;
+          
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            const src = e.target?.result as string;
+            if (src && editor.value) {
+              // Get the current selection position
+              const { from } = view.state.selection;
+              editor.value.chain().focus().setImage({ src, alt: '' }).run();
+            }
+          };
+          reader.readAsDataURL(file);
+          return true;
+        }
+      }
+      
       return false;
     },
   },
@@ -377,10 +408,195 @@ function btn(action: () => void) {
     action();
   };
 }
+
+// Image alt text dialog state
+const imageAltDialogVisible = ref(false);
+const imageAltInitialSrc = ref('');
+const imageAltInitialAlt = ref('');
+
+function openImageAltDialog() {
+  if (!editor.value) return;
+  const attrs = editor.value.getAttributes('image');
+  imageAltInitialSrc.value = attrs.src ?? '';
+  imageAltInitialAlt.value = attrs.alt ?? '';
+  imageAltDialogVisible.value = true;
+}
+
+function onImageAltConfirm(payload: { src: string; alt: string }) {
+  if (!editor.value) return;
+  const { src, alt } = payload;
+  
+  // Find the image node at current selection and update it
+  const { selection } = editor.value.state;
+  if (selection instanceof NodeSelection && selection.node?.type.name === 'image') {
+    const pos = selection.from;
+    const node = selection.node;
+    const newAttrs = { ...node.attrs, src, alt };
+    
+    const tr = editor.value.state.tr;
+    tr.setNodeMarkup(pos, undefined, newAttrs);
+    editor.value.view.dispatch(tr);
+  }
+  imageAltDialogVisible.value = false;
+}
+
+// Image resize dragging state
+let resizeState: ResizeState | null = null;
+
+function onEditorDblClick(e: MouseEvent) {
+  // Check if double-clicked on an image
+  const target = e.target as HTMLElement;
+  const img = target.closest('img');
+  if (img && editor.value) {
+    // Select the image and open alt text dialog
+    const pos = editor.value.view.posAtCoords({ left: e.clientX, top: e.clientY });
+    if (pos) {
+      const $pos = editor.value.state.doc.resolve(pos.pos);
+      if ($pos.parent.type.name === 'image' || $pos.nodeAfter?.type.name === 'image') {
+        // Open the image alt dialog
+        openImageAltDialog();
+      }
+    }
+  }
+}
+
+// Set up mouse event listeners for image resize dragging
+onMounted(() => {
+  nextTick(() => {
+    const editorDom = document.querySelector('.ProseMirror') as HTMLElement;
+    if (!editorDom) return;
+    
+    // Mouse move for resize dragging
+    editorDom.addEventListener('mousemove', (e: MouseEvent) => {
+      if (!editor.value || !resizeState?.active) return;
+      
+      const img = editorDom.querySelector('img.ProseMirror-selectednode') as HTMLImageElement;
+      if (!img) return;
+      
+      const dx = e.clientX - resizeState.startX;
+      const dy = e.clientY - resizeState.startY;
+      
+      let newWidth = resizeState.startWidth;
+      let newHeight = resizeState.startHeight;
+      
+      // Calculate new dimensions based on handle being dragged
+      // For simplicity, we'll resize proportionally based on corner
+      const aspectRatio = resizeState.startWidth / resizeState.startHeight;
+      
+      if (resizeState.handle === 'se' || resizeState.handle === 'e') {
+        newWidth = Math.max(20, resizeState.startWidth + dx);
+        newHeight = newWidth / aspectRatio;
+      } else if (resizeState.handle === 'sw' || resizeState.handle === 'w') {
+        newWidth = Math.max(20, resizeState.startWidth - dx);
+        newHeight = newWidth / aspectRatio;
+      } else if (resizeState.handle === 'ne' || resizeState.handle === 'n') {
+        newHeight = Math.max(20, resizeState.startHeight - dy);
+        newWidth = newHeight * aspectRatio;
+      } else if (resizeState.handle === 's' || resizeState.handle === 'nw' || resizeState.handle === 'nw') {
+        newHeight = Math.max(20, resizeState.startHeight + dy);
+        newWidth = newHeight * aspectRatio;
+      }
+      
+      // Apply the new dimensions visually (CSS)
+      img.style.width = `${newWidth}px`;
+      img.style.height = `${newHeight}px`;
+    });
+    
+    // Mouse up for resize dragging
+    editorDom.addEventListener('mouseup', (e: MouseEvent) => {
+      if (!editor.value || !resizeState?.active) return;
+      
+      const img = editorDom.querySelector('img.ProseMirror-selectednode') as HTMLImageElement;
+      if (!img) return;
+      
+      const dx = e.clientX - resizeState.startX;
+      const dy = e.clientY - resizeState.startY;
+      
+      const aspectRatio = resizeState.startWidth / resizeState.startHeight;
+      
+      let newWidth = resizeState.startWidth;
+      let newHeight = resizeState.startHeight;
+      
+      if (resizeState.handle === 'se' || resizeState.handle === 'e') {
+        newWidth = Math.max(20, resizeState.startWidth + dx);
+        newHeight = newWidth / aspectRatio;
+      } else if (resizeState.handle === 'sw' || resizeState.handle === 'w') {
+        newWidth = Math.max(20, resizeState.startWidth - dx);
+        newHeight = newWidth / aspectRatio;
+      } else if (resizeState.handle === 'ne' || resizeState.handle === 'n') {
+        newHeight = Math.max(20, resizeState.startHeight - dy);
+        newWidth = newHeight * aspectRatio;
+      } else if (resizeState.handle === 's' || resizeState.handle === 'nw') {
+        newHeight = Math.max(20, resizeState.startHeight + dy);
+        newWidth = newHeight * aspectRatio;
+      }
+      
+      // Update the image node in ProseMirror
+      const { selection } = editor.value.state;
+      if (selection instanceof NodeSelection && selection.node?.type.name === 'image') {
+        const pos = selection.from;
+        const node = selection.node;
+        const newAttrs = { ...node.attrs, width: Math.round(newWidth), height: Math.round(newHeight) };
+        
+        const tr = editor.value.state.tr;
+        tr.setNodeMarkup(pos, undefined, newAttrs);
+        editor.value.view.dispatch(tr);
+      }
+      
+      // Reset resize state
+      resizeState = null;
+    });
+  });
+});
+
+// Handle file drop on the editor
+function onEditorDragOver(e: DragEvent) {
+  if (!editor.value) return;
+  
+  // Check if dragging files (not the block drag handle)
+  if (e.dataTransfer?.types.includes('Files')) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+  }
+}
+
+function onEditorDrop(e: DragEvent) {
+  if (!editor.value) return;
+  
+  const files = e.dataTransfer?.files;
+  if (!files || files.length === 0) return;
+  
+  // Check if any of the files are images
+  for (const file of files) {
+    if (file.type.startsWith('image/')) {
+      e.preventDefault();
+      
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const src = event.target?.result as string;
+        if (src) {
+          // Get drop position
+          const coords = { left: e.clientX, top: e.clientY };
+          const pos = editor.value!.view.posAtCoords(coords);
+          
+          if (pos) {
+            // Set the position and insert the image
+            editor.value!.chain().focus().setImage({ src, alt: '' }).run();
+          } else {
+            // Just insert at current position
+            editor.value!.chain().focus().setImage({ src, alt: '' }).run();
+          }
+        }
+      };
+      reader.readAsDataURL(file);
+      return; // Only handle first image
+    }
+  }
+}
 </script>
 
 <template>
-  <EditorContent :editor="editor" class="editor-wrap" @click="handleEditorClick" />
+  <EditorContent :editor="editor" class="editor-wrap" @click="handleEditorClick" @dblclick="onEditorDblClick" @dragover.prevent="onEditorDragOver" @drop="onEditorDrop" />
 
   <BubbleMenu
     v-if="editor"
@@ -438,6 +654,14 @@ function btn(action: () => void) {
     :initial-text="linkInitialText"
     @confirm="onLinkConfirm"
     @cancel="linkDialogVisible = false"
+  />
+  
+  <ImageDialog
+    :visible="imageAltDialogVisible"
+    :initial-src="imageAltInitialSrc"
+    :initial-alt="imageAltInitialAlt"
+    @confirm="onImageAltConfirm"
+    @cancel="imageAltDialogVisible = false"
   />
 </template>
 
@@ -547,5 +771,47 @@ function btn(action: () => void) {
 /* Dragging state */
 :deep(.dragging) {
   opacity: 0.5;
+}
+
+/* Image resize handles */
+:deep(.image-resize-handle) {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  background: #0e639c;
+  border: 2px solid white;
+  border-radius: 2px;
+  z-index: 10;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+}
+
+:deep(.image-resize-handle-nw) {
+  top: -6px;
+  left: -6px;
+  cursor: nw-resize;
+}
+
+:deep(.image-resize-handle-ne) {
+  top: -6px;
+  right: -6px;
+  cursor: ne-resize;
+}
+
+:deep(.image-resize-handle-sw) {
+  bottom: -6px;
+  left: -6px;
+  cursor: sw-resize;
+}
+
+:deep(.image-resize-handle-se) {
+  bottom: -6px;
+  right: -6px;
+  cursor: se-resize;
+}
+
+/* Image selection styles */
+:deep(.ProseMirror-selectednode) {
+  outline: 2px solid #0e639c;
+  outline-offset: 2px;
 }
 </style>
