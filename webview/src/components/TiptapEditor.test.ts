@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { mount } from '@vue/test-utils';
+import { mount, flushPromises } from '@vue/test-utils';
 import TiptapEditor from './TiptapEditor.vue';
 
 // Mock LinkDialog component
@@ -142,6 +142,78 @@ describe('TiptapEditor.vue', () => {
       // We verify this by checking the event handler was registered
       const emitted = wrapper.emitted();
       expect(emitted).toBeDefined();
+    });
+  });
+
+  describe('cursor position restoration', () => {
+    it('accepts cursorPosition prop', async () => {
+      const wrapper = mount(TiptapEditor, {
+        props: {
+          modelValue: '<p>Test content</p>',
+          cursorPosition: { percentage: 0.5, offset: 10, blockIndex: 1, totalBlocks: 2 },
+        },
+      });
+
+      await wrapper.vm.$nextTick();
+
+      // Component should accept the cursor position without error
+      expect(wrapper.vm.$props.cursorPosition).toBeDefined();
+      expect(wrapper.vm.$props.cursorPosition?.percentage).toBe(0.5);
+    });
+
+    it('accepts null cursorPosition gracefully', async () => {
+      const wrapper = mount(TiptapEditor, {
+        props: {
+          modelValue: '<p>Test content</p>',
+          cursorPosition: null,
+        },
+      });
+
+      await wrapper.vm.$nextTick();
+
+      // Component should accept null cursor position without error
+      expect(wrapper.vm.$props.cursorPosition).toBeNull();
+    });
+
+    it('accepts undefined cursorPosition gracefully', async () => {
+      const wrapper = mount(TiptapEditor, {
+        props: {
+          modelValue: '<p>Test content</p>',
+        },
+      });
+
+      await wrapper.vm.$nextTick();
+
+      // cursorPosition defaults to null
+      expect(wrapper.vm.$props.cursorPosition).toBeNull();
+    });
+
+    it('handles cursor position at document start (0%)', async () => {
+      const wrapper = mount(TiptapEditor, {
+        props: {
+          modelValue: '<p>Test content</p>',
+          cursorPosition: { percentage: 0, offset: 0, blockIndex: 0, totalBlocks: 1 },
+        },
+      });
+
+      await wrapper.vm.$nextTick();
+
+      // Component should accept position at start without error
+      expect(wrapper.vm.$props.cursorPosition?.percentage).toBe(0);
+    });
+
+    it('handles cursor position at document end (100%)', async () => {
+      const wrapper = mount(TiptapEditor, {
+        props: {
+          modelValue: '<p>Test content</p>',
+          cursorPosition: { percentage: 1, offset: 100, blockIndex: 0, totalBlocks: 1 },
+        },
+      });
+
+      await wrapper.vm.$nextTick();
+
+      // Component should accept position at end without error
+      expect(wrapper.vm.$props.cursorPosition?.percentage).toBe(1);
     });
   });
 });

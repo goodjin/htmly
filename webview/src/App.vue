@@ -377,6 +377,7 @@ onBeforeUnmount(() => {
         :enable-markdown-shortcuts="settings.enableMarkdownShortcuts"
         :format-painter-active="formatPainterActive"
         :format-painter-state="formatPainterState"
+        :cursor-position="cursorPosition"
         @update:model-value="onVisualContentChange"
         @format-painter-applied="onFormatPainterApplied"
         @cursor-position-update="onCursorPositionUpdate"

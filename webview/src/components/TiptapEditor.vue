@@ -61,9 +61,12 @@ const props = withDefaults(defineProps<{
   enableMarkdownShortcuts?: boolean;
   formatPainterActive?: boolean;
   formatPainterState?: FormatPainterState | null;
+  /** Cursor position to restore when switching from Source to Visual mode */
+  cursorPosition?: CursorPosition | null;
 }>(), {
   formatPainterActive: false,
   formatPainterState: null,
+  cursorPosition: null,
 });
 
 const emit = defineEmits<{
@@ -330,6 +333,36 @@ watch(
       editor.value.commands.setContent(newContent, false);
     }
   }
+);
+
+// Watch for cursor position restoration (when switching from Source to Visual mode)
+watch(
+  () => props.cursorPosition,
+  (newPosition) => {
+    if (!editor.value || !newPosition) return;
+    
+    const { state } = editor.value;
+    const docSize = state.doc.content.size;
+    if (docSize === 0) return;
+    
+    // Calculate absolute position from percentage
+    // Use the offset directly if provided, otherwise calculate from percentage
+    let targetPos: number;
+    if (newPosition.offset > 0) {
+      // Use the provided offset directly if it's valid
+      targetPos = Math.min(newPosition.offset, docSize);
+    } else {
+      // Calculate from percentage
+      targetPos = Math.round(newPosition.percentage * docSize);
+    }
+    
+    // Clamp to valid range
+    targetPos = Math.max(0, Math.min(targetPos, docSize));
+    
+    // Restore cursor position using setTextSelection
+    editor.value.chain().focus().setTextSelection(targetPos).run();
+  },
+  { deep: false } // Shallow watch is sufficient since we only need the reference change
 );
 
 // Set up drag handles when editor is ready
