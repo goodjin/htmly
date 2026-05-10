@@ -59,6 +59,19 @@ export function activate(context: vscode.ExtensionContext) {
     })
   );
 
+  // Manual save command - bypasses debounce (Ctrl+S / Cmd+S)
+  context.subscriptions.push(
+    vscode.commands.registerCommand('htmly.save', async () => {
+      const docKey = vscode.window.activeTextEditor?.document.uri.toString();
+      if (docKey && docKey.endsWith('.html')) {
+        // Trigger immediate save for the active document
+        provider.triggerImmediateSave(docKey);
+        // Also trigger save via VS Code's built-in save
+        await vscode.commands.executeCommand('workbench.action.files.save');
+      }
+    })
+  );
+
   // Individual mode commands
   context.subscriptions.push(
     vscode.commands.registerCommand('htmly.setMode.wysiwyg', () => {

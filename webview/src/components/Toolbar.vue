@@ -19,6 +19,7 @@ const props = defineProps<{
   autoHideToolbarInPreview: boolean;
   formatPainterActive?: boolean;
   showTOC?: boolean;
+  saveStatus?: 'idle' | 'saving' | 'saved' | 'error';
 }>();
 
 const emit = defineEmits<{
@@ -629,7 +630,11 @@ function onCellBgColorChange(e: Event) {
 
     <div class="toolbar-spacer" />
 
-    <span v-if="dirty" class="dirty-indicator" title="Unsaved changes">●</span>
+    <!-- Save status indicator -->
+    <span v-if="saveStatus === 'saving'" class="save-indicator saving" title="Saving...">💾 Saving...</span>
+    <span v-else-if="saveStatus === 'saved'" class="save-indicator saved" title="Saved">✓ Saved</span>
+    <span v-else-if="saveStatus === 'error'" class="save-indicator error" title="Save failed">✗ Error</span>
+    <span v-else-if="dirty" class="dirty-indicator" title="Unsaved changes">●</span>
   </div>
 
   <LinkDialog
@@ -804,6 +809,38 @@ button.active {
   padding: 0 4px;
   cursor: default;
   flex-shrink: 0;
+}
+
+.save-indicator {
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 3px;
+  flex-shrink: 0;
+  animation: fadeIn 150ms ease-out;
+}
+
+.save-indicator.saving {
+  color: var(--vscode-editor-foreground, #cccccc);
+  background: var(--vscode-toolbar-hoverBackground, #2a2d2e);
+}
+
+.save-indicator.saved {
+  color: var(--vscode-terminal-ansiGreen, #4ec9b0);
+}
+
+.save-indicator.error {
+  color: var(--vscode-editorError-foreground, #f48771);
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-2px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .cell-bg-label {

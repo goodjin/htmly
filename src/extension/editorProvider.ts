@@ -1,15 +1,22 @@
 import * as vscode from 'vscode';
-import { EditorMode, ExtToWebMsg, WebToExtMsg, HtmlySettings } from '../shared/types';
+import { EditorMode, ExtToWebMsg, WebToExtMsg, HtmlySettings, SaveStatus } from '../shared/types';
 
 export class HtmlyEditorProvider implements vscode.CustomTextEditorProvider {
   public static readonly viewType = 'htmly.editor';
   private static readonly modeOrder: EditorMode[] = ['wysiwyg', 'source', 'preview'];
   private static readonly LARGE_FILE_THRESHOLD = 500 * 1024; // 500 KB
+  private static readonly SAVE_DEBOUNCE_MS = 500; // Debounce auto-save for 500ms
+  private static readonly LARGE_SAVE_THRESHOLD = 100 * 1024; // 100 KB for optimization
 
   private modeMap = new Map<string, EditorMode>();
   private ackModeMap = new Map<string, EditorMode>();
   private panels = new Map<string, vscode.WebviewPanel>();
   private activePanel: vscode.WebviewPanel | undefined;
+
+  // Debounce state per document
+  private saveTimers = new Map<string, NodeJS.Timeout>();
+  private pendingContent = new Map<string, string>();
+  private saveStatusMap = new Map<string, SaveStatus>();
 
   constructor(private readonly context: vscode.ExtensionContext) {}
 
@@ -129,13 +136,24 @@ export class HtmlyEditorProvider implements vscode.CustomTextEditorProvider {
             type: 'settings',
             settings: getSettings(),
           });
+          // Initialize save status
+          this.saveStatusMap.set(docKey, 'idle');
+          this.postMessage(webviewPanel, {
+            type: 'saveStatus',
+            status: 'idle',
+          });
           if (document.getText().length > HtmlyEditorProvider.LARGE_FILE_THRESHOLD) {
             this.postMessage(webviewPanel, { type: 'readOnly', enabled: true });
           }
           break;
 
         case 'contentUpdate':
-          this.applyEdit(document, msg.content, webviewPanel);
+          // Immediate save (Ctrl+S / Cmd+S) bypasses debounce
+          if (msg.immediate) {
+            this.applyEditImmediate(document, msg.content, webviewPanel, docKey);
+          } else {
+            this.applyEditDebounced(document, msg.content, webviewPanel, docKey);
+          }
           break;
 
         case 'modeChanged':
@@ -197,6 +215,14 @@ export class HtmlyEditorProvider implements vscode.CustomTextEditorProvider {
     webviewPanel.onDidDispose(() => {
       this.panels.delete(docKey);
       this.ackModeMap.delete(docKey);
+      // Clean up debounce timer
+      const timer = this.saveTimers.get(docKey);
+      if (timer) {
+        clearTimeout(timer);
+        this.saveTimers.delete(docKey);
+      }
+      this.pendingContent.delete(docKey);
+      this.saveStatusMap.delete(docKey);
       if (this.activePanel === webviewPanel) {
         this.activePanel = undefined;
       }
@@ -206,6 +232,175 @@ export class HtmlyEditorProvider implements vscode.CustomTextEditorProvider {
       saveSub.dispose();
       configSub.dispose();
     });
+  }
+
+  /**
+   * Apply edit with debounce (500ms) for auto-save
+   */
+  private applyEditDebounced(
+    document: vscode.TextDocument,
+    newContent: string,
+    panel: vscode.WebviewPanel,
+    docKey: string
+  ): void {
+    // Clear any existing timer
+    const existingTimer = this.saveTimers.get(docKey);
+    if (existingTimer) {
+      clearTimeout(existingTimer);
+    }
+
+    // Store pending content
+    this.pendingContent.set(docKey, newContent);
+
+    // Update status to 'saving' (debouncing)
+    this.updateSaveStatus(panel, docKey, 'saving');
+
+    // Set new debounce timer
+    const timer = setTimeout(() => {
+      const pending = this.pendingContent.get(docKey);
+      if (pending !== undefined) {
+        this.executeSave(document, pending, panel, docKey);
+      }
+    }, HtmlyEditorProvider.SAVE_DEBOUNCE_MS);
+
+    this.saveTimers.set(docKey, timer);
+  }
+
+  /**
+   * Immediate save - bypasses debounce (triggered by Ctrl+S / Cmd+S)
+   */
+  private applyEditImmediate(
+    document: vscode.TextDocument,
+    newContent: string,
+    panel: vscode.WebviewPanel,
+    docKey: string
+  ): void {
+    // Clear any pending debounce timer
+    const existingTimer = this.saveTimers.get(docKey);
+    if (existingTimer) {
+      clearTimeout(existingTimer);
+      this.saveTimers.delete(docKey);
+    }
+
+    this.executeSave(document, newContent, panel, docKey);
+  }
+
+  /**
+   * Execute the actual file save
+   */
+  private executeSave(
+    document: vscode.TextDocument,
+    newContent: string,
+    panel: vscode.WebviewPanel,
+    docKey: string
+  ): void {
+    // Clear pending state
+    this.pendingContent.delete(docKey);
+    this.saveTimers.delete(docKey);
+
+    if (document.getText() === newContent) {
+      this.updateSaveStatus(panel, docKey, 'idle');
+      return;
+    }
+
+    const fileSize = newContent.length;
+    const isLargeFile = fileSize > HtmlyEditorProvider.LARGE_SAVE_THRESHOLD;
+
+    if (isLargeFile) {
+      // Use optimized batch edit for large files
+      this.executeLargeFileSave(document, newContent, panel, docKey);
+    } else {
+      // Standard save for small/medium files
+      const edit = new vscode.WorkspaceEdit();
+      edit.replace(
+        document.uri,
+        new vscode.Range(document.positionAt(0), document.positionAt(document.getText().length)),
+        newContent
+      );
+      vscode.workspace.applyEdit(edit).then(async () => {
+        this.updateSaveStatus(panel, docKey, 'saved');
+        // Reset to idle after 2 seconds
+        setTimeout(() => {
+          if (this.saveStatusMap.get(docKey) === 'saved') {
+            this.updateSaveStatus(panel, docKey, 'idle');
+          }
+        }, 2000);
+      }).catch(() => {
+        this.updateSaveStatus(panel, docKey, 'error');
+      });
+    }
+  }
+
+  /**
+   * Optimized save for large files (>100KB)
+   * Uses single replace instead of character-by-character edits
+   */
+  private executeLargeFileSave(
+    document: vscode.TextDocument,
+    newContent: string,
+    panel: vscode.WebviewPanel,
+    docKey: string
+  ): void {
+    try {
+      // Use WorkspaceEdit for consistency with VS Code's undo/redo
+      const edit = new vscode.WorkspaceEdit();
+      const fullRange = new vscode.Range(
+        document.positionAt(0),
+        document.positionAt(document.getText().length)
+      );
+      edit.replace(document.uri, fullRange, newContent);
+
+      vscode.workspace.applyEdit(edit).then(async () => {
+        // Force save to disk for large files
+        await document.save();
+        this.updateSaveStatus(panel, docKey, 'saved');
+        // Reset to idle after 2 seconds
+        setTimeout(() => {
+          if (this.saveStatusMap.get(docKey) === 'saved') {
+            this.updateSaveStatus(panel, docKey, 'idle');
+          }
+        }, 2000);
+      }).catch(() => {
+        this.updateSaveStatus(panel, docKey, 'error');
+      });
+    } catch (error) {
+      this.updateSaveStatus(panel, docKey, 'error');
+    }
+  }
+
+  /**
+   * Update save status and notify webview
+   */
+  private updateSaveStatus(panel: vscode.WebviewPanel, docKey: string, status: SaveStatus): void {
+    const currentStatus = this.saveStatusMap.get(docKey);
+    if (currentStatus !== status) {
+      this.saveStatusMap.set(docKey, status);
+      this.postMessage(panel, { type: 'saveStatus', status });
+    }
+  }
+
+  /**
+   * Public method to trigger immediate save (called from command)
+   */
+  public triggerImmediateSave(docKey: string): void {
+    const panel = this.panels.get(docKey);
+    if (!panel) return;
+
+    const pending = this.pendingContent.get(docKey);
+    if (pending !== undefined) {
+      // Clear any pending debounce
+      const timer = this.saveTimers.get(docKey);
+      if (timer) {
+        clearTimeout(timer);
+        this.saveTimers.delete(docKey);
+      }
+
+      // Find the document
+      const document = vscode.workspace.textDocuments.find(d => d.uri.toString() === docKey);
+      if (document) {
+        this.applyEditImmediate(document, pending, panel, docKey);
+      }
+    }
   }
 
   private applyEdit(document: vscode.TextDocument, newContent: string, panel?: vscode.WebviewPanel): void {

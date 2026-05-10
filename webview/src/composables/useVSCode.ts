@@ -50,6 +50,10 @@ export function useVSCode() {
     postMessage({ type: 'modeChanged', mode });
   }
 
+  function sendImmediateSave(content: string) {
+    postMessage({ type: 'contentUpdate', content, immediate: true });
+  }
+
   return {
     initialContent,
     initialMode,
@@ -59,5 +63,6 @@ export function useVSCode() {
     notifyReady,
     sendContentUpdate,
     sendModeChanged,
+    sendImmediateSave,
   };
 }

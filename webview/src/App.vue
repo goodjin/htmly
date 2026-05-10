@@ -12,7 +12,7 @@ import SplitPane from './components/SplitPane.vue';
 import SearchBar from './components/SearchBar.vue';
 import TOCPanel from './components/TOCPanel.vue';
 
-const { onMessage, notifyReady, sendContentUpdate, sendModeChanged, isDark } = useVSCode();
+const { onMessage, notifyReady, sendContentUpdate, sendModeChanged, sendImmediateSave, isDark } = useVSCode();
 
 // Shared history for cross-mode undo/redo
 const sharedHistory = useSharedHistory();
@@ -23,6 +23,7 @@ const initialized = ref(false);
 const isDirty = ref(false);
 const readOnly = ref(false);
 const settings = ref<HtmlySettings>({ showButtonLabels: true });
+const saveStatus = ref<'idle' | 'saving' | 'saved' | 'error'>('idle');
 const modeOrder: EditorMode[] = ['wysiwyg', 'source', 'split', 'preview'];
 
 // Previous mode for cursor preservation
@@ -247,6 +248,7 @@ watch(mode, () => {
 
 // Ctrl+F / Cmd+F toggles search bar in WYSIWYG mode
 // Escape deactivates format painter
+// Ctrl+S / Cmd+S triggers immediate save
 function onGlobalKeydown(e: KeyboardEvent) {
   if ((e.ctrlKey || e.metaKey) && e.key === 'f' && mode.value === 'wysiwyg') {
     e.preventDefault();
@@ -273,6 +275,19 @@ function onGlobalKeydown(e: KeyboardEvent) {
     if (nextContent !== null) {
       content.value = nextContent;
     }
+  }
+
+  // Ctrl+S / Cmd+S - Manual save (bypasses debounce)
+  if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+    e.preventDefault();
+    // Cancel any pending debounced save and trigger immediate save
+    if (debounceTimer) {
+      clearTimeout(debounceTimer);
+      debounceTimer = null;
+    }
+    sendImmediateSave(content.value);
+    // Update status to show saving
+    saveStatus.value = 'saving';
   }
 }
 
@@ -315,6 +330,10 @@ const unsubscribe = onMessage((msg) => {
       isDirty.value = msg.isDirty;
       break;
 
+    case 'saveStatus':
+      saveStatus.value = msg.status;
+      break;
+
     case 'readOnly':
       readOnly.value = msg.enabled;
       if (msg.enabled) {
@@ -354,6 +373,7 @@ onBeforeUnmount(() => {
       :auto-hide-toolbar-in-preview="settings.autoHideToolbarInPreview"
       :format-painter-active="formatPainterActive"
       :show-toc="showTOC"
+      :save-status="saveStatus"
       @set-mode="setMode"
       @activate-format-painter="activateFormatPainter"
       @toggle-toc="toggleTOC"

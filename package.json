@@ -36,6 +36,18 @@
       {
         "command": "htmly.setMode.split",
         "title": "Htmly: Switch to Split Mode"
+      },
+      {
+        "command": "htmly.save",
+        "title": "Htmly: Save File (Bypass Debounce)"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "htmly.save",
+        "key": "ctrl+s",
+        "mac": "cmd+s",
+        "when": "activeCustomEditorId == htmly.editor"
       }
     ],
     "menus": {

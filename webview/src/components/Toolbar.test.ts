@@ -14,6 +14,7 @@ const defaultProps = {
   readOnly: false,
   showButtonLabels: true,
   autoHideToolbarInPreview: true,
+  saveStatus: 'idle' as const,
 };
 
 // Mock editor factory for table tests
@@ -294,6 +295,75 @@ describe('Toolbar.vue', () => {
       });
       const tableBtn = wrapper.findAll('button').find(b => b.text().includes('Table'));
       expect(tableBtn).toBeDefined();
+    });
+  });
+
+  describe('Save Status Indicator', () => {
+    it('shows "Saving..." when status is saving', () => {
+      const wrapper = mount(Toolbar, {
+        props: { ...defaultProps, saveStatus: 'saving' },
+      });
+      const savingIndicator = wrapper.find('.save-indicator.saving');
+      expect(savingIndicator.exists()).toBe(true);
+      expect(savingIndicator.text()).toContain('Saving...');
+    });
+
+    it('shows "✓ Saved" when status is saved', () => {
+      const wrapper = mount(Toolbar, {
+        props: { ...defaultProps, saveStatus: 'saved' },
+      });
+      const savedIndicator = wrapper.find('.save-indicator.saved');
+      expect(savedIndicator.exists()).toBe(true);
+      expect(savedIndicator.text()).toContain('Saved');
+    });
+
+    it('shows "✗ Error" when status is error', () => {
+      const wrapper = mount(Toolbar, {
+        props: { ...defaultProps, saveStatus: 'error' },
+      });
+      const errorIndicator = wrapper.find('.save-indicator.error');
+      expect(errorIndicator.exists()).toBe(true);
+      expect(errorIndicator.text()).toContain('Error');
+    });
+
+    it('shows dirty indicator when status is idle and dirty is true', () => {
+      const wrapper = mount(Toolbar, {
+        props: { ...defaultProps, saveStatus: 'idle', dirty: true },
+      });
+      const dirtyIndicator = wrapper.find('.dirty-indicator');
+      expect(dirtyIndicator.exists()).toBe(true);
+    });
+
+    it('shows nothing when status is idle and dirty is false', () => {
+      const wrapper = mount(Toolbar, {
+        props: { ...defaultProps, saveStatus: 'idle', dirty: false },
+      });
+      expect(wrapper.find('.dirty-indicator').exists()).toBe(false);
+      expect(wrapper.find('.save-indicator').exists()).toBe(false);
+    });
+
+    it('prefers save status over dirty indicator', () => {
+      const wrapper = mount(Toolbar, {
+        props: { ...defaultProps, saveStatus: 'saving', dirty: true },
+      });
+      expect(wrapper.find('.save-indicator.saving').exists()).toBe(true);
+      expect(wrapper.find('.dirty-indicator').exists()).toBe(false);
+    });
+
+    it('has correct CSS classes for save indicator states', () => {
+      const wrapper = mount(Toolbar, {
+        props: { ...defaultProps, saveStatus: 'saving' },
+      });
+      const indicator = wrapper.find('.save-indicator');
+      expect(indicator.classes()).toContain('saving');
+    });
+
+    it('displays emoji for saving status', () => {
+      const wrapper = mount(Toolbar, {
+        props: { ...defaultProps, saveStatus: 'saving' },
+      });
+      const savingIndicator = wrapper.find('.save-indicator.saving');
+      expect(savingIndicator.text()).toContain('💾');
     });
   });
 });
