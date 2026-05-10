@@ -194,13 +194,14 @@ describe('Toolbar.vue', () => {
       });
       // Without a table-active editor, the v-if="isTableActive" should hide table buttons
       // We verify table buttons are not present by checking the toolbar has basic buttons
+      // Note: We use specific table operation button labels to avoid matching mode-switcher "Split"
       const tableButtons = wrapper.findAll('button').filter(b => 
         b.text().includes('Add Row') || 
         b.text().includes('Del Row') ||
         b.text().includes('Add Col') ||
         b.text().includes('Del Col') ||
         b.text().includes('Merge') ||
-        b.text().includes('Split')
+        b.text().includes('Split Cell')
       );
       expect(tableButtons.length).toBe(0);
     });

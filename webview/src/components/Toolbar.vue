@@ -206,6 +206,42 @@ function onCellBgColorChange(e: Event) {
 
 <template>
   <div v-if="!toolbarHidden" class="toolbar" :class="{ 'hide-labels': !showButtonLabels }">
+    <!-- Mode switcher group - visible in all modes -->
+    <div class="toolbar-group mode-switcher">
+      <button
+        title="WYSIWYG Mode"
+        :class="{ active: mode === 'wysiwyg' }"
+        @mousedown="btn(() => emit('setMode', 'wysiwyg'))"
+      >
+        <span class="btn-icon">👁</span>
+        <span class="btn-label">WYSIWYG</span>
+      </button>
+      <button
+        title="Source Mode"
+        :class="{ active: mode === 'source' }"
+        @mousedown="btn(() => emit('setMode', 'source'))"
+      >
+        <span class="btn-icon">{}</span>
+        <span class="btn-label">Source</span>
+      </button>
+      <button
+        title="Preview Mode"
+        :class="{ active: mode === 'preview' }"
+        @mousedown="btn(() => emit('setMode', 'preview'))"
+      >
+        <span class="btn-icon">👁</span>
+        <span class="btn-label">Preview</span>
+      </button>
+      <button
+        title="Split Mode"
+        :class="{ active: mode === 'split' }"
+        @mousedown="btn(() => emit('setMode', 'split'))"
+      >
+        <span class="btn-icon">⫿</span>
+        <span class="btn-label">Split</span>
+      </button>
+    </div>
+
     <template v-if="mode === 'wysiwyg'">
       <div class="toolbar-group">
         <select
@@ -560,6 +596,17 @@ function onCellBgColorChange(e: Event) {
 
 .toolbar-group:last-of-type {
   border-right: none;
+}
+
+.mode-switcher {
+  background: var(--vscode-toolbar-hoverBackground, #2a2d2e);
+  border-radius: 4px;
+  padding: 2px 4px;
+  border-right: none;
+}
+
+.mode-switcher button {
+  min-width: 36px;
 }
 
 .toolbar-spacer {
