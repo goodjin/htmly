@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
 
-defineProps<{
+const props = defineProps<{
   html: string;
 }>();
 
@@ -28,6 +28,136 @@ const refreshKey = ref(0);
 function refresh() {
   refreshKey.value++;
 }
+
+/**
+ * Inject preview styles into the HTML content for proper rendering of new blocks.
+ * This ensures callout, columns, embed, and other custom blocks render correctly
+ * in the preview pane.
+ */
+const previewContent = computed(() => {
+  // Styles needed for proper preview rendering of all block types
+  const previewStyles = `
+    <style>
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        font-size: 14px;
+        line-height: 1.6;
+        padding: 16px 24px;
+        color: #333;
+        background: white;
+      }
+      h1 { font-size: 2em; font-weight: 700; margin: 0.5em 0; }
+      h2 { font-size: 1.5em; font-weight: 600; margin: 0.5em 0; }
+      h3 { font-size: 1.25em; font-weight: 600; margin: 0.5em 0; }
+      p { margin: 0.5em 0; }
+      ul, ol { padding-left: 1.5em; margin: 0.5em 0; }
+      li { margin: 0.25em 0; }
+      a { color: #0066cc; text-decoration: underline; }
+      code { background: #f4f4f4; border-radius: 3px; padding: 2px 5px; font-family: monospace; }
+      pre { background: #f4f4f4; border-radius: 6px; padding: 1em; overflow-x: auto; }
+      pre code { background: none; padding: 0; }
+      blockquote { border-left: 3px solid #007acc; padding-left: 1em; color: #666; margin: 0.5em 0; }
+      table { border-collapse: collapse; width: 100%; margin: 0.5em 0; }
+      th, td { border: 1px solid #ddd; padding: 6px 12px; }
+      th { background: #f4f4f4; font-weight: 600; }
+      
+      /* Callout block styles */
+      .callout {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        padding: 16px;
+        border-radius: 6px;
+        margin: 8px 0;
+      }
+      .callout::before {
+        content: attr(data-icon);
+        font-size: 24px;
+        line-height: 1.4;
+        flex-shrink: 0;
+        user-select: none;
+      }
+      
+      /* Embed block styles */
+      .embed-block {
+        position: relative;
+        width: 100%;
+        max-width: 100%;
+        margin: 12px 0;
+        padding-bottom: 56.25%;
+        height: 0;
+        overflow: hidden;
+        border-radius: 8px;
+        background: #000;
+      }
+      .embed-block iframe {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        border: none;
+      }
+      .embed-block--empty {
+        background: #f4f4f4;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding-bottom: 0;
+        height: auto;
+        min-height: 200px;
+      }
+      
+      /* Columns layout styles */
+      .columns {
+        display: flex;
+        flex-direction: row;
+        gap: 16px;
+        margin: 12px 0;
+      }
+      .column {
+        flex: 1;
+        min-width: 100px;
+        padding: 8px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        box-sizing: border-box;
+      }
+      .column > * + * { margin-top: 0.5em; }
+      
+      /* Nested columns */
+      .column .columns { margin: 8px 0; }
+      .column .column { border: 1px dashed #ccc; }
+      
+      /* Tables and images in columns */
+      .column table { max-width: 100%; overflow-x: auto; }
+      .column img { max-width: 100%; height: auto; }
+    </style>
+  `;
+  
+  const html = props.html;
+  
+  // Check if the content already has a <head> section
+  const hasHead = /<head\b/i.test(html);
+  
+  if (hasHead) {
+    // Insert styles before </head>
+    return html.replace(/<\/head>/i, `${previewStyles}</head>`);
+  } else if (/<html\b/i.test(html)) {
+    // Insert head before body or html closing
+    if (/<body\b/i.test(html)) {
+      return html.replace(/(<body\b[^>]*>)/i, `<head>${previewStyles}</head>$1`);
+    }
+    return html.replace(/(<\/html>)/i, `<head>${previewStyles}</head><body>$1</body>`);
+  } else if (/<body\b/i.test(html)) {
+    // Fragment with body
+    return `<!DOCTYPE html><html><head>${previewStyles}</head>${html}</html>`;
+  } else {
+    // Pure fragment - wrap with head and body
+    return `<!DOCTYPE html><html><head>${previewStyles}</head><body>${html}</body></html>`;
+  }
+});
 </script>
 
 <template>
@@ -49,8 +179,8 @@ function refresh() {
           :key="refreshKey"
           class="preview-frame"
           title="HTML Preview"
-          sandbox="allow-scripts"
-          :srcdoc="html"
+          sandbox="allow-scripts allow-same-origin"
+          :srcdoc="previewContent"
         />
       </div>
     </div>
