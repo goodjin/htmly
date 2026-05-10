@@ -333,6 +333,329 @@ function nestedFixture(): Fixture {
   };
 }
 
+/** 11. Callout block - emoji icon and colored background */
+function calloutFixture(): Fixture {
+  const html = `<!doctype html>
+<html>
+  <head><meta charset="utf-8"><title>Callout Block Test</title></head>
+  <body>
+    <h1>Callout Block Test</h1>
+    
+    <h2>Default Callout</h2>
+    <div class="callout" data-icon="💡" data-bg="#fef3c7">
+      <p>This is a default callout with the lightbulb icon and yellow background.</p>
+    </div>
+    
+    <h2>Warning Callout</h2>
+    <div class="callout" data-icon="⚠️" data-bg="#fee2e2">
+      <p>This is a warning callout with red background.</p>
+    </div>
+    
+    <h2>Fire Callout</h2>
+    <div class="callout" data-icon="🔥" data-bg="#ffedd5">
+      <p>This is a fire callout with orange background.</p>
+    </div>
+    
+    <h2>Callout with Nested Content</h2>
+    <div class="callout" data-icon="📝" data-bg="#e0e7ff">
+      <h3>A Heading Inside Callout</h3>
+      <p>Paragraph text inside the callout.</p>
+      <ul>
+        <li>List item one</li>
+        <li>List item two</li>
+      </ul>
+    </div>
+    
+    <p>End of callout test document.</p>
+  </body>
+</html>`;
+
+  return {
+    name: 'callout.html',
+    html,
+    expectedSnippets: [
+      'class="callout"',
+      'data-icon="💡"',
+      'data-icon="⚠️"',
+      'data-icon="🔥"',
+      'data-bg="#fef3c7"',
+      'data-bg="#fee2e2"',
+      'data-bg="#e0e7ff"',
+      'List item one',
+      'A Heading Inside Callout',
+    ],
+    extraVerify(doc) {
+      assert.ok(doc.getText().includes('class="callout"'), 'should preserve callout class');
+      assert.ok(doc.getText().includes('data-icon='), 'should preserve icon attributes');
+      assert.ok(doc.getText().includes('data-bg='), 'should preserve background attributes');
+    },
+  };
+}
+
+/** 12. Embed block - iframe embeds for YouTube, Vimeo, CodePen, CodeSandbox */
+function embedFixture(): Fixture {
+  const html = `<!doctype html>
+<html>
+  <head><meta charset="utf-8"><title>Embed Block Test</title></head>
+  <body>
+    <h1>Embed Block Test</h1>
+    
+    <h2>YouTube Video Embed</h2>
+    <div class="embed-block">
+      <iframe 
+        src="https://www.youtube.com/embed/dQw4w9WgXcQ" 
+        frameborder="0" 
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+        allowfullscreen>
+      </iframe>
+    </div>
+    
+    <h2>Vimeo Video Embed</h2>
+    <div class="embed-block">
+      <iframe 
+        src="https://player.vimeo.com/video/123456789" 
+        frameborder="0" 
+        allow="autoplay; fullscreen; picture-in-picture" 
+        allowfullscreen>
+      </iframe>
+    </div>
+    
+    <h2>CodePen Embed</h2>
+    <div class="embed-block">
+      <iframe 
+        src="https://codepen.io/user/embed/abc123?default-tab=result" 
+        frameborder="0" 
+        allowfullscreen>
+      </iframe>
+    </div>
+    
+    <h2>Multiple Embeds</h2>
+    <div class="embed-block">
+      <iframe 
+        src="https://www.youtube.com/embed/dQw4w9WgXcQ" 
+        frameborder="0" 
+        allowfullscreen>
+      </iframe>
+    </div>
+    <p>This text is between two embeds.</p>
+    <div class="embed-block">
+      <iframe 
+        src="https://player.vimeo.com/video/456789" 
+        frameborder="0" 
+        allowfullscreen>
+      </iframe>
+    </div>
+    
+    <p>End of embed test document.</p>
+  </body>
+</html>`;
+
+  return {
+    name: 'embed.html',
+    html,
+    expectedSnippets: [
+      'class="embed-block"',
+      'youtube.com/embed/dQw4w9WgXcQ',
+      'player.vimeo.com/video/123456789',
+      'codepen.io/user/embed/abc123',
+      'frameborder="0"',
+      'allowfullscreen',
+    ],
+    extraVerify(doc) {
+      assert.ok(doc.getText().includes('class="embed-block"'), 'should preserve embed-block class');
+      assert.ok(doc.getText().includes('<iframe'), 'should preserve iframe tags');
+      assert.ok(doc.getText().includes('youtube.com/embed'), 'should preserve YouTube embed URLs');
+      assert.ok(doc.getText().includes('vimeo.com/video'), 'should preserve Vimeo embed URLs');
+    },
+  };
+}
+
+/** 13. Multi-column layout - nested columns with resize handles */
+function columnsFixture(): Fixture {
+  const html = `<!doctype html>
+<html>
+  <head><meta charset="utf-8"><title>Multi-Column Layout Test</title></head>
+  <body>
+    <h1>Multi-Column Layout Test</h1>
+    
+    <h2>Two Equal Columns</h2>
+    <div class="columns">
+      <div class="column" style="width: 50%">
+        <p>This is the left column content. It contains some text to demonstrate the two-column layout.</p>
+      </div>
+      <div class="column" style="width: 50%">
+        <p>This is the right column content. It also contains text to show the side-by-side layout.</p>
+      </div>
+    </div>
+    
+    <h2>Two Unequal Columns</h2>
+    <div class="columns">
+      <div class="column" style="width: 30%">
+        <p>This is the narrow left column (30%).</p>
+      </div>
+      <div class="column" style="width: 70%">
+        <p>This is the wide right column (70%). It has more content space.</p>
+      </div>
+    </div>
+    
+    <h2>Three Columns</h2>
+    <div class="columns">
+      <div class="column" style="width: 33%">
+        <h3>Column One</h3>
+        <p>Content in the first of three columns.</p>
+      </div>
+      <div class="column" style="width: 34%">
+        <h3>Column Two</h3>
+        <p>Content in the second column.</p>
+      </div>
+      <div class="column" style="width: 33%">
+        <h3>Column Three</h3>
+        <p>Content in the third column.</p>
+      </div>
+    </div>
+    
+    <h2>Columns with Different Content Types</h2>
+    <div class="columns">
+      <div class="column" style="width: 50%">
+        <h3>Left: Heading and List</h3>
+        <h4>Features</h4>
+        <ul>
+          <li>Feature A</li>
+          <li>Feature B</li>
+          <li>Feature C</li>
+        </ul>
+      </div>
+      <div class="column" style="width: 50%">
+        <h3>Right: Callout Block</h3>
+        <div class="callout" data-icon="💡" data-bg="#fef3c7">
+          <p>This callout is inside a column!</p>
+        </div>
+      </div>
+    </div>
+    
+    <h2>Nested Columns</h2>
+    <div class="columns">
+      <div class="column" style="width: 50%">
+        <p>Outer left column with nested columns inside:</p>
+        <div class="columns">
+          <div class="column" style="width: 50%">
+            <p>Nested left.</p>
+          </div>
+          <div class="column" style="width: 50%">
+            <p>Nested right.</p>
+          </div>
+        </div>
+      </div>
+      <div class="column" style="width: 50%">
+        <p>Outer right column content.</p>
+      </div>
+    </div>
+    
+    <p>End of columns test document.</p>
+  </body>
+</html>`;
+
+  return {
+    name: 'columns.html',
+    html,
+    expectedSnippets: [
+      'class="columns"',
+      'class="column"',
+      'width: 50%',
+      'width: 30%',
+      'width: 70%',
+      'width: 33%',
+      'width: 34%',
+      'Column One',
+      'Column Two',
+      'Column Three',
+      'Feature A',
+      'Feature B',
+      'Feature C',
+      'This callout is inside a column',
+      'Nested left',
+      'Nested right',
+    ],
+    extraVerify(doc) {
+      assert.ok(doc.getText().includes('class="columns"'), 'should preserve columns class');
+      assert.ok(doc.getText().includes('class="column"'), 'should preserve column class');
+      assert.ok(doc.getText().includes('width:'), 'should preserve width percentages');
+      assert.ok(doc.getText().includes('50%'), 'should preserve 50% width columns');
+    },
+  };
+}
+
+/** 14. Table of Contents - auto-generated from H1-H3 headings */
+function tocFixture(): Fixture {
+  const html = `<!doctype html>
+<html>
+  <head><meta charset="utf-8"><title>Table of Contents Test</title></head>
+  <body>
+    <nav class="toc">
+      <a href="#h-introduction">Introduction</a>
+      <a href="#h-getting-started">Getting Started</a>
+      <a href="#h-installation">Installation</a>
+      <a href="#h-configuration">Configuration</a>
+      <a href="#h-advanced-topics">Advanced Topics</a>
+      <a href="#h-plugins">Plugins</a>
+      <a href="#h-customization">Customization</a>
+      <a href="#h-conclusion">Conclusion</a>
+    </nav>
+    
+    <h1 id="h-introduction">Introduction</h1>
+    <p>Welcome to the Table of Contents test document. This document tests the TOC functionality with various heading levels.</p>
+    
+    <h2 id="h-getting-started">Getting Started</h2>
+    <p>Let's begin with the basics of using the editor.</p>
+    
+    <h3 id="h-installation">Installation</h3>
+    <p>First, you need to install the required dependencies.</p>
+    
+    <h3 id="h-configuration">Configuration</h3>
+    <p>Then, configure the editor according to your needs.</p>
+    
+    <h2 id="h-advanced-topics">Advanced Topics</h2>
+    <p>This section covers advanced usage of the editor.</p>
+    
+    <h3 id="h-plugins">Plugins</h3>
+    <p>Learn how to extend the editor with plugins.</p>
+    
+    <h3 id="h-customization">Customization</h3>
+    <p>Customize the appearance and behavior of the editor.</p>
+    
+    <h1 id="h-conclusion">Conclusion</h1>
+    <p>Thank you for reading this test document.</p>
+  </body>
+</html>`;
+
+  return {
+    name: 'toc.html',
+    html,
+    expectedSnippets: [
+      'class="toc"',
+      'href="#h-introduction"',
+      'href="#h-getting-started"',
+      'href="#h-installation"',
+      'href="#h-configuration"',
+      'href="#h-advanced-topics"',
+      'href="#h-plugins"',
+      'href="#h-customization"',
+      'href="#h-conclusion"',
+      '<nav class="toc">',
+      'Introduction',
+      'Getting Started',
+      'Advanced Topics',
+      'Conclusion',
+    ],
+    extraVerify(doc) {
+      assert.ok(doc.getText().includes('class="toc"'), 'should preserve toc class');
+      assert.ok(doc.getText().includes('<nav'), 'should preserve nav element');
+      assert.ok(doc.getText().includes('href="#h-'), 'should preserve anchor links');
+      assert.ok(doc.getText().includes('id="h-'), 'should preserve heading IDs');
+    },
+  };
+}
+
 // ---------------------------------------------------------------------------
 // All fixtures collected
 // ---------------------------------------------------------------------------
@@ -348,6 +671,11 @@ function allFixtures(): Fixture[] {
     specialCharsFixture(),
     inlineStylesFixture(),
     nestedFixture(),
+    // New block type fixtures
+    calloutFixture(),
+    embedFixture(),
+    columnsFixture(),
+    tocFixture(),
     // largeFileFixture() is run separately (different assertions)
   ];
 }

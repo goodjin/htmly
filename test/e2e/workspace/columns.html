@@ -1,0 +1,82 @@
+<!doctype html>
+<html>
+  <head><meta charset="utf-8"><title>Multi-Column Layout Test</title></head>
+  <body>
+    <h1>Multi-Column Layout Test</h1>
+    
+    <h2>Two Equal Columns</h2>
+    <div class="columns">
+      <div class="column" style="width: 50%">
+        <p>This is the left column content. It contains some text to demonstrate the two-column layout.</p>
+      </div>
+      <div class="column" style="width: 50%">
+        <p>This is the right column content. It also contains text to show the side-by-side layout.</p>
+      </div>
+    </div>
+    
+    <h2>Two Unequal Columns</h2>
+    <div class="columns">
+      <div class="column" style="width: 30%">
+        <p>This is the narrow left column (30%).</p>
+      </div>
+      <div class="column" style="width: 70%">
+        <p>This is the wide right column (70%). It has more content space.</p>
+      </div>
+    </div>
+    
+    <h2>Three Columns</h2>
+    <div class="columns">
+      <div class="column" style="width: 33%">
+        <h3>Column One</h3>
+        <p>Content in the first of three columns.</p>
+      </div>
+      <div class="column" style="width: 34%">
+        <h3>Column Two</h3>
+        <p>Content in the second column.</p>
+      </div>
+      <div class="column" style="width: 33%">
+        <h3>Column Three</h3>
+        <p>Content in the third column.</p>
+      </div>
+    </div>
+    
+    <h2>Columns with Different Content Types</h2>
+    <div class="columns">
+      <div class="column" style="width: 50%">
+        <h3>Left: Heading and List</h3>
+        <h4>Features</h4>
+        <ul>
+          <li>Feature A</li>
+          <li>Feature B</li>
+          <li>Feature C</li>
+        </ul>
+      </div>
+      <div class="column" style="width: 50%">
+        <h3>Right: Callout Block</h3>
+        <div class="callout" data-icon="💡" data-bg="#fef3c7">
+          <p>This callout is inside a column!</p>
+        </div>
+      </div>
+    </div>
+    
+    <h2>Nested Columns</h2>
+    <div class="columns">
+      <div class="column" style="width: 50%">
+        <p>Outer left column with nested columns inside:</p>
+        <div class="columns">
+          <div class="column" style="width: 50%">
+            <p>Nested left.</p>
+          </div>
+          <div class="column" style="width: 50%">
+            <p>Nested right.</p>
+          </div>
+        </div>
+      </div>
+      <div class="column" style="width: 50%">
+        <p>Outer right column content.</p>
+      </div>
+    </div>
+    
+    <p>End of columns test document.</p>
+  </body>
+</html>
