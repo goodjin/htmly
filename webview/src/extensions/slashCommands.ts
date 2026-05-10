@@ -16,6 +16,17 @@ export function openEmbedDialog() {
   openEmbedDialogFn?.();
 }
 
+// Global cover image dialog opener
+let openCoverImageDialogFn: ((editor: any) => void) | null = null;
+
+export function setCoverImageDialogOpener(fn: (editor: any) => void) {
+  openCoverImageDialogFn = fn;
+}
+
+export function openCoverImageDialog(editor: any) {
+  openCoverImageDialogFn?.(editor);
+}
+
 export interface SlashCommandItem {
   title: string;
   description: string;
@@ -101,6 +112,12 @@ export const slashCommandItems: SlashCommandItem[] = [
     description: 'Highlight important information',
     icon: '💡',
     command: (editor) => editor.chain().focus().insertCallout().run(),
+  },
+  {
+    title: 'Cover Image',
+    description: 'Full-width image at document top',
+    icon: '🖼',
+    command: (editor) => openCoverImageDialog(editor),
   },
   {
     title: 'Embed',

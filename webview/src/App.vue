@@ -214,6 +214,7 @@ onBeforeUnmount(() => {
       @set-mode="setMode"
       @activate-format-painter="activateFormatPainter"
       @toggle-toc="toggleTOC"
+      @open-cover-dialog="tiptapRef?.openCoverImageDialog()"
     />
 
     <div v-if="initialized" :key="mode" class="editor-area">

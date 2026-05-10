@@ -492,3 +492,97 @@ body {
 .tiptap-editor th sup.footnote-ref a {
   color: var(--vscode-textLink-foreground, #4fc1ff);
 }
+
+/* Cover Image styles */
+.tiptap-editor .cover-image-wrapper {
+  margin: 0 0 24px 0;
+  width: 100%;
+}
+
+.tiptap-editor .cover-image {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--vscode-input-background, #3c3c3c);
+}
+
+.tiptap-editor .cover-image img.cover-image-img {
+  width: 100%;
+  height: auto;
+  max-height: 400px;
+  object-fit: cover;
+  display: block;
+}
+
+.tiptap-editor .cover-image a {
+  display: block;
+  width: 100%;
+}
+
+.tiptap-editor .cover-image a img.cover-image-img {
+  cursor: pointer;
+  transition: opacity 0.2s ease;
+}
+
+.tiptap-editor .cover-image a:hover img.cover-image-img {
+  opacity: 0.9;
+}
+
+.tiptap-editor .cover-image .cover-caption {
+  margin: 0;
+  padding: 12px 16px;
+  font-size: 14px;
+  color: var(--vscode-descriptionForeground, #888);
+  text-align: center;
+  font-style: italic;
+  background: var(--vscode-editorWidget-background, #252526);
+}
+
+.tiptap-editor .cover-image--empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+  border: 2px dashed var(--vscode-panel-border, #454545);
+  cursor: pointer;
+  transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+
+.tiptap-editor .cover-image--empty:hover {
+  border-color: var(--vscode-focusBorder, #0e639c);
+  background: rgba(14, 99, 156, 0.1);
+}
+
+.tiptap-editor .cover-image-placeholder {
+  margin: 0;
+  color: var(--vscode-descriptionForeground, #888);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+/* Cover image responsive adjustments */
+@media (max-width: 768px) {
+  .tiptap-editor .cover-image img.cover-image-img {
+    max-height: 250px;
+  }
+}
+
+@media (max-width: 480px) {
+  .tiptap-editor .cover-image img.cover-image-img {
+    max-height: 180px;
+  }
+  
+  .tiptap-editor .cover-image .cover-caption {
+    font-size: 12px;
+    padding: 8px 12px;
+  }
+}
+
+/* Cover image selection styles */
+.tiptap-editor .cover-image-wrapper.ProseMirror-selectednode {
+  outline: 2px solid var(--vscode-focusBorder, #0e639c);
+  outline-offset: 2px;
+  border-radius: 8px;
+}

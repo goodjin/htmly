@@ -26,6 +26,7 @@ import { NodeSelection } from '@tiptap/pm/state';
 import LinkDialog from './LinkDialog.vue';
 import ImageDialog from './ImageDialog.vue';
 import EmbedDialog from './EmbedDialog.vue';
+import CoverImageDialog from './CoverImageDialog.vue';
 import EmojiPicker from './EmojiPicker.vue';
 import { escapeHtml } from '../core/htmlUtils';
 import { SlashCommandsExtension, setEmbedDialogOpener } from '../extensions/slashCommands';
@@ -48,6 +49,7 @@ import { ColumnResizeExtension } from '../extensions/columnResize';
 import { Toggle } from '../extensions/Toggle';
 import { BlockBackground } from '../extensions/BlockBackground';
 import { Footnote, Footnotes, FootnotePlugin } from '../extensions/Footnote';
+import { CoverImage, setCoverImageDialogOpener, hasCoverImage, getCoverImagePos } from '../extensions/CoverImage';
 
 const props = withDefaults(defineProps<{
   modelValue: string;   // HTML string
@@ -134,6 +136,7 @@ const editor = useEditor({
     BlockBackground,
     Footnote,
     Footnotes,
+    CoverImage,
   ],
   addProseMirrorPlugins() {
     return [FootnotePlugin];
@@ -389,7 +392,12 @@ onBeforeUnmount(() => {
   editor.value?.destroy();
 });
 
-defineExpose({ editor });
+// Expose methods for parent component
+function openCoverImageDialog() {
+  openCoverDialog();
+}
+
+defineExpose({ editor, openCoverImageDialog });
 
 // Format painter: handle click to apply formatting
 function handleEditorClick(e: MouseEvent) {
@@ -566,6 +574,61 @@ function onEmbedConfirm(payload: { url: string }) {
 
 // Register embed dialog opener for slash commands
 setEmbedDialogOpener(openEmbedDialog);
+
+// Cover image dialog state
+const coverDialogVisible = ref(false);
+const coverDialogInitialSrc = ref('');
+const coverDialogInitialAlt = ref('');
+const coverDialogInitialHref = ref('');
+const coverDialogInitialCaption = ref('');
+
+function openCoverDialog() {
+  if (!editor.value) return;
+  
+  // Check if there's an existing cover image
+  const hasCover = hasCoverImage(editor.value.state);
+  const coverPos = getCoverImagePos(editor.value.state);
+  
+  if (hasCover && coverPos >= 0) {
+    // Get existing cover image attributes
+    const coverNode = editor.value.state.doc.nodeAt(coverPos);
+    if (coverNode) {
+      coverDialogInitialSrc.value = coverNode.attrs.src || '';
+      coverDialogInitialAlt.value = coverNode.attrs.alt || '';
+      coverDialogInitialHref.value = coverNode.attrs.href || '';
+      coverDialogInitialCaption.value = coverNode.attrs.caption || '';
+    }
+  } else {
+    // Clear initial values for new cover
+    coverDialogInitialSrc.value = '';
+    coverDialogInitialAlt.value = '';
+    coverDialogInitialHref.value = '';
+    coverDialogInitialCaption.value = '';
+  }
+  
+  coverDialogVisible.value = true;
+}
+
+function onCoverDialogConfirm(payload: { src: string; alt: string; href: string; caption: string }) {
+  if (!editor.value) return;
+  
+  if (!payload.src) {
+    // Remove cover image if src is empty
+    editor.value.chain().focus().removeCoverImage().run();
+  } else {
+    // Insert or update cover image
+    editor.value.chain().focus().insertCoverImage({
+      src: payload.src,
+      alt: payload.alt,
+      href: payload.href || null,
+      caption: payload.caption,
+    }).run();
+  }
+  coverDialogVisible.value = false;
+}
+
+// Register cover image dialog opener
+setCoverImageDialogOpener(openCoverDialog);
 
 function onEditorDblClick(e: MouseEvent) {
   // Check if double-clicked on an image
@@ -862,6 +925,16 @@ function onEditorDrop(e: DragEvent) {
     :visible="embedDialogVisible"
     @confirm="onEmbedConfirm"
     @cancel="embedDialogVisible = false"
+  />
+  
+  <CoverImageDialog
+    :visible="coverDialogVisible"
+    :initial-src="coverDialogInitialSrc"
+    :initial-alt="coverDialogInitialAlt"
+    :initial-href="coverDialogInitialHref"
+    :initial-caption="coverDialogInitialCaption"
+    @confirm="onCoverDialogConfirm"
+    @cancel="coverDialogVisible = false"
   />
 </template>
 

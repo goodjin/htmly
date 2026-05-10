@@ -23,6 +23,7 @@ const emit = defineEmits<{
   setMode: [mode: EditorMode];
   activateFormatPainter: [multiUse: boolean];
   toggleTOC: [];
+  openCoverDialog: [];
 }>();
 
 // Embed dialog state
@@ -477,6 +478,13 @@ function onCellBgColorChange(e: Event) {
         >
           <span class="btn-icon">💡</span>
           <span class="btn-label">Callout</span>
+        </button>
+        <button
+          title="Cover Image"
+          @mousedown="btn(() => emit('openCoverDialog'))"
+        >
+          <span class="btn-icon">🖼</span>
+          <span class="btn-label">Cover</span>
         </button>
         <button
           title="Toggle"
