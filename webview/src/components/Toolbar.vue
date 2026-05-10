@@ -6,7 +6,9 @@ import { escapeHtml } from '../core/htmlUtils';
 import LinkDialog from './LinkDialog.vue';
 import ImageDialog from './ImageDialog.vue';
 import EmbedDialog from './EmbedDialog.vue';
+import LinkPreviewDialog from './LinkPreviewDialog.vue';
 import { toEmbedUrl } from '../extensions/Embed';
+import { openLinkPreviewDialog } from '../extensions/LinkPreview';
 
 const props = defineProps<{
   editor: Editor | undefined;
@@ -501,6 +503,13 @@ function onCellBgColorChange(e: Event) {
           <span class="btn-label">Embed</span>
         </button>
         <button
+          title="Link Preview"
+          @mousedown="btn(() => openLinkPreviewDialog(editor))"
+        >
+          <span class="btn-icon">🔗</span>
+          <span class="btn-label">Preview</span>
+        </button>
+        <button
           title="Footnote (Ctrl+Shift+F)"
           @mousedown="btn(() => editor?.chain().focus().insertFootnote().run())"
         >
@@ -640,6 +649,7 @@ function onCellBgColorChange(e: Event) {
     @confirm="onEmbedConfirm"
     @cancel="embedDialogVisible = false"
   />
+  <LinkPreviewDialog />
 </template>
 
 <style scoped>

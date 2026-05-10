@@ -50,6 +50,8 @@ import { Toggle } from '../extensions/Toggle';
 import { BlockBackground } from '../extensions/BlockBackground';
 import { Footnote, Footnotes, FootnotePlugin } from '../extensions/Footnote';
 import { CoverImage, setCoverImageDialogOpener, hasCoverImage, getCoverImagePos } from '../extensions/CoverImage';
+import { LinkPreview, setLinkPreviewDialogOpener, isUrl } from '../extensions/LinkPreview';
+import LinkPreviewDialog from './LinkPreviewDialog.vue';
 
 const props = withDefaults(defineProps<{
   modelValue: string;   // HTML string
@@ -137,6 +139,7 @@ const editor = useEditor({
     Footnote,
     Footnotes,
     CoverImage,
+    LinkPreview,
   ],
   addProseMirrorPlugins() {
     return [FootnotePlugin];
@@ -185,24 +188,48 @@ const editor = useEditor({
     handlePaste: (view, event) => {
       // Handle image paste from clipboard
       const items = event.clipboardData?.items;
-      if (!items) return false;
+      if (items) {
+        for (const item of items) {
+          if (item.type.startsWith('image/')) {
+            event.preventDefault();
+            const file = item.getAsFile();
+            if (!file) return false;
+            
+            const reader = new FileReader();
+            reader.onload = (e) => {
+              const src = e.target?.result as string;
+              if (src && editor.value) {
+                // Get the current selection position
+                const { from } = view.state.selection;
+                editor.value.chain().focus().setImage({ src, alt: '' }).run();
+              }
+            };
+            reader.readAsDataURL(file);
+            return true;
+          }
+        }
+      }
       
-      for (const item of items) {
-        if (item.type.startsWith('image/')) {
+      // Handle URL paste - check text content for URLs
+      const text = event.clipboardData?.getData('text/plain');
+      if (text && isUrl(text.trim())) {
+        const url = text.trim();
+        
+        // Check if we're in an empty paragraph or at the start of a line
+        const { selection } = view.state;
+        const $pos = selection.$from;
+        
+        // Get the text before cursor on the same line
+        const textBefore = $pos.parent.textContent.slice(0, $pos.parentOffset);
+        
+        // Only create link preview if pasting at the start of an empty block or at start of line
+        if (textBefore.trim() === '' || textBefore === '/') {
           event.preventDefault();
-          const file = item.getAsFile();
-          if (!file) return false;
           
-          const reader = new FileReader();
-          reader.onload = (e) => {
-            const src = e.target?.result as string;
-            if (src && editor.value) {
-              // Get the current selection position
-              const { from } = view.state.selection;
-              editor.value.chain().focus().setImage({ src, alt: '' }).run();
-            }
-          };
-          reader.readAsDataURL(file);
+          // Insert link preview
+          if (editor.value) {
+            editor.value.chain().focus().insertLinkPreview({ url }).run();
+          }
           return true;
         }
       }
@@ -630,6 +657,40 @@ function onCoverDialogConfirm(payload: { src: string; alt: string; href: string;
 // Register cover image dialog opener
 setCoverImageDialogOpener(openCoverDialog);
 
+// Link preview dialog state
+const linkPreviewDialogVisible = ref(false);
+const linkPreviewDialogInitialUrl = ref('');
+
+function openLinkPreviewDialogFn(editorInstance: any) {
+  if (!editorInstance) return;
+  
+  // Get existing URL if editing a link preview
+  if (editorInstance.isActive('linkPreview')) {
+    const attrs = editorInstance.getAttributes('linkPreview');
+    linkPreviewDialogInitialUrl.value = attrs.url || '';
+  } else {
+    linkPreviewDialogInitialUrl.value = '';
+  }
+  
+  linkPreviewDialogVisible.value = true;
+}
+
+function onLinkPreviewDialogConfirm(payload: { url: string }) {
+  if (!editor.value || !payload.url) return;
+  
+  if (editor.value.isActive('linkPreview')) {
+    // Update existing link preview
+    editor.value.chain().focus().updateLinkPreview({ url: payload.url }).run();
+  } else {
+    // Insert new link preview
+    editor.value.chain().focus().insertLinkPreview({ url: payload.url }).run();
+  }
+  linkPreviewDialogVisible.value = false;
+}
+
+// Register link preview dialog opener
+setLinkPreviewDialogOpener(openLinkPreviewDialogFn);
+
 function onEditorDblClick(e: MouseEvent) {
   // Check if double-clicked on an image
   const target = e.target as HTMLElement;
@@ -935,6 +996,13 @@ function onEditorDrop(e: DragEvent) {
     :initial-caption="coverDialogInitialCaption"
     @confirm="onCoverDialogConfirm"
     @cancel="coverDialogVisible = false"
+  />
+  
+  <LinkPreviewDialog
+    :visible="linkPreviewDialogVisible"
+    :initial-url="linkPreviewDialogInitialUrl"
+    @confirm="onLinkPreviewDialogConfirm"
+    @cancel="linkPreviewDialogVisible = false"
   />
 </template>
 

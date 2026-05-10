@@ -4,6 +4,7 @@ import { VueRenderer } from '@tiptap/vue-3';
 import SlashCommandMenu from '../components/SlashCommandMenu.vue';
 import { Callout } from './Callout';
 import { toEmbedUrl } from './Embed';
+import { openLinkPreviewDialog } from './LinkPreview';
 
 // Global embed dialog state - will be set by TiptapEditor
 let openEmbedDialogFn: (() => void) | null = null;
@@ -142,6 +143,12 @@ export const slashCommandItems: SlashCommandItem[] = [
     description: 'Add inline footnote reference',
     icon: '¹',
     command: (editor) => editor.chain().focus().insertFootnote().run(),
+  },
+  {
+    title: 'Link Preview',
+    description: 'Preview card for a URL',
+    icon: '🔗',
+    command: (editor) => openLinkPreviewDialog(editor),
   },
 ];
 
