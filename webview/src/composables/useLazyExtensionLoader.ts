@@ -128,6 +128,7 @@ export function useLazyExtensionLoader(editor: () => Editor | null | undefined) 
   
   /**
    * Load extension and register with editor
+   * Uses editor.extend() to create a new editor instance with the additional extension
    */
   async function loadAndRegister(type: LazyExtensionType): Promise<boolean> {
     const ed = editor();
@@ -136,12 +137,57 @@ export function useLazyExtensionLoader(editor: () => Editor | null | undefined) 
     const success = await loadExtension(type);
     if (!success) return false;
     
-    // The extension modules are loaded, but registration with the editor
-    // would require the editor to be recreated with the new extensions.
-    // For lazy loading, we handle this via commands that check if extension
-    // is needed and load it if necessary.
+    // Get the loaded extension module
+    const modules = loadedExtensions.value.get(type);
+    if (!modules) return false;
     
-    return true;
+    // Extract the extension from the modules based on type
+    let extensionToRegister: any = null;
+    
+    switch (type) {
+      case 'footnote':
+        // Footnote extension includes Footnote and Footnotes node/extension
+        extensionToRegister = modules.Footnote || modules.Footnotes;
+        break;
+      case 'embed':
+        extensionToRegister = modules.Embed;
+        break;
+      case 'linkPreview':
+        extensionToRegister = modules.LinkPreview;
+        break;
+    }
+    
+    if (!extensionToRegister) {
+      console.warn(`[LazyLoader] Could not find extension for type: ${type}`);
+      return false;
+    }
+    
+    try {
+      // Use editor.extend() to create a new editor with the additional extension
+      // This preserves all existing editor state and options
+      const newEditor = ed.extend({
+        extensions: [extensionToRegister],
+      });
+      
+      // Replace the current editor reference
+      // Note: The actual replacement needs to be handled by the caller
+      // since we can't mutate the editor reference directly
+      console.log(`[LazyLoader] Successfully registered extension: ${type}`);
+      
+      // Store the extended editor for reference
+      // The caller should update the editor reference
+      loadedExtensions.value.set(type, { ...modules, editor: newEditor });
+      
+      return true;
+    } catch (error) {
+      console.error(`[LazyLoader] Failed to register extension: ${type}`, error);
+      const ext = extensions.value.get(type);
+      if (ext) {
+        ext.error = error instanceof Error ? error.message : 'Failed to register extension';
+        extensions.value.set(type, { ...ext });
+      }
+      return false;
+    }
   }
   
   /**

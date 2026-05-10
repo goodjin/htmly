@@ -211,24 +211,28 @@ export function useVirtualScroll(
   
   /**
    * Apply virtualization CSS classes to blocks
+   * Uses CSS clip/transform approach instead of display:none to preserve layout flow
    */
   function applyVirtualizationClasses(visibleIds: Set<string>) {
     blocks.value.forEach((block, id) => {
       if (!block.element) return;
       
       const shouldBeVisible = visibleIds.has(id);
-      const isCurrentlyVirtualized = block.element.classList.contains('virtualized-hidden');
+      const isCurrentlyHidden = block.element.classList.contains('virtualized-hidden');
+      const isCurrentlyVisible = block.element.classList.contains('virtualized-visible');
       
-      if (shouldBeVisible && isCurrentlyVirtualized) {
-        // Make visible
+      if (shouldBeVisible && (isCurrentlyHidden || !isCurrentlyVisible)) {
+        // Make visible - remove hidden class, add visible class
+        // CSS handles the actual visibility (clip approach)
         block.element.classList.remove('virtualized-hidden');
         block.element.classList.add('virtualized-visible');
+        // Clear any inline styles that might conflict
         block.element.style.removeProperty('display');
-      } else if (!shouldBeVisible && !isCurrentlyVirtualized) {
-        // Make invisible (but keep in DOM for reflow)
+      } else if (!shouldBeVisible && !isCurrentlyHidden) {
+        // Make invisible using CSS clip approach
+        // This preserves layout flow while hiding visually
         block.element.classList.add('virtualized-hidden');
         block.element.classList.remove('virtualized-visible');
-        block.element.style.display = 'none';
       }
     });
   }
@@ -264,11 +268,22 @@ export function useVirtualScroll(
         updateBlocks();
       } else {
         console.log('[VirtualScroll] Deactivated');
-        // Remove all virtualization classes
+        // Remove all virtualization classes and reset inline styles
         blocks.value.forEach((block) => {
           if (block.element) {
             block.element.classList.remove('virtualized-hidden', 'virtualized-visible');
             block.element.style.removeProperty('display');
+            block.element.style.removeProperty('position');
+            block.element.style.removeProperty('clip');
+            block.element.style.removeProperty('width');
+            block.element.style.removeProperty('height');
+            block.element.style.removeProperty('padding');
+            block.element.style.removeProperty('margin');
+            block.element.style.removeProperty('overflow');
+            block.element.style.removeProperty('white-space');
+            block.element.style.removeProperty('border');
+            block.element.style.removeProperty('pointer-events');
+            block.element.style.removeProperty('opacity');
           }
         });
       }

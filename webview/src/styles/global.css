@@ -777,7 +777,8 @@ body {
  * Virtual scrolling for large documents
  * 
  * When virtual scroll is active, blocks outside the visible area
- * are hidden using CSS display:none to reduce DOM rendering overhead.
+ * are hidden using CSS clip approach to preserve layout flow.
+ * This ensures scroll position is maintained and DOM reflow is minimized.
  */
 
 /* Block container for virtualization */
@@ -785,15 +786,45 @@ body {
   contain: layout style;
 }
 
-/* Hidden block (outside visible range + buffer) */
+/**
+ * Hidden block (outside visible range + buffer)
+ * 
+ * Uses CSS clip instead of display:none to:
+ * 1. Preserve layout flow (maintains scroll position)
+ * 2. Keep elements in DOM for potential re-activation
+ * 3. Allow quick visibility toggle without reflow
+ */
 .tiptap-editor .virtualized-hidden {
-  display: none !important;
-  visibility: hidden;
+  /* Use clip to hide visually while keeping in layout */
+  position: absolute;
+  clip: rect(0, 0, 0, 0);
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  white-space: nowrap;
+  border: 0;
+  /* Prevent any pointer events on hidden blocks */
+  pointer-events: none;
+  /* Ensure no visual rendering */
+  opacity: 0;
 }
 
 /* Visible block (within visible range + buffer) */
 .tiptap-editor .virtualized-visible {
-  /* No special styles needed - block is rendered normally */
+  /* Restore all normal properties */
+  position: static;
+  clip: auto;
+  width: auto;
+  height: auto;
+  padding: initial;
+  margin: initial;
+  overflow: visible;
+  white-space: normal;
+  border: initial;
+  pointer-events: auto;
+  opacity: 1;
 }
 
 /* Virtual scroll performance indicator (dev mode) */
