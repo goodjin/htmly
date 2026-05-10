@@ -54,30 +54,8 @@ const DEFAULT_OPTIONS: Required<PerformanceMonitorOptions> = {
   fpsDropThreshold: 30,
 };
 
-// FPS measurement state
-let lastFrameTime = 0;
-let frameCount = 0;
-let fpsHistory: number[] = [];
+// Animation frame tracking (module-level for cleanup)
 let animationFrameId: number | null = null;
-let dropThreshold = DEFAULT_OPTIONS.fpsDropThreshold;
-let onFpsDropCallback = DEFAULT_OPTIONS.onFpsDrop;
-
-/**
- * Measure FPS using requestAnimationFrame
- */
-function measureFps(currentTime: number): number {
-  if (lastFrameTime === 0) {
-    lastFrameTime = currentTime;
-    return 60; // Assume 60fps on first frame
-  }
-
-  const delta = currentTime - lastFrameTime;
-  lastFrameTime = currentTime;
-
-  // Calculate FPS from delta (cap at 120 to avoid unrealistic values)
-  const fps = Math.min(120, Math.round(1000 / delta));
-  return fps;
-}
 
 /**
  * Composable for monitoring performance metrics
@@ -85,9 +63,9 @@ function measureFps(currentTime: number): number {
 export function usePerformanceMonitor(options: PerformanceMonitorOptions = {}) {
   const opts = { ...DEFAULT_OPTIONS, ...options };
   
-  // Set up callbacks
-  dropThreshold = opts.fpsDropThreshold;
-  onFpsDropCallback = opts.onFpsDrop;
+  // Instance-level state for FPS drop callback
+  const dropThreshold = opts.fpsDropThreshold;
+  const onFpsDropCallback = opts.onFpsDrop;
   
   // State
   const isActive = ref(false);
@@ -193,8 +171,6 @@ export function usePerformanceMonitor(options: PerformanceMonitorOptions = {}) {
     localDroppedFrames = 0;
     localTotalFrames = 0;
     localLastFrameTime = 0;
-    lastFrameTime = 0;
-    frameCount = 0;
     
     isActive.value = true;
     animationFrameId = requestAnimationFrame(frameCallback);
