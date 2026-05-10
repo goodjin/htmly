@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onBeforeUnmount, watch, ref, onMounted, nextTick } from 'vue';
+import { onBeforeUnmount, watch, ref, onMounted, nextTick, computed } from 'vue';
 import { useEditor, EditorContent, BubbleMenu } from '@tiptap/vue-3';
 import StarterKit from '@tiptap/starter-kit';
 import Underline from '@tiptap/extension-underline';
@@ -26,6 +26,7 @@ import { NodeSelection } from '@tiptap/pm/state';
 import LinkDialog from './LinkDialog.vue';
 import ImageDialog from './ImageDialog.vue';
 import EmbedDialog from './EmbedDialog.vue';
+import EmojiPicker from './EmojiPicker.vue';
 import { escapeHtml } from '../core/htmlUtils';
 import { SlashCommandsExtension, setEmbedDialogOpener } from '../extensions/slashCommands';
 import { MarkdownShortcutsExtension } from '../extensions/markdownShortcuts';
@@ -500,9 +501,19 @@ const calloutBgColor = computed(() => {
   return editor.value.getAttributes('callout').backgroundColor ?? '#fef3c7';
 });
 
+// Callout current icon for bubble menu
+const calloutIcon = computed(() => {
+  if (!editor.value?.isActive('callout')) return '💡';
+  return editor.value.getAttributes('callout').icon ?? '💡';
+});
+
 function onCalloutBgColorChange(e: Event) {
   const value = (e.target as HTMLInputElement).value;
   editor.value?.chain().focus().updateCalloutBackground(value).run();
+}
+
+function onCalloutIconChange(emoji: string) {
+  editor.value?.chain().focus().updateCalloutIcon(emoji).run();
 }
 
 // Embed dialog state
@@ -768,6 +779,12 @@ function onEditorDrop(e: DragEvent) {
         @input="onCalloutBgColorChange"
       />
     </label>
+    <!-- Callout emoji picker - only visible when in a callout -->
+    <EmojiPicker
+      v-if="editor.isActive('callout')"
+      :current-emoji="calloutIcon"
+      @select="onCalloutIconChange"
+    />
   </BubbleMenu>
 
   <LinkDialog
