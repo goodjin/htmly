@@ -1,5 +1,18 @@
 import * as vscode from 'vscode';
-import { EditorMode, ExtToWebMsg, WebToExtMsg, HtmlySettings, SaveStatus } from '../shared/types';
+import { 
+  EditorMode, 
+  ExtToWebMsg, 
+  WebToExtMsg, 
+  HtmlySettings, 
+  SaveStatus, 
+  HistoryState,
+  CrashRecoveryData 
+} from '../shared/types';
+
+const HISTORY_STATE_KEY = 'htmly.history';
+const CRASH_RECOVERY_KEY = 'htmly.crashRecovery';
+const MAX_HISTORY_ENTRIES = 100;
+const HISTORY_DEBOUNCE_MS = 1000; // Debounce history persistence
 
 export class HtmlyEditorProvider implements vscode.CustomTextEditorProvider {
   public static readonly viewType = 'htmly.editor';
@@ -17,6 +30,11 @@ export class HtmlyEditorProvider implements vscode.CustomTextEditorProvider {
   private saveTimers = new Map<string, NodeJS.Timeout>();
   private pendingContent = new Map<string, string>();
   private saveStatusMap = new Map<string, SaveStatus>();
+
+  // History state per document
+  private historyStateMap = new Map<string, HistoryState>();
+  private historyTimers = new Map<string, NodeJS.Timeout>();
+  private pendingHistory = new Map<string, HistoryState>();
 
   constructor(private readonly context: vscode.ExtensionContext) {}
 
@@ -119,6 +137,9 @@ export class HtmlyEditorProvider implements vscode.CustomTextEditorProvider {
     webviewPanel.webview.onDidReceiveMessage((msg: WebToExtMsg) => {
       switch (msg.type) {
         case 'ready':
+          // Check for crash recovery
+          this.checkCrashRecovery(docKey, document.getText(), webviewPanel);
+          
           this.postMessage(webviewPanel, {
             type: 'init',
             content: document.getText(),
@@ -159,6 +180,18 @@ export class HtmlyEditorProvider implements vscode.CustomTextEditorProvider {
         case 'modeChanged':
           this.modeMap.set(docKey, msg.mode);
           this.ackModeMap.set(docKey, msg.mode);
+          break;
+
+        case 'syncHistory':
+          this.syncHistory(docKey, msg.history);
+          break;
+
+        case 'selectiveUndo':
+          this.handleSelectiveUndo(docKey, msg.targetIndex, webviewPanel, document);
+          break;
+
+        case 'exportHistory':
+          this.exportHistory(docKey);
           break;
       }
     });
@@ -213,6 +246,9 @@ export class HtmlyEditorProvider implements vscode.CustomTextEditorProvider {
     });
 
     webviewPanel.onDidDispose(() => {
+      // Save history before disposing
+      this.persistHistory(docKey);
+      
       this.panels.delete(docKey);
       this.ackModeMap.delete(docKey);
       // Clean up debounce timer
@@ -223,6 +259,16 @@ export class HtmlyEditorProvider implements vscode.CustomTextEditorProvider {
       }
       this.pendingContent.delete(docKey);
       this.saveStatusMap.delete(docKey);
+      
+      // Clean up history timers
+      const historyTimer = this.historyTimers.get(docKey);
+      if (historyTimer) {
+        clearTimeout(historyTimer);
+        this.historyTimers.delete(docKey);
+      }
+      this.pendingHistory.delete(docKey);
+      this.historyStateMap.delete(docKey);
+      
       if (this.activePanel === webviewPanel) {
         this.activePanel = undefined;
       }
@@ -232,6 +278,208 @@ export class HtmlyEditorProvider implements vscode.CustomTextEditorProvider {
       saveSub.dispose();
       configSub.dispose();
     });
+  }
+
+  /**
+   * Check for crash recovery data and prompt user
+   */
+  private async checkCrashRecovery(
+    docKey: string, 
+    currentContent: string, 
+    panel: vscode.WebviewPanel
+  ): Promise<void> {
+    const crashData = this.context.workspaceState.get<CrashRecoveryData>(CRASH_RECOVERY_KEY);
+    
+    if (crashData && crashData.documentUri === docKey) {
+      // Check if there's meaningful history to recover
+      const hasHistory = crashData.history && 
+                        crashData.history.entries && 
+                        crashData.history.entries.length > 0;
+      
+      if (hasHistory) {
+        const response = await vscode.window.showWarningMessage(
+          'Recover draft?',
+          { modal: true },
+          'Recover Draft',
+          'Discard'
+        );
+
+        if (response === 'Recover Draft') {
+          // Send crash recovery data to webview
+          this.postMessage(panel, {
+            type: 'crashRecovery',
+            data: crashData,
+          });
+        } else {
+          // User discarded - clear crash recovery data
+          await this.context.workspaceState.update(CRASH_RECOVERY_KEY, undefined);
+        }
+      }
+    }
+  }
+
+  /**
+   * Sync history from webview with debounced persistence
+   */
+  private syncHistory(docKey: string, history: HistoryState): void {
+    // Store the latest history state
+    this.historyStateMap.set(docKey, history);
+    
+    // Clear any existing timer
+    const existingTimer = this.historyTimers.get(docKey);
+    if (existingTimer) {
+      clearTimeout(existingTimer);
+    }
+
+    // Store pending history
+    this.pendingHistory.set(docKey, history);
+
+    // Set new debounce timer for persistence
+    const timer = setTimeout(() => {
+      this.persistHistory(docKey);
+    }, HISTORY_DEBOUNCE_MS);
+
+    this.historyTimers.set(docKey, timer);
+  }
+
+  /**
+   * Persist history to workspace state
+   */
+  private async persistHistory(docKey: string): Promise<void> {
+    const history = this.pendingHistory.get(docKey) || this.historyStateMap.get(docKey);
+    if (!history) return;
+
+    // Clear pending
+    this.pendingHistory.delete(docKey);
+    this.historyTimers.delete(docKey);
+
+    // Trim history if exceeds max entries (memory optimization)
+    let trimmedHistory = history;
+    if (history.entries.length > MAX_HISTORY_ENTRIES) {
+      const overflow = history.entries.length - MAX_HISTORY_ENTRIES;
+      trimmedHistory = {
+        entries: history.entries.slice(overflow),
+        currentIndex: Math.max(0, history.currentIndex - overflow),
+      };
+    }
+
+    // Store in workspace state
+    await this.context.workspaceState.update(HISTORY_STATE_KEY, {
+      ...trimmedHistory,
+      documentUri: docKey,
+    });
+
+    // Also update crash recovery data
+    const lastEntry = trimmedHistory.entries[trimmedHistory.entries.length - 1];
+    const crashData: CrashRecoveryData = {
+      documentUri: docKey,
+      lastContent: lastEntry?.content || '',
+      history: trimmedHistory,
+      savedAt: Date.now(),
+    };
+    await this.context.workspaceState.update(CRASH_RECOVERY_KEY, crashData);
+  }
+
+  /**
+   * Handle selective undo from history panel
+   */
+  private handleSelectiveUndo(
+    docKey: string,
+    targetIndex: number,
+    panel: vscode.WebviewPanel,
+    document: vscode.TextDocument
+  ): void {
+    const history = this.historyStateMap.get(docKey);
+    if (!history || targetIndex < 0 || targetIndex >= history.entries.length) {
+      return;
+    }
+
+    const targetEntry = history.entries[targetIndex];
+    if (targetEntry) {
+      // Apply the content at target index
+      this.applyEditImmediate(document, targetEntry.content, panel, docKey);
+      
+      // Update current index
+      history.currentIndex = targetIndex;
+      this.historyStateMap.set(docKey, { ...history });
+      
+      // Notify webview of history update
+      this.postMessage(panel, {
+        type: 'historyUpdate',
+        history: { entries: history.entries, currentIndex: targetIndex },
+      });
+    }
+  }
+
+  /**
+   * Export history as JSON file
+   */
+  private async exportHistory(docKey: string): Promise<void> {
+    const history = this.historyStateMap.get(docKey);
+    if (!history) {
+      vscode.window.showInformationMessage('No history to export.');
+      return;
+    }
+
+    const panel = this.panels.get(docKey);
+    if (!panel) return;
+
+    try {
+      // Create export data
+      const exportData = {
+        documentUri: docKey,
+        exportedAt: new Date().toISOString(),
+        historySize: history.entries.length,
+        currentIndex: history.currentIndex,
+        entries: history.entries.map((entry, index) => ({
+          index,
+          timestamp: new Date(entry.timestamp).toISOString(),
+          contentLength: entry.content.length,
+          content: entry.content,
+          cursorPosition: entry.cursorPosition,
+        })),
+      };
+
+      // Create a temporary file for the export
+      const document = vscode.workspace.textDocuments.find(d => d.uri.toString() === docKey);
+      const fileName = document?.fileName || 'htmly-history';
+      const baseName = fileName.replace(/\.[^/.]+$/, '');
+      const exportPath = vscode.Uri.joinPath(
+        this.context.globalStorageUri || this.context.extensionUri,
+        `${baseName}-history-${Date.now()}.json`
+      );
+
+      // Write the file using workspace API
+      const encoder = new TextEncoder();
+      await vscode.workspace.fs.writeFile(
+        exportPath,
+        encoder.encode(JSON.stringify(exportData, null, 2))
+      );
+
+      // Notify webview of successful export
+      this.postMessage(panel, {
+        type: 'historyExported',
+        path: exportPath.fsPath,
+      });
+
+      vscode.window.showInformationMessage(
+        `History exported to: ${exportPath.fsPath}`,
+        'Open File'
+      ).then(selection => {
+        if (selection === 'Open File') {
+          vscode.commands.executeCommand('vscode.open', exportPath);
+        }
+      });
+    } catch (error) {
+      vscode.window.showErrorMessage(`Failed to export history: ${error}`);
+    }
+  }
+
+  /**
+   * Get history state for a document (for testing/debugging)
+   */
+  public getHistoryState(docKey: string): HistoryState | undefined {
+    return this.historyStateMap.get(docKey);
   }
 
   /**

@@ -1,5 +1,5 @@
 import { ref } from 'vue';
-import type { ExtToWebMsg, WebToExtMsg, EditorMode } from '../../../src/shared/types';
+import type { ExtToWebMsg, WebToExtMsg, EditorMode, HistoryState, CrashRecoveryData } from '../../../src/shared/types';
 
 // VS Code API injected by the extension host
 declare function acquireVsCodeApi(): {
@@ -28,6 +28,10 @@ export function useVSCode() {
   const initialMode = ref<EditorMode>('wysiwyg');
   const isDark = ref(true);
 
+  // History-related state
+  const crashRecoveryData = ref<CrashRecoveryData | null>(null);
+  const historyExportedPath = ref<string | null>(null);
+
   function postMessage(msg: WebToExtMsg) {
     getVsApi()?.postMessage(msg);
   }
@@ -54,15 +58,57 @@ export function useVSCode() {
     postMessage({ type: 'contentUpdate', content, immediate: true });
   }
 
+  /**
+   * Sync history state to extension for persistence
+   */
+  function syncHistory(history: HistoryState): void {
+    postMessage({ type: 'syncHistory', history });
+  }
+
+  /**
+   * Request selective undo to a specific history index
+   */
+  function requestSelectiveUndo(targetIndex: number): void {
+    postMessage({ type: 'selectiveUndo', targetIndex });
+  }
+
+  /**
+   * Request history export as JSON
+   */
+  function requestExportHistory(): void {
+    postMessage({ type: 'exportHistory' });
+  }
+
+  /**
+   * Clear crash recovery data after use
+   */
+  function clearCrashRecoveryData(): void {
+    crashRecoveryData.value = null;
+  }
+
+  /**
+   * Clear history exported path notification
+   */
+  function clearHistoryExportedPath(): void {
+    historyExportedPath.value = null;
+  }
+
   return {
     initialContent,
     initialMode,
     isDark,
+    crashRecoveryData,
+    historyExportedPath,
     postMessage,
     onMessage,
     notifyReady,
     sendContentUpdate,
     sendModeChanged,
     sendImmediateSave,
+    syncHistory,
+    requestSelectiveUndo,
+    requestExportHistory,
+    clearCrashRecoveryData,
+    clearHistoryExportedPath,
   };
 }

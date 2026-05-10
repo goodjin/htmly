@@ -19,6 +19,7 @@ const props = defineProps<{
   autoHideToolbarInPreview: boolean;
   formatPainterActive?: boolean;
   showTOC?: boolean;
+  showHistory?: boolean;
   saveStatus?: 'idle' | 'saving' | 'saved' | 'error';
 }>();
 
@@ -26,6 +27,7 @@ const emit = defineEmits<{
   setMode: [mode: EditorMode];
   activateFormatPainter: [multiUse: boolean];
   toggleTOC: [];
+  toggleHistory: [];
   openCoverDialog: [];
 }>();
 
@@ -532,6 +534,14 @@ function onCellBgColorChange(e: Event) {
         >
           <span class="btn-icon">📑</span>
           <span class="btn-label">TOC</span>
+        </button>
+        <button
+          title="Undo History"
+          :class="{ active: showHistory }"
+          @mousedown="btn(() => emit('toggleHistory'))"
+        >
+          <span class="btn-icon">↩</span>
+          <span class="btn-label">History</span>
         </button>
       </div>
 

@@ -2,7 +2,7 @@
 import { computed, ref, watch, onMounted, onBeforeUnmount, nextTick } from 'vue';
 import type { EditorMode, HtmlySettings } from '../../src/shared/types';
 import { useVSCode } from './composables/useVSCode';
-import { useSharedHistory } from './composables/useSharedHistory';
+import { useSharedHistory, onHistoryChange } from './composables/useSharedHistory';
 import { extractBodyContent, replaceBodyContent } from './core/htmlUtils';
 import Toolbar from './components/Toolbar.vue';
 import TiptapEditor, { type CursorPosition } from './components/TiptapEditor.vue';
@@ -11,8 +11,23 @@ import PreviewPane from './components/PreviewPane.vue';
 import SplitPane from './components/SplitPane.vue';
 import SearchBar from './components/SearchBar.vue';
 import TOCPanel from './components/TOCPanel.vue';
+import HistoryPanel from './components/HistoryPanel.vue';
 
-const { onMessage, notifyReady, sendContentUpdate, sendModeChanged, sendImmediateSave, isDark } = useVSCode();
+const { 
+  onMessage, 
+  notifyReady, 
+  sendContentUpdate, 
+  sendModeChanged, 
+  sendImmediateSave, 
+  isDark, 
+  syncHistory,
+  crashRecoveryData,
+  historyExportedPath,
+  requestSelectiveUndo,
+  requestExportHistory,
+  clearCrashRecoveryData,
+  clearHistoryExportedPath
+} = useVSCode();
 
 // Shared history for cross-mode undo/redo
 const sharedHistory = useSharedHistory();
@@ -159,6 +174,8 @@ function onVisualContentChange(bodyHtml: string) {
 const tiptapRef = ref<InstanceType<typeof TiptapEditor> | null>(null);
 const showSearch = ref(false);
 const showTOC = ref(false);
+const showHistoryPanel = ref(false);
+const showCrashRecoveryDialog = ref(false);
 
 // Cursor position for scroll sync
 const cursorPosition = ref<CursorPosition | null>(null);
@@ -238,6 +255,42 @@ function onFormatPainterApplied() {
   if (!formatPainterMultiUse.value) {
     deactivateFormatPainter();
   }
+}
+
+// History panel functions
+function toggleHistoryPanel() {
+  showHistoryPanel.value = !showHistoryPanel.value;
+}
+
+function handleHistorySelect(index: number) {
+  // Restore to selected history position
+  const restoredContent = sharedHistory.restoreToIndex(index);
+  if (restoredContent !== null) {
+    content.value = restoredContent;
+  }
+  showHistoryPanel.value = false;
+}
+
+function handleHistoryExport() {
+  requestExportHistory();
+}
+
+// Crash recovery functions
+function handleRecoverDraft() {
+  if (crashRecoveryData.value) {
+    // Initialize history from recovered state
+    sharedHistory.initializeFromPersisted(crashRecoveryData.value.history);
+    // Set content to the last known content
+    content.value = crashRecoveryData.value.history.entries[crashRecoveryData.value.history.currentIndex]?.content 
+      || crashRecoveryData.value.lastContent;
+    showCrashRecoveryDialog.value = false;
+    clearCrashRecoveryData();
+  }
+}
+
+function handleDiscardDraft() {
+  showCrashRecoveryDialog.value = false;
+  clearCrashRecoveryData();
 }
 
 // Close search bar and format painter when mode changes
@@ -345,18 +398,50 @@ const unsubscribe = onMessage((msg) => {
     case 'settings':
       settings.value = msg.settings;
       break;
+
+    case 'crashRecovery':
+      // Store crash recovery data and show dialog
+      crashRecoveryData.value = msg.data;
+      showCrashRecoveryDialog.value = true;
+      break;
+
+    case 'historyUpdate':
+      // Update history from extension (e.g., after selective undo)
+      // The webview state should already be updated, this is for confirmation
+      break;
+
+    case 'historyExported':
+      // Show notification that history was exported
+      historyExportedPath.value = msg.path;
+      setTimeout(() => {
+        clearHistoryExportedPath();
+      }, 5000);
+      break;
   }
 });
 
 onMounted(() => {
   notifyReady();
   document.addEventListener('keydown', onGlobalKeydown);
+
+  // Set up history sync with extension
+  const unsubscribeHistory = onHistoryChange((state) => {
+    syncHistory(state);
+  });
+  
+  // Store unsubscribe for cleanup
+  historyUnsubscribe.value = unsubscribeHistory;
 });
+
+const historyUnsubscribe = ref<(() => void) | null>(null);
 
 onBeforeUnmount(() => {
   unsubscribe();
   document.removeEventListener('keydown', onGlobalKeydown);
   if (debounceTimer) clearTimeout(debounceTimer);
+  if (historyUnsubscribe.value) {
+    historyUnsubscribe.value();
+  }
 });
 
 
@@ -373,10 +458,12 @@ onBeforeUnmount(() => {
       :auto-hide-toolbar-in-preview="settings.autoHideToolbarInPreview"
       :format-painter-active="formatPainterActive"
       :show-toc="showTOC"
+      :show-history="showHistoryPanel"
       :save-status="saveStatus"
       @set-mode="setMode"
       @activate-format-painter="activateFormatPainter"
       @toggle-toc="toggleTOC"
+      @toggle-history="toggleHistoryPanel"
       @open-cover-dialog="tiptapRef?.openCoverImageDialog()"
     />
 
@@ -432,6 +519,46 @@ onBeforeUnmount(() => {
       v-if="showTOC && mode === 'wysiwyg'"
       :editor="tiptapRef?.editor"
     />
+
+    <!-- History Panel -->
+    <HistoryPanel
+      v-if="showHistoryPanel"
+      :entries="sharedHistory.allEntries.value"
+      :visible="showHistoryPanel"
+      @close="showHistoryPanel = false"
+      @select="handleHistorySelect"
+      @export="handleHistoryExport"
+    />
+
+    <!-- Crash Recovery Dialog -->
+    <div v-if="showCrashRecoveryDialog" class="crash-recovery-overlay" @click.self="handleDiscardDraft">
+      <div class="crash-recovery-dialog">
+        <div class="dialog-header">
+          <span class="dialog-icon">💾</span>
+          <span class="dialog-title">Recover Draft?</span>
+        </div>
+        <div class="dialog-body">
+          <p>A previous editing session crashed. Would you like to recover your unsaved work?</p>
+          <p class="dialog-info" v-if="crashRecoveryData">
+            {{ crashRecoveryData.history.entries.length }} history steps available
+          </p>
+        </div>
+        <div class="dialog-actions">
+          <button class="btn btn-primary" @click="handleRecoverDraft">
+            Recover Draft
+          </button>
+          <button class="btn btn-secondary" @click="handleDiscardDraft">
+            Discard
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- History Exported Notification -->
+    <div v-if="historyExportedPath" class="export-notification">
+      <span>History exported to:</span>
+      <code>{{ historyExportedPath }}</code>
+    </div>
   </div>
 </template>
 
@@ -466,5 +593,123 @@ onBeforeUnmount(() => {
   color: #1e1e1e;
   text-align: center;
   flex-shrink: 0;
+}
+
+/* Crash Recovery Dialog */
+.crash-recovery-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.crash-recovery-dialog {
+  background: var(--vscode-editor-background, #1e1e1e);
+  border: 1px solid var(--vscode-widget-border, #3c3c3c);
+  border-radius: 8px;
+  padding: 20px;
+  max-width: 400px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+.dialog-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.dialog-icon {
+  font-size: 24px;
+}
+
+.dialog-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--vscode-editor-foreground, #cccccc);
+}
+
+.dialog-body {
+  margin-bottom: 20px;
+}
+
+.dialog-body p {
+  margin: 0 0 8px 0;
+  font-size: 14px;
+  color: var(--vscode-editor-foreground, #cccccc);
+  line-height: 1.5;
+}
+
+.dialog-info {
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground, #858585);
+}
+
+.dialog-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.btn {
+  padding: 8px 16px;
+  border-radius: 4px;
+  font-size: 13px;
+  cursor: pointer;
+  border: none;
+}
+
+.btn-primary {
+  background: var(--vscode-button-background, #0e639c);
+  color: var(--vscode-button-foreground, #ffffff);
+}
+
+.btn-primary:hover {
+  background: var(--vscode-button-hoverBackground, #1177bb);
+}
+
+.btn-secondary {
+  background: var(--vscode-toolbar-hoverBackground, #2d2d2d);
+  color: var(--vscode-editor-foreground, #cccccc);
+  border: 1px solid var(--vscode-widget-border, #3c3c3c);
+}
+
+.btn-secondary:hover {
+  background: var(--vscode-toolbar-hoverBackground, #3d3d3d);
+}
+
+/* Export Notification */
+.export-notification {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  background: var(--vscode-editor-background, #1e1e1e);
+  border: 1px solid var(--vscode-widget-border, #3c3c3c);
+  border-radius: 6px;
+  padding: 12px 16px;
+  font-size: 12px;
+  color: var(--vscode-editor-foreground, #cccccc);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  z-index: 100;
+  max-width: 400px;
+}
+
+.export-notification span {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--vscode-descriptionForeground, #858585);
+}
+
+.export-notification code {
+  display: block;
+  font-family: var(--vscode-editor-font-family, monospace);
+  font-size: 11px;
+  word-break: break-all;
 }
 </style>

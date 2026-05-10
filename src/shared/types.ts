@@ -3,6 +3,34 @@ export type EditorMode = 'wysiwyg' | 'source' | 'preview' | 'split';
 // Save status for the toolbar indicator
 export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 
+// History entry for undo/redo persistence
+export interface HistoryEntry {
+  /** The HTML content at this point in history */
+  content: string;
+  /** Timestamp when this entry was created */
+  timestamp: number;
+  /** Cursor position in the editor (0-1 percentage) */
+  cursorPosition?: number;
+}
+
+// History state for persistence
+export interface HistoryState {
+  entries: HistoryEntry[];
+  currentIndex: number;
+}
+
+// Crash recovery data
+export interface CrashRecoveryData {
+  /** Document URI this history belongs to */
+  documentUri: string;
+  /** Last known content */
+  lastContent: string;
+  /** History state */
+  history: HistoryState;
+  /** When this data was last saved */
+  savedAt: number;
+}
+
 export interface HtmlySettings {
   defaultMode: EditorMode;
   showButtonLabels: boolean;
@@ -25,11 +53,17 @@ export type ExtToWebMsg =
   | { type: 'dirty'; isDirty: boolean }
   | { type: 'readOnly'; enabled: boolean }
   | { type: 'settings'; settings: HtmlySettings }
-  | { type: 'saveStatus'; status: SaveStatus };
+  | { type: 'saveStatus'; status: SaveStatus }
+  | { type: 'historyUpdate'; history: HistoryState }
+  | { type: 'crashRecovery'; data: CrashRecoveryData }
+  | { type: 'historyExported'; path: string };
 
 // Messages from webview → extension
 export type WebToExtMsg =
   | { type: 'ready' }
   | { type: 'contentUpdate'; content: string; immediate?: boolean }
   | { type: 'modeChanged'; mode: EditorMode }
-  | { type: 'requestMode' };
+  | { type: 'requestMode' }
+  | { type: 'syncHistory'; history: HistoryState }
+  | { type: 'selectiveUndo'; targetIndex: number }
+  | { type: 'exportHistory' };

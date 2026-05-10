@@ -17,6 +17,15 @@ export interface HistoryEntry {
   cursorPosition?: number;
 }
 
+// History state for persistence sync
+export interface HistoryState {
+  entries: HistoryEntry[];
+  currentIndex: number;
+}
+
+// History state change callback type
+type HistoryChangeCallback = (state: HistoryState) => void;
+
 const MAX_HISTORY_ENTRIES = 100;
 
 // Module-level state for shared history
@@ -26,6 +35,33 @@ const maxEntries = ref(MAX_HISTORY_ENTRIES);
 const isUndoing = ref(false);
 const isRedoing = ref(false);
 const lastContent = ref('');
+
+// Callbacks for syncing with extension
+const syncCallbacks: HistoryChangeCallback[] = [];
+
+/**
+ * Register a callback to be notified when history changes
+ */
+export function onHistoryChange(callback: HistoryChangeCallback): () => void {
+  syncCallbacks.push(callback);
+  return () => {
+    const index = syncCallbacks.indexOf(callback);
+    if (index > -1) {
+      syncCallbacks.splice(index, 1);
+    }
+  };
+}
+
+/**
+ * Notify all registered callbacks of history change
+ */
+function notifyHistoryChange(): void {
+  const state: HistoryState = {
+    entries: historyStack.value.map(e => ({ ...e })),
+    currentIndex: currentIndex.value,
+  };
+  syncCallbacks.forEach(cb => cb(state));
+}
 
 /**
  * Shared history composable for cross-editor undo/redo
@@ -79,6 +115,9 @@ export function useSharedHistory() {
       historyStack.value = historyStack.value.slice(overflow) as readonly HistoryEntry[];
       currentIndex.value = Math.max(0, currentIndex.value - overflow);
     }
+
+    // Notify listeners of history change
+    notifyHistoryChange();
   }
 
   /**
@@ -112,6 +151,7 @@ export function useSharedHistory() {
       return null;
     } finally {
       isUndoing.value = false;
+      notifyHistoryChange();
     }
   }
 
@@ -133,6 +173,7 @@ export function useSharedHistory() {
       return null;
     } finally {
       isRedoing.value = false;
+      notifyHistoryChange();
     }
   }
 
@@ -147,6 +188,39 @@ export function useSharedHistory() {
     }] as readonly HistoryEntry[];
     currentIndex.value = 0;
     lastContent.value = content;
+    notifyHistoryChange();
+  }
+
+  /**
+   * Initialize history from persisted state (crash recovery)
+   */
+  function initializeFromPersisted(state: HistoryState): void {
+    if (!state.entries || state.entries.length === 0) {
+      return;
+    }
+    
+    historyStack.value = state.entries.map(e => markRaw({ ...e })) as readonly HistoryEntry[];
+    currentIndex.value = Math.min(state.currentIndex, historyStack.value.length - 1);
+    lastContent.value = historyStack.value[currentIndex.value]?.content || '';
+    notifyHistoryChange();
+  }
+
+  /**
+   * Restore to a specific history index (selective undo)
+   */
+  function restoreToIndex(targetIndex: number): string | null {
+    if (targetIndex < 0 || targetIndex >= historyStack.value.length) {
+      return null;
+    }
+
+    currentIndex.value = targetIndex;
+    const entry = historyStack.value[targetIndex];
+    if (entry) {
+      lastContent.value = entry.content;
+      notifyHistoryChange();
+      return entry.content;
+    }
+    return null;
   }
 
   /**
@@ -156,6 +230,7 @@ export function useSharedHistory() {
     historyStack.value = [];
     currentIndex.value = -1;
     lastContent.value = '';
+    notifyHistoryChange();
   }
 
   /**
@@ -186,6 +261,29 @@ export function useSharedHistory() {
     return entry?.cursorPosition;
   });
 
+  /**
+   * Get all history entries for display
+   */
+  const allEntries = computed(() => {
+    return historyStack.value.map((entry, index) => ({
+      index,
+      ...entry,
+      isCurrent: index === currentIndex.value,
+      isPast: index < currentIndex.value,
+      isFuture: index > currentIndex.value,
+    }));
+  });
+
+  /**
+   * Export history as JSON
+   */
+  function exportAsJson(): HistoryState {
+    return {
+      entries: historyStack.value.map(e => ({ ...e })),
+      currentIndex: currentIndex.value,
+    };
+  }
+
   return {
     // State
     canUndo,
@@ -195,12 +293,16 @@ export function useSharedHistory() {
     position,
     historyStack: readonly(historyStack),
     cursorPosition,
+    allEntries,
     
     // Actions
     push,
     undo,
     redo,
     initialize,
+    initializeFromPersisted,
+    restoreToIndex,
     clear,
+    exportAsJson,
   };
 }
