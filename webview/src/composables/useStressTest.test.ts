@@ -14,7 +14,6 @@ import {
   requiresOptimization,
   getRecommendedSettings,
   STRESS_TEST_SIZES,
-  type StressTestResult,
 } from './useStressTest';
 
 describe('generateLargeHtmlContent', () => {

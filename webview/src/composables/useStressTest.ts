@@ -244,7 +244,11 @@ export interface StressTestResult {
  */
 export async function runStressTest(
   generateContent: () => string,
-  simulateEditorInteraction: (content: string, onUpdate: (fps: number) => void) => void,
+  simulateEditorInteraction: (
+    content: string,
+    onUpdate: (fps: number) => void,
+    done: () => void
+  ) => void,
   options: {
     documentSizeKb?: number;
     duration?: number;
@@ -253,36 +257,47 @@ export async function runStressTest(
 ): Promise<StressTestResult> {
   const {
     documentSizeKb = 200,
-    duration = 30000, // 30 seconds
     targetFps = 60,
   } = options;
-  
+
   const content = generateContent();
   const fpsSamples: number[] = [];
+  const updateLatencies: number[] = [];
   let previewUpdates = 0;
   let droppedFrames = 0;
   let minFps = 60;
   let maxFps = 60;
   let totalFps = 0;
-  
+  let lastUpdateTime = performance.now();
+
   const startTime = performance.now();
-  
+
   // Simulate editor interaction with FPS monitoring
-  simulateEditorInteraction(content, (fps) => {
-    fpsSamples.push(fps);
-    totalFps += fps;
-    
-    if (fps < minFps) minFps = fps;
-    if (fps > maxFps) maxFps = fps;
-    if (fps < targetFps * 0.9) droppedFrames++;
+  // The `done` callback signals when the simulation is complete,
+  // so we can measure the real elapsed time.
+  await new Promise<void>((resolve) => {
+    simulateEditorInteraction(content, (fps) => {
+      const now = performance.now();
+      updateLatencies.push(now - lastUpdateTime);
+      lastUpdateTime = now;
+      previewUpdates++;
+
+      fpsSamples.push(fps);
+      totalFps += fps;
+
+      if (fps < minFps) minFps = fps;
+      if (fps > maxFps) maxFps = fps;
+      if (fps < targetFps * 0.9) droppedFrames++;
+    }, resolve);
   });
-  
+
   const elapsed = performance.now() - startTime;
   const averageFps = fpsSamples.length > 0 ? totalFps / fpsSamples.length : 60;
-  
-  // Calculate average update latency (simplified)
-  const averageUpdateLatency = 50; // Placeholder - would need actual timing data
-  
+  const averageUpdateLatency =
+    updateLatencies.length > 0
+      ? updateLatencies.reduce((a, b) => a + b, 0) / updateLatencies.length
+      : 0;
+
   return {
     documentSizeKb,
     keystrokes: fpsSamples.length,
