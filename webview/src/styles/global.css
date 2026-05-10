@@ -301,3 +301,101 @@ body {
   max-width: 100%;
   height: auto;
 }
+
+/* Toggle block styles */
+.tiptap-editor .toggle-wrapper {
+  margin: 8px 0;
+}
+
+.tiptap-editor details {
+  margin: 8px 0;
+  border: 1px solid var(--vscode-panel-border, #454545);
+  border-radius: 6px;
+  padding: 8px 12px;
+  background: var(--vscode-editorWidget-background, #252526);
+}
+
+.tiptap-editor details > summary {
+  cursor: pointer;
+  user-select: none;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  font-weight: 500;
+  color: var(--vscode-editor-foreground, #d4d4d4);
+  outline: none;
+}
+
+.tiptap-editor details > summary:focus {
+  outline: 2px solid var(--vscode-focusBorder, #0e639c);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
+/* Chevron indicator - rotated when open */
+.tiptap-editor details > summary::before {
+  content: '▶';
+  font-size: 10px;
+  transition: transform 0.2s ease;
+  flex-shrink: 0;
+  color: var(--vscode-editor-foreground, #888);
+}
+
+.tiptap-editor details[open] > summary::before {
+  transform: rotate(90deg);
+}
+
+/* Hide default marker in Chrome/Safari */
+.tiptap-editor details > summary::-webkit-details-marker {
+  display: none;
+}
+
+/* Toggle content area */
+.tiptap-editor details .toggle-content > * + *,
+.tiptap-editor details > *:not(summary) {
+  margin-top: 8px;
+}
+
+/* First content element shouldn't have extra top margin */
+.tiptap-editor details .toggle-content > *:first-child,
+.tiptap-editor details > *:not(summary):first-child {
+  margin-top: 0;
+}
+
+/* Nested toggles */
+.tiptap-editor details details {
+  margin: 4px 0;
+  background: transparent;
+  border: 1px dashed var(--vscode-panel-border, #454545);
+}
+
+/* Toggle inside callout */
+.tiptap-editor .callout details {
+  background: transparent;
+  border: 1px dashed var(--vscode-panel-border, #454545);
+}
+
+/* Toggle inside columns */
+.tiptap-editor .column details {
+  background: var(--vscode-editorWidget-background, #252526);
+}
+
+/* Toggle with columns */
+.tiptap-editor details .columns {
+  margin: 8px 0;
+}
+
+/* Toggle content styling */
+.tiptap-editor details .toggle-content {
+  padding-left: 8px;
+}
+
+.tiptap-editor details .toggle-content > * {
+  margin-top: 4px;
+}
+
+.tiptap-editor details .toggle-content > *:first-child {
+  margin-top: 8px;
+}

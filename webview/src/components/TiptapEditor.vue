@@ -45,6 +45,7 @@ import { TOCPlugin } from '../extensions/TOC';
 import { Columns } from '../extensions/Columns';
 import { Column } from '../extensions/Column';
 import { ColumnResizeExtension } from '../extensions/columnResize';
+import { Toggle } from '../extensions/Toggle';
 
 const props = withDefaults(defineProps<{
   modelValue: string;   // HTML string
@@ -127,6 +128,7 @@ const editor = useEditor({
     Columns,
     Column,
     ColumnResizeExtension,
+    Toggle,
   ],
   editorProps: {
     attributes: { class: 'tiptap-editor' },

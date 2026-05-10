@@ -433,6 +433,13 @@ function onCellBgColorChange(e: Event) {
           <span class="btn-label">Callout</span>
         </button>
         <button
+          title="Toggle"
+          @mousedown="btn(() => editor?.chain().focus().insertToggle().run())"
+        >
+          <span class="btn-icon">▶</span>
+          <span class="btn-label">Toggle</span>
+        </button>
+        <button
           title="Embed"
           @mousedown="btn(openEmbedDialog)"
         >

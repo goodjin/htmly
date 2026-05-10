@@ -114,6 +114,12 @@ export const slashCommandItems: SlashCommandItem[] = [
     icon: '📊',
     command: (editor) => editor.chain().focus().insertColumns().run(),
   },
+  {
+    title: 'Toggle',
+    description: 'Collapsible content block',
+    icon: '▶',
+    command: (editor) => editor.chain().focus().insertToggle().run(),
+  },
 ];
 
 export const SlashCommandsExtension = Extension.create({
