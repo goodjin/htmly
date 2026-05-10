@@ -18,7 +18,9 @@ export const Toggle = Node.create({
   
   content: 'block+',
   
-  defining: true,
+  // Note: Removed `defining: true` which prevented cursor from leaving the toggle block,
+  // causing issues with inserting multiple toggles as siblings.
+  // The toggle's content model still prevents merging with incompatible blocks.
   
   addAttributes() {
     return {
@@ -307,12 +309,24 @@ export const Toggle = Node.create({
     return {
       insertToggle:
         (attrs = {}) =>
-        ({ commands }) => {
-          return commands.insertContent({
-            type: this.name,
-            attrs,
-            content: [{ type: 'paragraph' }],
-          });
+        ({ tr, state, dispatch, commands }) => {
+          // Create the toggle node with a paragraph inside
+          const toggleNode = state.schema.nodes.toggle.create(
+            { isOpen: attrs.isOpen || false },
+            [state.schema.nodes.paragraph.create()]
+          );
+          
+          if (dispatch) {
+            // Insert at the end of the document to ensure it's a sibling, not nested
+            const docSize = state.doc.content.size;
+            tr.insert(docSize, toggleNode);
+            dispatch(tr);
+            
+            // Set selection inside the new toggle using commands
+            // Position docSize + 2 is the start of the paragraph inside the new toggle
+            commands.setTextSelection(docSize + 2);
+          }
+          return true;
         },
       toggleOpen:
         () =>
