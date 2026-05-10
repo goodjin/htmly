@@ -213,10 +213,11 @@ export function useLazyExtensionLoader(editor: () => Editor | null | undefined) 
   
   /**
    * Preload all lazy extensions (call on idle)
+   * Calls loadAndRegister to actually register extensions with the editor
    */
   async function preloadAll(): Promise<void> {
     const types: LazyExtensionType[] = ['footnote', 'embed', 'linkPreview'];
-    await Promise.all(types.map(type => loadExtension(type)));
+    await Promise.all(types.map(type => loadAndRegister(type)));
   }
   
   /**

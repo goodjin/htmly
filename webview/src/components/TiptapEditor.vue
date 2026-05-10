@@ -259,6 +259,13 @@ const editor = useEditor({
   },
   onUpdate({ editor }) {
     emit('update:modelValue', editor.getHTML());
+    
+    // Detect extension use to trigger lazy loading during editing
+    const content = editor.getHTML();
+    const extensionType = detectExtensionUse(content);
+    if (extensionType) {
+      console.log(`[TiptapEditor] Detected extension use: ${extensionType}`);
+    }
   },
 });
 
