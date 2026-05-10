@@ -40,6 +40,7 @@ import {
 import { ImageResizeExtension, imageResizeKey, type ResizeState } from '../extensions/imageResize';
 import { Callout } from '../extensions/Callout';
 import { Embed, toEmbedUrl } from '../extensions/Embed';
+import { TOCPlugin } from '../extensions/TOC';
 
 const props = withDefaults(defineProps<{
   modelValue: string;   // HTML string
@@ -118,6 +119,7 @@ const editor = useEditor({
     ImageResizeExtension,
     Callout,
     Embed,
+    TOCPlugin,
   ],
   editorProps: {
     attributes: { class: 'tiptap-editor' },

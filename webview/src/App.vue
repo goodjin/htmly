@@ -9,6 +9,7 @@ import CodeEditor from './components/CodeEditor.vue';
 import PreviewPane from './components/PreviewPane.vue';
 import SplitPane from './components/SplitPane.vue';
 import SearchBar from './components/SearchBar.vue';
+import TOCPanel from './components/TOCPanel.vue';
 
 const { onMessage, notifyReady, sendContentUpdate, sendModeChanged, isDark } = useVSCode();
 
@@ -50,6 +51,11 @@ function onVisualContentChange(bodyHtml: string) {
 
 const tiptapRef = ref<InstanceType<typeof TiptapEditor> | null>(null);
 const showSearch = ref(false);
+const showTOC = ref(false);
+
+function toggleTOC() {
+  showTOC.value = !showTOC.value;
+}
 
 // Format painter state
 const formatPainterActive = ref(false);
@@ -204,8 +210,10 @@ onBeforeUnmount(() => {
       :show-button-labels="settings.showButtonLabels"
       :auto-hide-toolbar-in-preview="settings.autoHideToolbarInPreview"
       :format-painter-active="formatPainterActive"
+      :show-toc="showTOC"
       @set-mode="setMode"
       @activate-format-painter="activateFormatPainter"
+      @toggle-toc="toggleTOC"
     />
 
     <div v-if="initialized" :key="mode" class="editor-area">
@@ -248,6 +256,12 @@ onBeforeUnmount(() => {
     </div>
 
     <div class="loading" v-else>Loading…</div>
+
+    <!-- Table of Contents Panel -->
+    <TOCPanel
+      v-if="showTOC && mode === 'wysiwyg'"
+      :editor="tiptapRef?.editor"
+    />
   </div>
 </template>
 

@@ -16,11 +16,13 @@ const props = defineProps<{
   showButtonLabels: boolean;
   autoHideToolbarInPreview: boolean;
   formatPainterActive?: boolean;
+  showTOC?: boolean;
 }>();
 
 const emit = defineEmits<{
   setMode: [mode: EditorMode];
   activateFormatPainter: [multiUse: boolean];
+  toggleTOC: [];
 }>();
 
 // Embed dialog state
@@ -405,6 +407,14 @@ function onCellBgColorChange(e: Event) {
         >
           <span class="btn-icon">🎨</span>
           <span class="btn-label">Paint</span>
+        </button>
+        <button
+          title="Table of Contents"
+          :class="{ active: showTOC }"
+          @mousedown="btn(() => emit('toggleTOC'))"
+        >
+          <span class="btn-icon">📑</span>
+          <span class="btn-label">TOC</span>
         </button>
       </div>
 
