@@ -150,6 +150,12 @@ export const slashCommandItems: SlashCommandItem[] = [
     icon: '🔗',
     command: (editor) => openLinkPreviewDialog(editor),
   },
+  {
+    title: 'Block Background',
+    description: 'Apply background color to block',
+    icon: '🎨',
+    command: (editor) => editor.chain().focus().setBlockBackground('#fef3c7').run(),
+  },
 ];
 
 export const SlashCommandsExtension = Extension.create({

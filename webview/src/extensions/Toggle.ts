@@ -41,9 +41,10 @@ export const Toggle = Node.create({
   renderHTML({ node, HTMLAttributes }) {
     const isOpen = node.attrs.isOpen;
     
-    // Return just the details element with content - 
-    // the wrapper and summary will be added by the NodeView
+    // Return just the details element - the NodeView handles adding the summary element
     // For HTML serialization, we output a simple structure that can be parsed back
+    // Note: The summary element is added by the NodeView in the DOM, but for serialization
+    // we just output the details with content so it can be parsed correctly
     if (isOpen) {
       return ['details', mergeAttributes({ open: '' }, HTMLAttributes), 0];
     }

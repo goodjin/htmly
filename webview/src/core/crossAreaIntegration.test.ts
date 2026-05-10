@@ -6,6 +6,11 @@ import { Embed, toEmbedUrl } from '../extensions/Embed';
 import { Columns } from '../extensions/Columns';
 import { Column } from '../extensions/Column';
 import { TOCPlugin } from '../extensions/TOC';
+import { Toggle } from '../extensions/Toggle';
+import { Footnote, Footnotes, FootnotePlugin } from '../extensions/Footnote';
+import { CoverImage } from '../extensions/CoverImage';
+import { LinkPreview } from '../extensions/LinkPreview';
+import { BlockBackground } from '../extensions/BlockBackground';
 
 describe('Cross-Area Integration', () => {
   let editor: Editor;
@@ -19,8 +24,17 @@ describe('Cross-Area Integration', () => {
         Columns,
         Column,
         TOCPlugin,
+        Toggle,
+        Footnote,
+        Footnotes,
+        CoverImage,
+        LinkPreview,
+        BlockBackground,
       ],
       content: '',
+      addProseMirrorPlugins() {
+        return [FootnotePlugin];
+      },
     });
   };
 
@@ -414,5 +428,438 @@ describe('Embed URL Sanitization', () => {
   it('rejects disallowed domain', () => {
     const embedUrl = toEmbedUrl('https://example.com/video');
     expect(embedUrl).toBeNull();
+  });
+});
+
+describe('Integration - All 5 Block Types', () => {
+  let editor: Editor;
+
+  const createEditorWithAllExtensions = () => {
+    return new Editor({
+      extensions: [
+        StarterKit,
+        Callout,
+        Embed,
+        Columns,
+        Column,
+        TOCPlugin,
+        Toggle,
+        Footnote,
+        Footnotes,
+        CoverImage,
+        LinkPreview,
+        BlockBackground,
+      ],
+      content: '',
+      addProseMirrorPlugins() {
+        return [FootnotePlugin];
+      },
+    });
+  };
+
+  beforeEach(() => {
+    editor = createEditorWithAllExtensions();
+  });
+
+  describe('All 5 Block Types Coexist', () => {
+    it('toggle and cover image coexist', () => {
+      // Insert cover image first (goes to document top)
+      editor.commands.insertCoverImage({
+        src: 'https://example.com/cover.jpg',
+        alt: 'Cover image',
+      });
+      
+      // Insert toggle
+      editor.commands.insertToggle();
+      editor.commands.insertContent('Toggle content inside');
+      
+      const html = editor.getHTML();
+      
+      // Verify both block types are present
+      expect(html).toContain('details'); // Toggle
+      expect(html).toContain('cover-image'); // Cover image
+    });
+
+    it('toggle standalone works', () => {
+      // Test toggle alone without other blocks
+      editor.commands.insertToggle();
+      editor.commands.insertContent('Toggle content inside');
+      
+      const html = editor.getHTML();
+      
+      // Toggle should have details wrapper
+      expect(html).toContain('details');
+      expect(html).toContain('Toggle content inside');
+    });
+
+    it('toggle after cover image works', () => {
+      // Insert cover image first
+      editor.commands.insertCoverImage({
+        src: 'https://example.com/cover.jpg',
+        alt: 'Cover',
+      });
+      
+      // Then insert toggle
+      editor.commands.insertToggle();
+      editor.commands.insertContent('Toggle content inside');
+      
+      const html = editor.getHTML();
+      
+      // Toggle should still have details wrapper
+      expect(html).toContain('details');
+      expect(html).toContain('cover-image');
+    });
+
+    it('toggle + block background', () => {
+      // Test toggle with block background
+      editor.commands.insertToggle();
+      editor.commands.insertContent('Toggle content inside');
+      
+      // Add block background (stays inside toggle's paragraph)
+      editor.commands.setBlockBackground('#fef3c7');
+      editor.commands.insertContent('Colored block content');
+      
+      const html = editor.getHTML();
+      
+      expect(html).toContain('details'); // Toggle
+      expect(html).toContain('data-bg'); // Block background
+    });
+    
+    it('all 5 block types coexist in document', () => {
+      // Insert cover image first (goes to document top)
+      editor.commands.insertCoverImage({
+        src: 'https://example.com/cover.jpg',
+        alt: 'Cover image',
+      });
+      
+      // Insert toggle
+      editor.commands.insertToggle();
+      editor.commands.insertContent('Toggle content inside');
+      
+      // Note: We can't use setParagraph inside toggle, so apply block background to the toggle's paragraph
+      editor.commands.setBlockBackground('#fef3c7');
+      
+      // Move cursor outside toggle by splitting (simulate pressing Enter)
+      editor.commands.splitBlock();
+      // Now we're in a new paragraph outside the toggle
+      editor.commands.setBlockBackground('#fef3c7');
+      editor.commands.insertContent('Colored block content');
+      
+      // Insert footnote
+      editor.commands.insertFootnote();
+      editor.commands.insertContent('Footnote text');
+      
+      // Insert link preview
+      editor.commands.insertLinkPreview({
+        url: 'https://example.com',
+        title: 'Example Site',
+        hostname: 'example.com',
+      });
+      
+      const html = editor.getHTML();
+      
+      // Verify all 5 block types are present
+      expect(html).toContain('details'); // Toggle
+      expect(html).toContain('data-bg'); // Block background
+      expect(html).toContain('footnote-ref'); // Footnote
+      expect(html).toContain('cover-image'); // Cover image
+      expect(html).toContain('link-preview'); // Link preview
+    });
+
+    it('all 5 block types survive WYSIWYG-Source-Preview-WYSIWYG cycle', () => {
+      // Insert all 5 block types
+      editor.commands.insertCoverImage({
+        src: 'https://example.com/cover.jpg',
+        alt: 'Cover',
+      });
+      editor.commands.insertToggle();
+      editor.commands.insertContent('Toggle content');
+      // Apply block background to toggle's paragraph
+      editor.commands.setBlockBackground('#fef3c7');
+      // Split to create a new paragraph outside toggle
+      editor.commands.splitBlock();
+      editor.commands.insertContent('Colored');
+      editor.commands.insertFootnote();
+      editor.commands.insertContent('Footnote text');
+      editor.commands.insertLinkPreview({
+        url: 'https://example.com',
+        title: 'Example',
+        hostname: 'example.com',
+      });
+      
+      // WYSIWYG -> Source (get HTML)
+      const sourceHtml = editor.getHTML();
+      
+      // Source -> Preview (HTML is already ready)
+      // Preview -> WYSIWYG (set content)
+      const editor2 = createEditorWithAllExtensions();
+      editor2.commands.setContent(sourceHtml);
+      
+      const html2 = editor2.getHTML();
+      
+      // Verify all 5 block types preserved
+      expect(html2).toContain('details'); // Toggle
+      expect(html2).toContain('data-bg'); // Block background
+      expect(html2).toContain('footnote-ref'); // Footnote
+      expect(html2).toContain('cover-image'); // Cover image
+      expect(html2).toContain('link-preview'); // Link preview
+    });
+  });
+
+  describe('Toggle Block Integration', () => {
+    it('toggle block survives mode cycle', () => {
+      editor.commands.insertToggle();
+      editor.commands.insertContent('Toggle content inside');
+      
+      const html1 = editor.getHTML();
+      expect(html1).toContain('<details');
+      // Note: summary is added by NodeView in DOM, not in serialized HTML
+      
+      const editor2 = createEditorWithAllExtensions();
+      editor2.commands.setContent(html1);
+      
+      const html2 = editor2.getHTML();
+      expect(html2).toContain('<details');
+      expect(html2).toContain('Toggle content inside');
+    });
+
+    it('toggle can contain other block types', () => {
+      editor.commands.insertToggle();
+      editor.commands.insertContent('Before callout');
+      editor.commands.insertCallout();
+      editor.commands.insertContent('Callout inside toggle');
+      
+      const html = editor.getHTML();
+      expect(html).toContain('<details');
+      expect(html).toContain('class="callout"');
+      
+      // Round-trip
+      const editor2 = createEditorWithAllExtensions();
+      editor2.commands.setContent(html);
+      
+      const html2 = editor2.getHTML();
+      expect(html2).toContain('<details');
+      expect(html2).toContain('class="callout"');
+    });
+  });
+
+  describe('Footnote Integration', () => {
+    it('footnotes survive mode cycle', () => {
+      editor.commands.insertContent('Some text with ');
+      editor.commands.insertFootnote();
+      editor.commands.insertContent(' more text');
+      
+      const html1 = editor.getHTML();
+      expect(html1).toContain('footnote-ref');
+      
+      const editor2 = createEditorWithAllExtensions();
+      editor2.commands.setContent(html1);
+      
+      const html2 = editor2.getHTML();
+      expect(html2).toContain('footnote-ref');
+    });
+
+    it('multiple footnotes work correctly', () => {
+      editor.commands.insertContent('First');
+      editor.commands.insertFootnote();
+      editor.commands.insertContent('Second');
+      editor.commands.insertFootnote();
+      editor.commands.insertContent('Third');
+      editor.commands.insertFootnote();
+      
+      const html1 = editor.getHTML();
+      
+      // Count footnote markers
+      const footnoteMatches = html1.match(/class="footnote-ref"/g) || [];
+      expect(footnoteMatches.length).toBe(3);
+      
+      const editor2 = createEditorWithAllExtensions();
+      editor2.commands.setContent(html1);
+      
+      const html2 = editor2.getHTML();
+      expect(html2).toContain('href="#fn1"');
+      expect(html2).toContain('href="#fn2"');
+      expect(html2).toContain('href="#fn3"');
+    });
+  });
+
+  describe('Cover Image Integration', () => {
+    it('cover image survives mode cycle', () => {
+      editor.commands.insertCoverImage({
+        src: 'https://example.com/cover.jpg',
+        alt: 'Cover image alt text',
+        caption: 'Caption text',
+      });
+      editor.commands.insertContent('Content below cover');
+      
+      const html1 = editor.getHTML();
+      expect(html1).toContain('class="cover-image"');
+      expect(html1).toContain('cover.jpg');
+      
+      const editor2 = createEditorWithAllExtensions();
+      editor2.commands.setContent(html1);
+      
+      const html2 = editor2.getHTML();
+      expect(html2).toContain('class="cover-image"');
+      expect(html2).toContain('cover.jpg');
+    });
+
+    it('single cover image per document enforced', () => {
+      editor.commands.insertCoverImage({
+        src: 'https://example.com/first.jpg',
+      });
+      editor.commands.insertContent('Middle content');
+      editor.commands.insertCoverImage({
+        src: 'https://example.com/second.jpg',
+      });
+      
+      const html = editor.getHTML();
+      
+      // Should have only one cover image
+      const coverMatches = html.match(/class="cover-image"/g) || [];
+      expect(coverMatches.length).toBe(1);
+      expect(html).toContain('second.jpg');
+    });
+  });
+
+  describe('Link Preview Integration', () => {
+    it('link preview survives mode cycle', () => {
+      editor.commands.insertLinkPreview({
+        url: 'https://example.com',
+        title: 'Example Site',
+        description: 'A great website',
+        image: 'https://example.com/image.jpg',
+        hostname: 'example.com',
+        fetched: true,
+      });
+      
+      const html1 = editor.getHTML();
+      expect(html1).toContain('class="link-preview"');
+      expect(html1).toContain('example.com');
+      
+      const editor2 = createEditorWithAllExtensions();
+      editor2.commands.setContent(html1);
+      
+      const html2 = editor2.getHTML();
+      expect(html2).toContain('class="link-preview"');
+      expect(html2).toContain('Example Site');
+    });
+
+    it('fallback link preview works when not fetched', () => {
+      editor.commands.insertLinkPreview({
+        url: 'https://example.com',
+        hostname: 'example.com',
+        fetched: false,
+      });
+      
+      const html1 = editor.getHTML();
+      expect(html1).toContain('link-preview--fallback');
+      
+      const editor2 = createEditorWithAllExtensions();
+      editor2.commands.setContent(html1);
+      
+      const html2 = editor2.getHTML();
+      expect(html2).toContain('link-preview--fallback');
+    });
+  });
+
+  describe('Block Background Integration', () => {
+    it('block background survives mode cycle', () => {
+      editor.commands.setBlockBackground('#fef3c7');
+      editor.commands.insertContent('Colored text');
+      
+      const html1 = editor.getHTML();
+      expect(html1).toContain('data-bg');
+      
+      const editor2 = createEditorWithAllExtensions();
+      editor2.commands.setContent(html1);
+      
+      const html2 = editor2.getHTML();
+      expect(html2).toContain('data-bg');
+    });
+
+    it('block background can be applied to headings', () => {
+      editor.commands.setHeading({ level: 2 });
+      editor.commands.setBlockBackground('#e0e7ff');
+      editor.commands.insertContent('Colored heading');
+      
+      const html = editor.getHTML();
+      expect(html).toContain('data-bg');
+      expect(html).toContain('<h2');
+    });
+  });
+
+  describe('Search Inside All Block Types', () => {
+    it('search finds text inside toggle', () => {
+      editor.commands.insertToggle();
+      editor.commands.insertContent('Unique toggle search text');
+      
+      const searchTerm = 'toggle search';
+      let found = false;
+      editor.state.doc.descendants((node, pos) => {
+        if (node.isText && node.text?.toLowerCase().includes(searchTerm)) {
+          found = true;
+        }
+      });
+      expect(found).toBe(true);
+    });
+
+    it('search finds text in cover image alt', () => {
+      editor.commands.insertCoverImage({
+        src: 'https://example.com/cover.jpg',
+        alt: 'Unique cover alt text',
+      });
+      
+      // Alt text is preserved in the HTML
+      const html = editor.getHTML();
+      expect(html).toContain('Unique cover alt text');
+    });
+
+    it('search finds text in link preview title', () => {
+      editor.commands.insertLinkPreview({
+        url: 'https://example.com',
+        title: 'Unique link preview title',
+        hostname: 'example.com',
+      });
+      
+      const html = editor.getHTML();
+      expect(html).toContain('Unique link preview title');
+    });
+  });
+
+  describe('Nested Block Types', () => {
+    it('toggle inside columns works', () => {
+      editor.commands.insertColumns();
+      editor.commands.insertToggle();
+      editor.commands.insertContent('Toggle in column');
+      
+      const html = editor.getHTML();
+      expect(html).toContain('class="columns"');
+      expect(html).toContain('<details');
+      
+      const editor2 = createEditorWithAllExtensions();
+      editor2.commands.setContent(html);
+      
+      const html2 = editor2.getHTML();
+      expect(html2).toContain('class="columns"');
+      expect(html2).toContain('<details');
+    });
+
+    it('callout inside toggle works', () => {
+      editor.commands.insertToggle();
+      editor.commands.insertCallout({ icon: '🔥' });
+      editor.commands.insertContent('Callout in toggle');
+      
+      const html = editor.getHTML();
+      expect(html).toContain('<details');
+      expect(html).toContain('class="callout"');
+      
+      const editor2 = createEditorWithAllExtensions();
+      editor2.commands.setContent(html);
+      
+      const html2 = editor2.getHTML();
+      expect(html2).toContain('<details');
+      expect(html2).toContain('class="callout"');
+    });
   });
 });

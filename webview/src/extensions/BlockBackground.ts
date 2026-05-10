@@ -50,9 +50,8 @@ export const BlockBackground = Mark.create({
       {
         tag: 'span.block-background',
       },
-      {
-        tag: 'div[data-bg]',
-      },
+      // Note: We don't parse div[data-bg] here to avoid conflicting with 
+      // Callout which uses data-bg for its own background color
     ];
   },
 
