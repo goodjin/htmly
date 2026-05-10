@@ -46,6 +46,7 @@ import { Columns } from '../extensions/Columns';
 import { Column } from '../extensions/Column';
 import { ColumnResizeExtension } from '../extensions/columnResize';
 import { Toggle } from '../extensions/Toggle';
+import { BlockBackground } from '../extensions/BlockBackground';
 
 const props = withDefaults(defineProps<{
   modelValue: string;   // HTML string
@@ -129,6 +130,7 @@ const editor = useEditor({
     Column,
     ColumnResizeExtension,
     Toggle,
+    BlockBackground,
   ],
   editorProps: {
     attributes: { class: 'tiptap-editor' },
@@ -518,6 +520,27 @@ function onCalloutIconChange(emoji: string) {
   editor.value?.chain().focus().updateCalloutIcon(emoji).run();
 }
 
+// Block background color for bubble menu
+const blockBgColor = computed(() => {
+  if (!editor.value) return '#ffffff';
+  const attrs = editor.value.getAttributes('blockBackground');
+  return attrs.color ?? null;
+});
+
+const hasBlockBgColor = computed(() => {
+  if (!editor.value) return false;
+  return editor.value.isActive('blockBackground');
+});
+
+function onBlockBgColorChange(e: Event) {
+  const value = (e.target as HTMLInputElement).value;
+  editor.value?.chain().focus().setBlockBackground(value).run();
+}
+
+function onClearBlockBgColor() {
+  editor.value?.chain().focus().unsetBlockBackground().run();
+}
+
 // Embed dialog state
 const embedDialogVisible = ref(false);
 
@@ -767,6 +790,30 @@ function onEditorDrop(e: DragEvent) {
     >
       <mark>H</mark>
     </button>
+    <!-- Block background color picker - visible for any block -->
+    <label
+      class="block-bg-picker"
+      title="Block Background Color"
+    >
+      <span class="color-preview" :class="{ 'has-color': hasBlockBgColor }" :style="{ backgroundColor: blockBgColor || 'transparent' }">
+        <span v-if="!hasBlockBgColor" class="bg-icon">BG</span>
+      </span>
+      <input
+        type="color"
+        class="color-input"
+        :value="blockBgColor || '#ffffff'"
+        @input="onBlockBgColorChange"
+      />
+    </label>
+    <!-- Clear block background color - only visible when block has bg color -->
+    <button
+      v-if="hasBlockBgColor"
+      title="Clear Block Background Color"
+      class="clear-bg-btn"
+      @mousedown="btn(onClearBlockBgColor)"
+    >
+      ✕
+    </button>
     <!-- Callout color picker - only visible when in a callout -->
     <label
       v-if="editor.isActive('callout')"
@@ -917,6 +964,95 @@ function onEditorDrop(e: DragEvent) {
   top: 0;
   opacity: 1;
   cursor: pointer;
+}
+
+/* Block background color picker in bubble menu */
+.block-bg-picker {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 4px 6px;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  position: relative;
+  margin-left: 4px;
+}
+
+.block-bg-picker:hover {
+  background: var(--vscode-toolbar-hoverBackground, #2a2d2e);
+  border-color: var(--vscode-panel-border, #3c3c3c);
+}
+
+.block-bg-picker .color-preview {
+  width: 20px;
+  height: 20px;
+  border-radius: 3px;
+  border: 1px solid var(--vscode-panel-border, #3c3c3c);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.block-bg-picker .color-preview.has-color {
+  border-color: var(--vscode-focusBorder, #0e639c);
+}
+
+.block-bg-picker .bg-icon {
+  font-size: 8px;
+  font-weight: 600;
+  color: var(--vscode-editor-foreground, #888);
+  opacity: 0.7;
+}
+
+.block-bg-picker .color-input {
+  width: 0;
+  height: 0;
+  padding: 0;
+  border: 0;
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.block-bg-picker:focus-within .color-input,
+.block-bg-picker:active .color-input {
+  pointer-events: auto;
+  width: 24px;
+  height: 24px;
+  left: 0;
+  top: 0;
+  opacity: 1;
+  cursor: pointer;
+}
+
+/* Clear background color button */
+.clear-bg-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--vscode-editor-foreground, #ccc);
+  border-radius: 3px;
+  padding: 4px 6px;
+  cursor: pointer;
+  font-size: 12px;
+  min-width: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 2px;
+}
+
+.clear-bg-btn:hover {
+  background: var(--vscode-toolbar-hoverBackground, #2a2d2e);
+  border-color: var(--vscode-panel-border, #3c3c3c);
+}
+
+/* Block background mark styling */
+:deep(.block-background) {
+  border-radius: 3px;
+  padding: 2px 0;
 }
 
 /* Drag handle styles */

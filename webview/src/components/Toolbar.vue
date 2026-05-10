@@ -108,6 +108,18 @@ const currentCellBgColor = computed(() => {
   return attrs.backgroundColor ?? '#ffffff';
 });
 
+// Block background color computed state
+const currentBlockBgColor = computed(() => {
+  if (!props.editor) return null;
+  const attrs = props.editor.getAttributes('blockBackground');
+  return attrs.color ?? null;
+});
+
+const hasBlockBgColor = computed(() => {
+  if (!props.editor) return false;
+  return props.editor.isActive('blockBackground');
+});
+
 const linkDialogVisible = ref(false);
 const linkInitialUrl = ref('');
 const linkInitialText = ref('');
@@ -133,6 +145,15 @@ function setBlockStyle(value: string) {
 function onColorChange(e: Event) {
   const value = (e.target as HTMLInputElement).value;
   props.editor?.chain().focus().setColor(value).run();
+}
+
+function onBlockBgColorChange(e: Event) {
+  const value = (e.target as HTMLInputElement).value;
+  props.editor?.chain().focus().setBlockBackground(value).run();
+}
+
+function onClearBlockBgColor() {
+  props.editor?.chain().focus().unsetBlockBackground().run();
 }
 
 function openLinkDialog() {
@@ -381,6 +402,31 @@ function onCellBgColorChange(e: Event) {
         >
           <span class="btn-icon">✕</span>
           <span class="btn-label">No Color</span>
+        </button>
+        <label
+          class="color-picker-label"
+          title="Block Background Color"
+        >
+          <span class="btn-icon">
+            <span class="block-bg-icon" :class="{ 'has-color': hasBlockBgColor }" :style="{ backgroundColor: currentBlockBgColor || 'transparent' }">
+              <span v-if="!hasBlockBgColor" class="bg-text">BG</span>
+            </span>
+          </span>
+          <input
+            type="color"
+            class="color-input"
+            :value="currentBlockBgColor || '#ffffff'"
+            @input="onBlockBgColorChange"
+          />
+          <span class="btn-label">Block BG</span>
+        </label>
+        <button
+          v-if="hasBlockBgColor"
+          title="Clear Block Background Color"
+          @mousedown="btn(onClearBlockBgColor)"
+        >
+          <span class="btn-icon">✕</span>
+          <span class="btn-label">Clear BG</span>
         </button>
       </div>
 
@@ -757,5 +803,28 @@ button.active {
   border-radius: 2px;
   border: 1px solid var(--vscode-panel-border, #3c3c3c);
   display: inline-block;
+}
+
+/* Block background color icon */
+.block-bg-icon {
+  width: 16px;
+  height: 16px;
+  border-radius: 2px;
+  border: 1px solid var(--vscode-panel-border, #3c3c3c);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.block-bg-icon.has-color {
+  border-color: var(--vscode-focusBorder, #0e639c);
+}
+
+.bg-text {
+  font-size: 7px;
+  font-weight: 600;
+  color: var(--vscode-editor-foreground, #888);
+  opacity: 0.7;
 }
 </style>
