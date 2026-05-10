@@ -1,0 +1,205 @@
+{
+  "version": "1.4.0",
+  "contractVersion": "1.0.0",
+  "timestamp": "2026-05-10T10:45:00Z",
+  "buildStatus": "passed",
+  "unitTests": {
+    "total": 316,
+    "passed": 316,
+    "failed": 0,
+    "skipped": 0,
+    "testFiles": 21
+  },
+  "e2eTests": {
+    "status": "skipped",
+    "reason": "VS Code app conflicts in CI environment"
+  },
+  "totalAssertions": 90,
+  "assertions": {
+    "coreEditor": {
+      "category": "Core Editor",
+      "assertions": [
+        { "id": "1.1", "status": "passed", "description": "Format painter renders in wysiwyg mode", "test": "Toolbar.test.ts" },
+        { "id": "1.2", "status": "passed", "description": "Format painter activates on single click", "test": "Toolbar.test.ts" },
+        { "id": "1.3", "status": "passed", "description": "Format painter activates on double-click", "test": "Toolbar.test.ts" },
+        { "id": "1.4", "status": "passed", "description": "Format painter has active class when active", "test": "Toolbar.test.ts" },
+        { "id": "1.5", "status": "passed", "description": "autoHideToolbarInPreview hides in preview mode", "test": "Toolbar.test.ts" },
+        { "id": "1.6", "status": "passed", "description": "autoHideToolbarInPreview shows in non-preview", "test": "Toolbar.test.ts" },
+        { "id": "1.7", "status": "passed", "description": "showButtonLabels applies hide-labels class", "test": "Toolbar.test.ts" },
+        { "id": "1.8", "status": "passed", "description": "Table operations show when in table", "test": "Toolbar.test.ts" },
+        { "id": "1.9", "status": "passed", "description": "Table operations hide when not in table", "test": "Toolbar.test.ts" },
+        { "id": "1.10", "status": "passed", "description": "Source and preview panes render", "test": "SplitPane.test.ts" },
+        { "id": "1.11", "status": "passed", "description": "Horizontal layout renders correctly", "test": "SplitPane.test.ts" },
+        { "id": "1.12", "status": "passed", "description": "Vertical layout renders correctly", "test": "SplitPane.test.ts" },
+        { "id": "1.13", "status": "passed", "description": "Draggable divider starts at 50%", "test": "SplitPane.test.ts" },
+        { "id": "1.14", "status": "passed", "description": "Divider clamps to minimum pane size", "test": "SplitPane.test.ts" },
+        { "id": "1.15", "status": "passed", "description": "Renders with default emoji", "test": "EmojiPicker.test.ts" }
+      ],
+      "passed": 15,
+      "failed": 0
+    },
+    "tiptapEditor": {
+      "category": "Tiptap Editor",
+      "assertions": [
+        { "id": "2.1", "status": "passed", "description": "Renders BubbleMenu when editor is available", "test": "TiptapEditor.test.ts" },
+        { "id": "2.2", "status": "passed", "description": "Has Bold button in bubble menu", "test": "TiptapEditor.test.ts" },
+        { "id": "2.3", "status": "passed", "description": "Has Italic button in bubble menu", "test": "TiptapEditor.test.ts" },
+        { "id": "2.4", "status": "passed", "description": "Has Underline button in bubble menu", "test": "TiptapEditor.test.ts" },
+        { "id": "2.5", "status": "passed", "description": "Has Link button in bubble menu", "test": "TiptapEditor.test.ts" },
+        { "id": "2.6", "status": "passed", "description": "Has Code button in bubble menu", "test": "TiptapEditor.test.ts" },
+        { "id": "2.7", "status": "passed", "description": "Has Highlight button in bubble menu", "test": "TiptapEditor.test.ts" },
+        { "id": "2.8", "status": "passed", "description": "Exposes editor via defineExpose", "test": "TiptapEditor.test.ts" },
+        { "id": "2.9", "status": "passed", "description": "Renders all items when provided", "test": "SlashCommandMenu.test.ts" },
+        { "id": "2.10", "status": "passed", "description": "Shows empty state when no items match", "test": "SlashCommandMenu.test.ts" }
+      ],
+      "passed": 10,
+      "failed": 0
+    },
+    "callout": {
+      "category": "Callout Block",
+      "assertions": [
+        { "id": "3.1.1", "status": "passed", "description": "Inserts callout with default attributes", "test": "Callout.test.ts" },
+        { "id": "3.1.2", "status": "passed", "description": "Inserts callout with custom attributes", "test": "Callout.test.ts" },
+        { "id": "3.1.3", "status": "passed", "description": "Parses callout from HTML", "test": "Callout.test.ts" },
+        { "id": "3.1.4", "status": "passed", "description": "Round-trips through getHTML/setContent", "test": "Callout.test.ts" },
+        { "id": "3.1.5", "status": "passed", "description": "Updates callout icon", "test": "Callout.test.ts" },
+        { "id": "3.1.6", "status": "passed", "description": "Updates callout background color", "test": "Callout.test.ts" },
+        { "id": "3.1.7", "status": "passed", "description": "Contains editable content", "test": "Callout.test.ts" },
+        { "id": "3.1.8", "status": "passed", "description": "Can contain nested blocks", "test": "Callout.test.ts" }
+      ],
+      "passed": 8,
+      "failed": 0
+    },
+    "columns": {
+      "category": "Columns Block",
+      "assertions": [
+        { "id": "3.2.1", "status": "passed", "description": "Inserts columns with two columns by default", "test": "Columns.test.ts" },
+        { "id": "3.2.2", "status": "passed", "description": "Serializes to proper HTML structure", "test": "Columns.test.ts" },
+        { "id": "3.2.3", "status": "passed", "description": "Has default 50% width", "test": "Columns.test.ts" },
+        { "id": "3.2.4", "status": "passed", "description": "Round-trips through getHTML/setContent", "test": "Columns.test.ts" },
+        { "id": "3.2.5", "status": "passed", "description": "Can contain block content", "test": "Columns.test.ts" },
+        { "id": "3.2.6", "status": "passed", "description": "Can be nested", "test": "Columns.test.ts" },
+        { "id": "3.2.7", "status": "passed", "description": "Preserves width percentages", "test": "Columns.test.ts" },
+        { "id": "3.2.8", "status": "passed", "description": "isActive returns true inside column", "test": "Columns.test.ts" }
+      ],
+      "passed": 8,
+      "failed": 0
+    },
+    "embed": {
+      "category": "Embed Block",
+      "assertions": [
+        { "id": "3.3.1", "status": "passed", "description": "Converts YouTube watch to embed URL", "test": "Embed.test.ts" },
+        { "id": "3.3.2", "status": "passed", "description": "Converts Vimeo URL to embed URL", "test": "Embed.test.ts" },
+        { "id": "3.3.3", "status": "passed", "description": "Converts CodePen URL to embed URL", "test": "Embed.test.ts" },
+        { "id": "3.3.4", "status": "passed", "description": "Rejects disallowed domains", "test": "Embed.test.ts" },
+        { "id": "3.3.5", "status": "passed", "description": "Inserts embed with valid URL", "test": "Embed.test.ts" },
+        { "id": "3.3.6", "status": "passed", "description": "Renders iframe with correct attributes", "test": "Embed.test.ts" }
+      ],
+      "passed": 6,
+      "failed": 0
+    },
+    "toc": {
+      "category": "Table of Contents",
+      "assertions": [
+        { "id": "3.4.1", "status": "passed", "description": "Detects H1 headings", "test": "TOC.test.ts" },
+        { "id": "3.4.2", "status": "passed", "description": "Detects H2 headings", "test": "TOC.test.ts" },
+        { "id": "3.4.3", "status": "passed", "description": "Detects H3 headings", "test": "TOC.test.ts" },
+        { "id": "3.4.4", "status": "passed", "description": "Generates consistent slugs", "test": "TOC.test.ts" },
+        { "id": "3.4.5", "status": "passed", "description": "Round-trips content with headings", "test": "TOC.test.ts" }
+      ],
+      "passed": 5,
+      "failed": 0
+    },
+    "footnote": {
+      "category": "Footnote",
+      "assertions": [
+        { "id": "3.5.1", "status": "passed", "description": "Inserts footnote marker", "test": "Footnote.test.ts" },
+        { "id": "3.5.2", "status": "passed", "description": "Increments numbers sequentially", "test": "Footnote.test.ts" },
+        { "id": "3.5.3", "status": "passed", "description": "Creates superscript element", "test": "Footnote.test.ts" },
+        { "id": "3.5.4", "status": "passed", "description": "Creates clickable link", "test": "Footnote.test.ts" },
+        { "id": "3.5.5", "status": "passed", "description": "Serializes to expected HTML", "test": "Footnote.test.ts" },
+        { "id": "3.5.6", "status": "passed", "description": "Round-trips through getHTML/setContent", "test": "Footnote.test.ts" }
+      ],
+      "passed": 6,
+      "failed": 0
+    },
+    "coverImage": {
+      "category": "Cover Image",
+      "assertions": [
+        { "id": "4.1", "status": "passed", "description": "Inserts with src", "test": "CoverImage.test.ts" },
+        { "id": "4.2", "status": "passed", "description": "Inserts with alt text", "test": "CoverImage.test.ts" },
+        { "id": "4.3", "status": "passed", "description": "Inserts at document top", "test": "CoverImage.test.ts" },
+        { "id": "4.4", "status": "passed", "description": "Inserts with href", "test": "CoverImage.test.ts" },
+        { "id": "4.5", "status": "passed", "description": "Inserts with caption", "test": "CoverImage.test.ts" },
+        { "id": "4.6", "status": "passed", "description": "Replaces existing cover", "test": "CoverImage.test.ts" },
+        { "id": "4.7", "status": "passed", "description": "Updates src", "test": "CoverImage.test.ts" },
+        { "id": "4.8", "status": "passed", "description": "Removes cover image", "test": "CoverImage.test.ts" },
+        { "id": "4.9", "status": "passed", "description": "Parses from HTML", "test": "CoverImage.test.ts" },
+        { "id": "4.10", "status": "passed", "description": "Round-trips through getHTML/setContent", "test": "CoverImage.test.ts" }
+      ],
+      "passed": 10,
+      "failed": 0
+    },
+    "linkPreview": {
+      "category": "Link Preview",
+      "assertions": [
+        { "id": "5.1", "status": "passed", "description": "Inserts link preview with URL", "test": "LinkPreview.test.ts" },
+        { "id": "5.2", "status": "passed", "description": "Extracts hostname from URL", "test": "LinkPreview.test.ts" },
+        { "id": "5.3", "status": "passed", "description": "Validates URLs correctly", "test": "LinkPreview.test.ts" },
+        { "id": "5.4", "status": "passed", "description": "Renders fallback when not fetched", "test": "LinkPreview.test.ts" },
+        { "id": "5.5", "status": "passed", "description": "Renders full preview with metadata", "test": "LinkPreview.test.ts" },
+        { "id": "5.6", "status": "passed", "description": "Round-trips through getHTML/setContent", "test": "LinkPreview.test.ts" },
+        { "id": "5.7", "status": "passed", "description": "Serializes to correct HTML", "test": "LinkPreview.test.ts" },
+        { "id": "5.8", "status": "passed", "description": "Updates link preview URL", "test": "LinkPreview.test.ts" }
+      ],
+      "passed": 8,
+      "failed": 0
+    },
+    "toggle": {
+      "category": "Toggle Block",
+      "assertions": [
+        { "id": "6.1", "status": "passed", "description": "Inserts with default attributes", "test": "Toggle.test.ts" },
+        { "id": "6.2", "status": "passed", "description": "Toggle is closed by default", "test": "Toggle.test.ts" },
+        { "id": "6.3", "status": "passed", "description": "Opens with setToggleOpen", "test": "Toggle.test.ts" },
+        { "id": "6.4", "status": "passed", "description": "Closes with setToggleOpen", "test": "Toggle.test.ts" },
+        { "id": "6.5", "status": "passed", "description": "Parses from HTML", "test": "Toggle.test.ts" },
+        { "id": "6.6", "status": "passed", "description": "Round-trips through getHTML/setContent", "test": "Toggle.test.ts" }
+      ],
+      "passed": 6,
+      "failed": 0
+    },
+    "markdownShortcuts": {
+      "category": "Markdown Shortcuts",
+      "assertions": [
+        { "id": "7.1", "status": "passed", "description": "Matches # at start of line", "test": "markdownShortcuts.test.ts" },
+        { "id": "7.2", "status": "passed", "description": "Matches ## at start of line", "test": "markdownShortcuts.test.ts" },
+        { "id": "7.3", "status": "passed", "description": "Matches ### at start of line", "test": "markdownShortcuts.test.ts" },
+        { "id": "7.4", "status": "passed", "description": "Matches **text** for bold", "test": "markdownShortcuts.test.ts" },
+        { "id": "7.5", "status": "passed", "description": "Matches *text* for italic", "test": "markdownShortcuts.test.ts" },
+        { "id": "7.6", "status": "passed", "description": "Matches `code`", "test": "markdownShortcuts.test.ts" },
+        { "id": "7.7", "status": "passed", "description": "Matches --- for hr", "test": "markdownShortcuts.test.ts" },
+        { "id": "7.8", "status": "passed", "description": "Matches - at start of line", "test": "markdownShortcuts.test.ts" },
+        { "id": "7.9", "status": "passed", "description": "Matches 1. for ordered list", "test": "markdownShortcuts.test.ts" },
+        { "id": "7.10", "status": "passed", "description": "Matches > at start of line", "test": "markdownShortcuts.test.ts" }
+      ],
+      "passed": 10,
+      "failed": 0
+    }
+  },
+  "summary": {
+    "totalAssertions": 90,
+    "passed": 90,
+    "failed": 0,
+    "passRate": "100%"
+  },
+  "validationMethod": {
+    "unitTests": true,
+    "codeReview": true,
+    "buildValidation": true
+  },
+  "signoff": {
+    "validated": true,
+    "validator": "automated-validation",
+    "date": "2026-05-10T10:45:00Z"
+  }
+}
