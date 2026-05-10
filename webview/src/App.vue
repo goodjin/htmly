@@ -4,7 +4,7 @@ import type { EditorMode, HtmlySettings } from '../../src/shared/types';
 import { useVSCode } from './composables/useVSCode';
 import { extractBodyContent, replaceBodyContent } from './core/htmlUtils';
 import Toolbar from './components/Toolbar.vue';
-import TiptapEditor from './components/TiptapEditor.vue';
+import TiptapEditor, { type CursorPosition } from './components/TiptapEditor.vue';
 import CodeEditor from './components/CodeEditor.vue';
 import PreviewPane from './components/PreviewPane.vue';
 import SplitPane from './components/SplitPane.vue';
@@ -52,6 +52,13 @@ function onVisualContentChange(bodyHtml: string) {
 const tiptapRef = ref<InstanceType<typeof TiptapEditor> | null>(null);
 const showSearch = ref(false);
 const showTOC = ref(false);
+
+// Cursor position for scroll sync
+const cursorPosition = ref<CursorPosition | null>(null);
+
+function onCursorPositionUpdate(position: CursorPosition) {
+  cursorPosition.value = position;
+}
 
 function toggleTOC() {
   showTOC.value = !showTOC.value;
@@ -236,12 +243,14 @@ onBeforeUnmount(() => {
         :format-painter-state="formatPainterState"
         @update:model-value="onVisualContentChange"
         @format-painter-applied="onFormatPainterApplied"
+        @cursor-position-update="onCursorPositionUpdate"
       />
       <SplitPane
         v-else-if="mode === 'split'"
         :content="content"
         :is-dark="isDark"
         :split-direction="settings.splitScreenDirection"
+        :cursor-position="cursorPosition"
         @update:content="onContentChange"
       />
       <CodeEditor
@@ -253,6 +262,7 @@ onBeforeUnmount(() => {
       <PreviewPane
         v-else
         :html="content"
+        :cursor-position="cursorPosition"
       />
     </div>
 

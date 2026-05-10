@@ -69,7 +69,20 @@ const props = withDefaults(defineProps<{
 const emit = defineEmits<{
   'update:modelValue': [html: string];
   'format-painter-applied': [];
+  'cursor-position-update': [position: CursorPosition];
 }>();
+
+// Cursor position interface for scroll sync
+export interface CursorPosition {
+  /** Position as percentage (0-1) through the document */
+  percentage: number;
+  /** Character offset in the document */
+  offset: number;
+  /** Block index (for more precise sync) */
+  blockIndex: number;
+  /** Total blocks in document */
+  totalBlocks: number;
+}
 
 // Format painter state interface
 interface FormatPainterState {
@@ -245,6 +258,67 @@ const editor = useEditor({
     emit('update:modelValue', editor.getHTML());
   },
 });
+
+// Track cursor position for scroll sync
+let lastCursorOffset = -1;
+
+function calculateCursorPosition(): CursorPosition {
+  if (!editor.value) {
+    return { percentage: 0, offset: 0, blockIndex: 0, totalBlocks: 0 };
+  }
+
+  const { state } = editor.value;
+  const { selection } = state;
+  const { from } = selection;
+
+  // Get total document length
+  const docSize = state.doc.content.size;
+  if (docSize === 0) {
+    return { percentage: 0, offset: 0, blockIndex: 0, totalBlocks: 0 };
+  }
+
+  // Calculate percentage through document
+  const percentage = Math.min(1, Math.max(0, from / docSize));
+
+  // Count blocks up to current position
+  let blockIndex = 0;
+  let currentPos = 0;
+  state.doc.forEach((node, pos) => {
+    if (pos < from) {
+      blockIndex++;
+    }
+    currentPos = pos;
+  });
+
+  return {
+    percentage,
+    offset: from,
+    blockIndex,
+    totalBlocks: state.doc.childCount,
+  };
+}
+
+function emitCursorPosition() {
+  if (!editor.value) return;
+  
+  const position = calculateCursorPosition();
+  
+  // Only emit if position actually changed (to avoid unnecessary updates)
+  if (position.offset !== lastCursorOffset) {
+    lastCursorOffset = position.offset;
+    emit('cursor-position-update', position);
+  }
+}
+
+// Watch for selection changes to emit cursor position
+watch(
+  () => editor.value?.state.selection,
+  () => {
+    if (editor.value) {
+      emitCursorPosition();
+    }
+  }
+);
 
 // Sync external content changes (e.g. file changed on disk)
 watch(
@@ -479,7 +553,7 @@ function openCoverImageDialog() {
   openCoverDialog();
 }
 
-defineExpose({ editor, openCoverImageDialog });
+defineExpose({ editor, openCoverImageDialog, calculateCursorPosition });
 
 // Format painter: handle click to apply formatting
 function handleEditorClick(e: MouseEvent) {

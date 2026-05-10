@@ -1,8 +1,17 @@
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, nextTick } from 'vue';
+
+// Cursor position type for scroll sync
+interface CursorPosition {
+  percentage: number;
+  offset: number;
+  blockIndex: number;
+  totalBlocks: number;
+}
 
 const props = defineProps<{
   html: string;
+  cursorPosition?: CursorPosition;
 }>();
 
 type Device = 'desktop' | 'tablet' | 'mobile' | 'custom';
@@ -96,9 +105,75 @@ const frameStyle = computed(() => {
 
 const refreshKey = ref(0);
 
+// Ref for iframe element (used for scroll sync)
+const iframeRef = ref<HTMLIFrameElement | null>(null);
+
+// Scroll sync: track cursor position changes and scroll iframe accordingly
+let lastScrollPercentage = -1;
+
 function refresh() {
   refreshKey.value++;
+  // Reset scroll sync when content refreshes
+  lastScrollPercentage = -1;
 }
+
+/**
+ * Apply scroll sync based on cursor position.
+ * Uses smooth scrolling for better UX.
+ */
+function applyScrollSync(position: CursorPosition) {
+  if (!iframeRef.value || !position) return;
+  
+  // Avoid unnecessary scroll updates if percentage hasn't changed
+  if (position.percentage === lastScrollPercentage) return;
+  lastScrollPercentage = position.percentage;
+  
+  // Get the iframe's content document
+  const iframe = iframeRef.value;
+  const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
+  if (!iframeDoc) return;
+  
+  // Get the body/scrollable element
+  const scrollTarget = iframeDoc.documentElement || iframeDoc.body;
+  if (!scrollTarget) return;
+  
+  // Calculate target scroll position
+  const maxScroll = scrollTarget.scrollHeight - scrollTarget.clientHeight;
+  const targetScroll = maxScroll * position.percentage;
+  
+  // Apply smooth scroll with requestAnimationFrame for smooth animation
+  const startScroll = scrollTarget.scrollTop;
+  const scrollDelta = targetScroll - startScroll;
+  const duration = 200; // ms for smooth animation
+  const startTime = performance.now();
+  
+  function animateScroll(currentTime: number) {
+    const elapsed = currentTime - startTime;
+    const progress = Math.min(elapsed / duration, 1);
+    
+    // Ease-out cubic for smooth deceleration
+    const easeOut = 1 - Math.pow(1 - progress, 3);
+    
+    const currentScroll = startScroll + scrollDelta * easeOut;
+    scrollTarget.scrollTop = currentScroll;
+    
+    if (progress < 1) {
+      requestAnimationFrame(animateScroll);
+    }
+  }
+  
+  requestAnimationFrame(animateScroll);
+}
+
+// Watch for cursor position changes
+watch(() => props.cursorPosition, (newPosition) => {
+  if (newPosition) {
+    // Defer scroll to next tick to ensure iframe is loaded
+    nextTick(() => {
+      applyScrollSync(newPosition);
+    });
+  }
+}, { deep: true });
 
 /**
  * Inject preview styles into the HTML content for proper rendering of new blocks.
@@ -356,6 +431,7 @@ const previewContent = computed(() => {
         :data-dpr="currentPreset.dpr"
       >
         <iframe
+          ref="iframeRef"
           :key="refreshKey"
           class="preview-frame"
           :title="`HTML Preview - ${currentPreset.label} (${currentPreset.width}px @ ${currentPreset.dpr}x)`"

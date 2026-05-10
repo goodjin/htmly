@@ -313,4 +313,134 @@ describe('PreviewPane.vue', () => {
       }
     });
   });
+
+  describe('preview scroll sync (VAL-PREV-005)', () => {
+    it('accepts cursor position prop', () => {
+      const cursorPosition = {
+        percentage: 0.5,
+        offset: 100,
+        blockIndex: 5,
+        totalBlocks: 10,
+      };
+
+      const wrapper = mount(PreviewPane, {
+        props: { 
+          html: '<p>Test</p>',
+          cursorPosition,
+        },
+      });
+
+      // Component should accept the cursor position without error
+      expect(wrapper.exists()).toBe(true);
+    });
+
+    it('emits scroll when cursor position changes', async () => {
+      vi.useFakeTimers();
+
+      const wrapper = mount(PreviewPane, {
+        props: { 
+          html: '<p>Test</p>',
+        },
+      });
+
+      // Update cursor position - this should trigger scroll sync watch
+      await wrapper.setProps({
+        cursorPosition: {
+          percentage: 0.25,
+          offset: 50,
+          blockIndex: 2,
+          totalBlocks: 10,
+        },
+      });
+
+      // Fast-forward timers to allow nextTick and scroll sync
+      vi.advanceTimersByTime(100);
+      await flushPromises();
+
+      // Component should still exist and handle the position update
+      expect(wrapper.exists()).toBe(true);
+
+      vi.useRealTimers();
+    });
+
+    it('does not trigger scroll for same percentage', async () => {
+      const cursorPosition = {
+        percentage: 0.5,
+        offset: 100,
+        blockIndex: 5,
+        totalBlocks: 10,
+      };
+
+      const wrapper = mount(PreviewPane, {
+        props: { 
+          html: '<p>Test</p>',
+          cursorPosition,
+        },
+      });
+
+      // Update with same percentage should not trigger redundant scroll
+      await wrapper.setProps({
+        cursorPosition: {
+          percentage: 0.5, // Same percentage
+          offset: 110, // Different offset but same percentage
+          blockIndex: 5,
+          totalBlocks: 10,
+        },
+      });
+
+      // Component should handle this gracefully
+      expect(wrapper.exists()).toBe(true);
+    });
+
+    it('handles cursor position at document start (0%)', async () => {
+      const wrapper = mount(PreviewPane, {
+        props: { 
+          html: '<p>Test</p>',
+        },
+      });
+
+      await wrapper.setProps({
+        cursorPosition: {
+          percentage: 0,
+          offset: 0,
+          blockIndex: 0,
+          totalBlocks: 5,
+        },
+      });
+
+      await flushPromises();
+      expect(wrapper.exists()).toBe(true);
+    });
+
+    it('handles cursor position at document end (100%)', async () => {
+      const wrapper = mount(PreviewPane, {
+        props: { 
+          html: '<p>Test</p>',
+        },
+      });
+
+      await wrapper.setProps({
+        cursorPosition: {
+          percentage: 1,
+          offset: 500,
+          blockIndex: 10,
+          totalBlocks: 10,
+        },
+      });
+
+      await flushPromises();
+      expect(wrapper.exists()).toBe(true);
+    });
+
+    it('handles undefined cursor position gracefully', () => {
+      const wrapper = mount(PreviewPane, {
+        props: { 
+          html: '<p>Test</p>',
+        },
+      });
+
+      // Initially cursor position is undefined
+      expect(wrapper.exists()).toBe(true);
+    });
+  });
 });

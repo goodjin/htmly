@@ -2,11 +2,13 @@
 import { ref, computed, watch } from 'vue';
 import CodeEditor from './CodeEditor.vue';
 import PreviewPane from './PreviewPane.vue';
+import type { CursorPosition } from './TiptapEditor.vue';
 
 const props = defineProps<{
   content: string;
   isDark: boolean;
   splitDirection: 'horizontal' | 'vertical';
+  cursorPosition?: CursorPosition | null;
 }>();
 
 const emit = defineEmits<{
@@ -105,7 +107,7 @@ function onSourceChange(newContent: string) {
     </div>
 
     <div class="pane preview-pane" :style="previewStyle">
-      <PreviewPane :html="content" />
+      <PreviewPane :html="content" :cursor-position="cursorPosition ?? undefined" />
     </div>
   </div>
 </template>
