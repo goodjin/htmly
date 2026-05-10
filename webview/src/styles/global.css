@@ -233,3 +233,71 @@ body {
   font-size: 0.9em;
   color: var(--vscode-descriptionForeground, #888);
 }
+
+/* Columns layout styles */
+.tiptap-editor .columns {
+  display: flex;
+  flex-direction: row;
+  gap: 16px;
+  margin: 12px 0;
+  position: relative;
+}
+
+.tiptap-editor .column {
+  flex: 1;
+  min-width: 100px; /* Enforce minimum column width */
+  padding: 8px;
+  background: var(--vscode-editor-background, #1e1e1e);
+  border: 1px solid var(--vscode-panel-border, #454545);
+  border-radius: 4px;
+  box-sizing: border-box;
+}
+
+.tiptap-editor .column > * + * {
+  margin-top: 0.5em;
+}
+
+/* Column resize handle styles */
+.tiptap-editor .column-resize-handle {
+  position: absolute;
+  width: 8px;
+  height: 100%;
+  cursor: col-resize;
+  z-index: 5;
+  transform: translateX(-50%);
+}
+
+.tiptap-editor .column-resize-handle:hover,
+.tiptap-editor .column-resize-handle:active {
+  background: var(--vscode-focusBorder, #0e639c);
+}
+
+/* Column dragging state */
+.tiptap-editor .columns.is-resizing {
+  user-select: none;
+}
+
+.tiptap-editor .columns.is-resizing .column {
+  pointer-events: none;
+}
+
+/* Nested columns support */
+.tiptap-editor .column .columns {
+  margin: 8px 0;
+}
+
+.tiptap-editor .column .column {
+  background: transparent;
+  border: 1px dashed var(--vscode-panel-border, #454545);
+}
+
+/* Ensure tables and images in columns fit properly */
+.tiptap-editor .column table {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.tiptap-editor .column img {
+  max-width: 100%;
+  height: auto;
+}

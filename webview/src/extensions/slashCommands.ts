@@ -108,6 +108,12 @@ export const slashCommandItems: SlashCommandItem[] = [
     icon: '🔗',
     command: (editor) => openEmbedDialog(),
   },
+  {
+    title: 'Columns',
+    description: 'Create a multi-column layout',
+    icon: '📊',
+    command: (editor) => editor.chain().focus().insertColumns().run(),
+  },
 ];
 
 export const SlashCommandsExtension = Extension.create({
