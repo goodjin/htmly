@@ -83,6 +83,9 @@ const isLinkActive = computed(() => props.editor?.isActive('link') ?? false);
 
 // Table-related computed state
 const isTableActive = computed(() => props.editor?.isActive('table') ?? false);
+
+// Column-related computed state
+const isColumnActive = computed(() => props.editor?.isActive('column') ?? false);
 const isTableRow = computed(() => {
   if (!props.editor) return false;
   return props.editor.isActive('tableRow');
@@ -483,6 +486,31 @@ function onCellBgColorChange(e: Event) {
           />
           <span class="btn-label">Cell BG</span>
         </label>
+      </div>
+
+      <!-- Column operations - only shown when cursor is in a column -->
+      <div v-if="isColumnActive" class="toolbar-group">
+        <button
+          title="Add Column Left"
+          @mousedown="btn(() => editor?.chain().focus().addColumnLeft().run())"
+        >
+          <span class="btn-icon">+←Col</span>
+          <span class="btn-label">Add Left</span>
+        </button>
+        <button
+          title="Add Column Right"
+          @mousedown="btn(() => editor?.chain().focus().addColumnRight().run())"
+        >
+          <span class="btn-icon">Col→+</span>
+          <span class="btn-label">Add Right</span>
+        </button>
+        <button
+          title="Delete Column"
+          @mousedown="btn(() => editor?.chain().focus().deleteColumn().run())"
+        >
+          <span class="btn-icon">-Col</span>
+          <span class="btn-label">Del Col</span>
+        </button>
       </div>
     </template>
 

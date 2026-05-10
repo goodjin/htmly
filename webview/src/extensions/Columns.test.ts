@@ -93,6 +93,23 @@ describe('Columns', () => {
     expect(output).toMatch(/width:\s*30%/);
     expect(output).toMatch(/width:\s*70%/);
   });
+  
+  it('editor isActive column returns true when cursor inside column', () => {
+    // Insert columns and then set content with them
+    editor.commands.insertColumns();
+    editor.commands.setContent('<div class="columns"><div class="column" style="width:50%"><p>First</p></div><div class="column" style="width:50%"><p>Second</p></div></div>');
+    
+    // Move cursor to start of document (which is inside the first column)
+    editor.commands.setTextSelection(0);
+    
+    expect(editor.isActive('column')).toBe(true);
+  });
+  
+  it('editor isActive column returns false when cursor outside column', () => {
+    editor.commands.setContent('<p>Regular paragraph</p>');
+    
+    expect(editor.isActive('column')).toBe(false);
+  });
 });
 
 // Helper function
