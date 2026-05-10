@@ -768,3 +768,112 @@ body {
 .tiptap-editor .column .link-preview {
   max-width: 100%;
 }
+
+/* =========================================
+   Virtual Scroll Styles
+   ========================================= */
+
+/**
+ * Virtual scrolling for large documents
+ * 
+ * When virtual scroll is active, blocks outside the visible area
+ * are hidden using CSS display:none to reduce DOM rendering overhead.
+ */
+
+/* Block container for virtualization */
+.tiptap-editor [data-virtual-block] {
+  contain: layout style;
+}
+
+/* Hidden block (outside visible range + buffer) */
+.tiptap-editor .virtualized-hidden {
+  display: none !important;
+  visibility: hidden;
+}
+
+/* Visible block (within visible range + buffer) */
+.tiptap-editor .virtualized-visible {
+  /* No special styles needed - block is rendered normally */
+}
+
+/* Virtual scroll performance indicator (dev mode) */
+.virtual-scroll-indicator {
+  position: fixed;
+  bottom: 8px;
+  right: 8px;
+  background: rgba(0, 0, 0, 0.8);
+  color: #fff;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-family: monospace;
+  z-index: 1000;
+  pointer-events: none;
+}
+
+.virtual-scroll-indicator.active {
+  background: rgba(14, 99, 156, 0.9);
+}
+
+/* Loading skeleton for blocks being loaded */
+.virtual-scroll-skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--vscode-editor-background, #1e1e1e) 25%,
+    var(--vscode-widget-background, #252526) 50%,
+    var(--vscode-editor-background, #1e1e1e) 75%
+  );
+  background-size: 200% 100%;
+  animation: virtual-scroll-skeleton-loading 1.5s ease-in-out infinite;
+  border-radius: 4px;
+  height: 20px;
+  margin: 8px 0;
+}
+
+@keyframes virtual-scroll-skeleton-loading {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* Performance measurement overlay */
+.virtual-scroll-stats {
+  position: fixed;
+  bottom: 8px;
+  left: 8px;
+  background: rgba(0, 0, 0, 0.85);
+  color: #0f0;
+  padding: 6px 10px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-family: monospace;
+  z-index: 1000;
+  pointer-events: none;
+  max-width: 200px;
+}
+
+.virtual-scroll-stats .stat-row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 2px;
+}
+
+.virtual-scroll-stats .stat-label {
+  color: #888;
+}
+
+.virtual-scroll-stats .stat-value {
+  color: #0f0;
+}
+
+.virtual-scroll-stats .stat-value.warning {
+  color: #ff0;
+}
+
+.virtual-scroll-stats .stat-value.danger {
+  color: #f55;
+}
+
+/* Lazy extension loading indicator */
+.lazy-extension-loader {
+  display: none;
+}

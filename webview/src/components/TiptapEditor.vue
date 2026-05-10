@@ -51,6 +51,9 @@ import { BlockBackground } from '../extensions/BlockBackground';
 import { Footnote, Footnotes, FootnotePlugin } from '../extensions/Footnote';
 import { CoverImage, setCoverImageDialogOpener, hasCoverImage, getCoverImagePos } from '../extensions/CoverImage';
 import { LinkPreview, setLinkPreviewDialogOpener, isUrl } from '../extensions/LinkPreview';
+import { VirtualScroll, isVirtualScrollActive, getDocumentStats } from '../extensions/virtualScroll';
+import { useVirtualScroll } from '../composables/useVirtualScroll';
+import { useLazyExtensionLoader } from '../composables/useLazyExtensionLoader';
 import LinkPreviewDialog from './LinkPreviewDialog.vue';
 
 const props = withDefaults(defineProps<{
@@ -140,6 +143,7 @@ const editor = useEditor({
     Footnotes,
     CoverImage,
     LinkPreview,
+    VirtualScroll,
   ],
   addProseMirrorPlugins() {
     return [FootnotePlugin];
@@ -414,6 +418,57 @@ function setupDragHandles(ed: typeof editor.value) {
     endDrag(ed.view);
   });
 }
+
+// Virtual scroll setup for large documents
+const {
+  isActive: isVirtualScrollActive,
+  visibleCount,
+  totalBlocks,
+  documentSize,
+  updateBlocks: updateVirtualScrollBlocks,
+} = useVirtualScroll(() => editor.value);
+
+// Lazy extension loader for non-critical extensions
+const {
+  extensions: lazyExtensions,
+  loadingProgress,
+  preloadAll,
+  detectExtensionUse,
+} = useLazyExtensionLoader(() => editor.value);
+
+// Preload lazy extensions on idle (after initial render)
+onMounted(() => {
+  // Use requestIdleCallback if available, otherwise setTimeout
+  const schedulePreload = () => {
+    if ('requestIdleCallback' in window) {
+      requestIdleCallback(() => {
+        console.log('[VirtualScroll] Preloading lazy extensions...');
+        preloadAll();
+      }, { timeout: 5000 });
+    } else {
+      setTimeout(() => {
+        console.log('[VirtualScroll] Preloading lazy extensions...');
+        preloadAll();
+      }, 2000);
+    }
+  };
+  
+  // Schedule preload after initial content is loaded
+  nextTick(() => {
+    schedulePreload();
+  });
+});
+
+// Track virtual scroll statistics for debugging
+const virtualScrollStats = computed(() => {
+  const stats = getDocumentStats(editor.value);
+  return {
+    size: (stats.size / 1024).toFixed(1) + 'KB',
+    blocks: stats.blocks,
+    virtualized: stats.virtualized,
+    visibleBlocks: visibleCount.value,
+  };
+});
 
 onBeforeUnmount(() => {
   editor.value?.destroy();
@@ -868,6 +923,15 @@ function onEditorDrop(e: DragEvent) {
 
 <template>
   <EditorContent :editor="editor" class="editor-wrap" @click="handleEditorClick" @dblclick="onEditorDblClick" @dragover.prevent="onEditorDragOver" @drop="onEditorDrop" />
+  
+  <!-- Virtual scroll stats indicator (only visible when active) -->
+  <div 
+    v-if="isVirtualScrollActive" 
+    class="virtual-scroll-indicator active"
+    :title="`Virtual Scroll: ${virtualScrollStats.visibleBlocks}/${virtualScrollStats.blocks} blocks visible`"
+  >
+    {{ virtualScrollStats.size }} | {{ virtualScrollStats.visibleBlocks }}/{{ virtualScrollStats.blocks }}
+  </div>
 
   <!-- Drag handle overlay - outside ProseMirror DOM to prevent getHTML() from capturing handles -->
   <div ref="dragOverlay" class="drag-overlay" :style="{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, pointerEvents: 'none', overflow: 'hidden' }"></div>
