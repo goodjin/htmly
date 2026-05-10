@@ -399,3 +399,96 @@ body {
 .tiptap-editor details .toggle-content > *:first-child {
   margin-top: 8px;
 }
+
+/* Footnote styles */
+.tiptap-editor sup.footnote-ref {
+  font-size: 0.75em;
+  vertical-align: super;
+  line-height: 0;
+  position: relative;
+  top: -0.5em;
+  margin-left: 0.1em;
+}
+
+.tiptap-editor sup.footnote-ref a {
+  color: var(--vscode-textLink-foreground, #4fc1ff);
+  text-decoration: none;
+  cursor: pointer;
+  padding: 0 2px;
+  border-radius: 2px;
+}
+
+.tiptap-editor sup.footnote-ref a:hover {
+  background: var(--vscode-toolbar-hoverBackground, #2a2d2e);
+  text-decoration: underline;
+}
+
+/* Footnotes section at document end */
+.tiptap-editor aside.footnotes {
+  margin-top: 32px;
+  padding-top: 16px;
+  border-top: 1px solid var(--vscode-panel-border, #454545);
+  color: var(--vscode-editor-foreground, #d4d4d4);
+  font-size: 0.9em;
+}
+
+.tiptap-editor aside.footnotes > hr {
+  display: none;
+}
+
+.tiptap-editor aside.footnotes::before {
+  content: 'Footnotes';
+  font-weight: 600;
+  display: block;
+  margin-bottom: 8px;
+  color: var(--vscode-descriptionForeground, #888);
+  font-size: 0.85em;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Footnote definition paragraph */
+.tiptap-editor p.footnote-definition {
+  margin: 8px 0;
+  padding-left: 20px;
+  position: relative;
+  line-height: 1.5;
+}
+
+.tiptap-editor p.footnote-definition[id] {
+  counter-increment: footnote-counter;
+}
+
+/* Footnote back reference link */
+.tiptap-editor .footnote-backref {
+  position: absolute;
+  left: 0;
+  margin-right: 4px;
+}
+
+.tiptap-editor .footnote-backref a {
+  color: var(--vscode-textLink-foreground, #4fc1ff);
+  text-decoration: none;
+  font-weight: 600;
+  padding: 0 2px;
+}
+
+.tiptap-editor .footnote-backref a:hover {
+  text-decoration: underline;
+}
+
+/* Footnote definition text after the backref */
+.tiptap-editor p.footnote-definition::after {
+  /* The actual footnote text follows the backref */
+}
+
+/* Footnotes inside callout */
+.tiptap-editor .callout sup.footnote-ref a {
+  color: var(--vscode-textLink-foreground, #4fc1ff);
+}
+
+/* Footnotes inside table cells */
+.tiptap-editor td sup.footnote-ref a,
+.tiptap-editor th sup.footnote-ref a {
+  color: var(--vscode-textLink-foreground, #4fc1ff);
+}

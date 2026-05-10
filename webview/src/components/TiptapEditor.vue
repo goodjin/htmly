@@ -47,6 +47,7 @@ import { Column } from '../extensions/Column';
 import { ColumnResizeExtension } from '../extensions/columnResize';
 import { Toggle } from '../extensions/Toggle';
 import { BlockBackground } from '../extensions/BlockBackground';
+import { Footnote, Footnotes, FootnotePlugin } from '../extensions/Footnote';
 
 const props = withDefaults(defineProps<{
   modelValue: string;   // HTML string
@@ -131,7 +132,12 @@ const editor = useEditor({
     ColumnResizeExtension,
     Toggle,
     BlockBackground,
+    Footnote,
+    Footnotes,
   ],
+  addProseMirrorPlugins() {
+    return [FootnotePlugin];
+  },
   editorProps: {
     attributes: { class: 'tiptap-editor' },
     handleDragStart: (view, event) => {

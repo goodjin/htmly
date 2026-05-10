@@ -120,6 +120,12 @@ export const slashCommandItems: SlashCommandItem[] = [
     icon: '▶',
     command: (editor) => editor.chain().focus().insertToggle().run(),
   },
+  {
+    title: 'Footnote',
+    description: 'Add inline footnote reference',
+    icon: '¹',
+    command: (editor) => editor.chain().focus().insertFootnote().run(),
+  },
 ];
 
 export const SlashCommandsExtension = Extension.create({
