@@ -317,17 +317,19 @@ export class HtmlyEditorProvider implements vscode.CustomTextEditorProvider {
         new vscode.Range(document.positionAt(0), document.positionAt(document.getText().length)),
         newContent
       );
-      vscode.workspace.applyEdit(edit).then(async () => {
-        this.updateSaveStatus(panel, docKey, 'saved');
-        // Reset to idle after 2 seconds
-        setTimeout(() => {
-          if (this.saveStatusMap.get(docKey) === 'saved') {
-            this.updateSaveStatus(panel, docKey, 'idle');
-          }
-        }, 2000);
-      }).catch(() => {
-        this.updateSaveStatus(panel, docKey, 'error');
-      });
+      Promise.resolve(vscode.workspace.applyEdit(edit))
+        .then(async () => {
+          this.updateSaveStatus(panel, docKey, 'saved');
+          // Reset to idle after 2 seconds
+          setTimeout(() => {
+            if (this.saveStatusMap.get(docKey) === 'saved') {
+              this.updateSaveStatus(panel, docKey, 'idle');
+            }
+          }, 2000);
+        })
+        .catch(() => {
+          this.updateSaveStatus(panel, docKey, 'error');
+        });
     }
   }
 
@@ -350,19 +352,21 @@ export class HtmlyEditorProvider implements vscode.CustomTextEditorProvider {
       );
       edit.replace(document.uri, fullRange, newContent);
 
-      vscode.workspace.applyEdit(edit).then(async () => {
-        // Force save to disk for large files
-        await document.save();
-        this.updateSaveStatus(panel, docKey, 'saved');
-        // Reset to idle after 2 seconds
-        setTimeout(() => {
-          if (this.saveStatusMap.get(docKey) === 'saved') {
-            this.updateSaveStatus(panel, docKey, 'idle');
-          }
-        }, 2000);
-      }).catch(() => {
-        this.updateSaveStatus(panel, docKey, 'error');
-      });
+      Promise.resolve(vscode.workspace.applyEdit(edit))
+        .then(async () => {
+          // Force save to disk for large files
+          await document.save();
+          this.updateSaveStatus(panel, docKey, 'saved');
+          // Reset to idle after 2 seconds
+          setTimeout(() => {
+            if (this.saveStatusMap.get(docKey) === 'saved') {
+              this.updateSaveStatus(panel, docKey, 'idle');
+            }
+          }, 2000);
+        })
+        .catch(() => {
+          this.updateSaveStatus(panel, docKey, 'error');
+        });
     } catch (error) {
       this.updateSaveStatus(panel, docKey, 'error');
     }
