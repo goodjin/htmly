@@ -2,6 +2,7 @@ import { Extension } from '@tiptap/core';
 import Suggestion, { SuggestionOptions } from '@tiptap/suggestion';
 import { VueRenderer } from '@tiptap/vue-3';
 import SlashCommandMenu from '../components/SlashCommandMenu.vue';
+import { Callout } from './Callout';
 
 export interface SlashCommandItem {
   title: string;
@@ -82,6 +83,12 @@ export const slashCommandItems: SlashCommandItem[] = [
     description: 'Visual section break',
     icon: '⋮',
     command: (editor) => editor.chain().focus().setHorizontalRule().run(),
+  },
+  {
+    title: 'Callout',
+    description: 'Highlight important information',
+    icon: '💡',
+    command: (editor) => editor.chain().focus().insertCallout().run(),
   },
 ];
 

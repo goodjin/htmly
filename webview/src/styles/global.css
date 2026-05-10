@@ -118,6 +118,26 @@ body {
   height: 0;
 }
 
+/* Callout block styles */
+.tiptap-editor .callout {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 6px;
+  margin: 8px 0;
+  position: relative;
+}
+
+/* Icon displayed via CSS ::before using data-icon attribute */
+.tiptap-editor .callout::before {
+  content: attr(data-icon);
+  font-size: 24px;
+  line-height: 1.4;
+  flex-shrink: 0;
+  user-select: none;
+}
+
 /* CodeMirror container */
 .cm-editor {
   flex: 1;

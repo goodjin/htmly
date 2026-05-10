@@ -37,6 +37,7 @@ import {
   getDragState 
 } from '../extensions/dragHandle';
 import { ImageResizeExtension, imageResizeKey, type ResizeState } from '../extensions/imageResize';
+import { Callout } from '../extensions/Callout';
 
 const props = withDefaults(defineProps<{
   modelValue: string;   // HTML string
@@ -113,6 +114,7 @@ const editor = useEditor({
     }),
     DragHandleExtension,
     ImageResizeExtension,
+    Callout,
   ],
   editorProps: {
     attributes: { class: 'tiptap-editor' },
@@ -481,6 +483,17 @@ function onImageAltConfirm(payload: { src: string; alt: string }) {
 // Image resize dragging state
 let resizeState: ResizeState | null = null;
 
+// Callout current background color for bubble menu
+const calloutBgColor = computed(() => {
+  if (!editor.value?.isActive('callout')) return '#fef3c7';
+  return editor.value.getAttributes('callout').backgroundColor ?? '#fef3c7';
+});
+
+function onCalloutBgColorChange(e: Event) {
+  const value = (e.target as HTMLInputElement).value;
+  editor.value?.chain().focus().updateCalloutBackground(value).run();
+}
+
 function onEditorDblClick(e: MouseEvent) {
   // Check if double-clicked on an image
   const target = e.target as HTMLElement;
@@ -710,6 +723,20 @@ function onEditorDrop(e: DragEvent) {
     >
       <mark>H</mark>
     </button>
+    <!-- Callout color picker - only visible when in a callout -->
+    <label
+      v-if="editor.isActive('callout')"
+      class="callout-color-picker"
+      title="Callout Background Color"
+    >
+      <span class="color-preview" :style="{ backgroundColor: calloutBgColor }"></span>
+      <input
+        type="color"
+        class="color-input"
+        :value="calloutBgColor"
+        @input="onCalloutBgColorChange"
+      />
+    </label>
   </BubbleMenu>
 
   <LinkDialog
@@ -787,6 +814,53 @@ function onEditorDrop(e: DragEvent) {
 
 .bubble-menu button.active mark {
   background: #facc15;
+}
+
+/* Callout color picker in bubble menu */
+.callout-color-picker {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 4px 6px;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  position: relative;
+  margin-left: 4px;
+}
+
+.callout-color-picker:hover {
+  background: var(--vscode-toolbar-hoverBackground, #2a2d2e);
+  border-color: var(--vscode-panel-border, #3c3c3c);
+}
+
+.color-preview {
+  width: 20px;
+  height: 20px;
+  border-radius: 3px;
+  border: 1px solid var(--vscode-panel-border, #3c3c3c);
+  display: inline-block;
+}
+
+.color-input {
+  width: 0;
+  height: 0;
+  padding: 0;
+  border: 0;
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.callout-color-picker:focus-within .color-input,
+.callout-color-picker:active .color-input {
+  pointer-events: auto;
+  width: 24px;
+  height: 24px;
+  left: 0;
+  top: 0;
+  opacity: 1;
+  cursor: pointer;
 }
 
 /* Drag handle styles */

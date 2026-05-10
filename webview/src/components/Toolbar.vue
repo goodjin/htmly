@@ -363,6 +363,13 @@ function onCellBgColorChange(e: Event) {
           <span class="btn-label">HR</span>
         </button>
         <button
+          title="Callout"
+          @mousedown="btn(() => editor?.chain().focus().insertCallout().run())"
+        >
+          <span class="btn-icon">💡</span>
+          <span class="btn-label">Callout</span>
+        </button>
+        <button
           title="Format Painter (click once or double-click to keep active)"
           :class="{ active: formatPainterActive }"
           @click="onFormatPainterClick"
