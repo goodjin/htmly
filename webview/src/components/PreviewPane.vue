@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ref, computed, watch, nextTick } from 'vue';
+import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue';
+import { createBatchedUpdater, usePerformanceMonitor, throttleRAF } from '../composables/usePerformanceMonitor';
 
 // Cursor position type for scroll sync
 interface CursorPosition {
@@ -12,7 +13,12 @@ interface CursorPosition {
 const props = defineProps<{
   html: string;
   cursorPosition?: CursorPosition;
+  /** Enable performance monitoring overlay (for stress testing) */
+  enablePerfMonitor?: boolean;
 }>();
+
+// Default to disabled for performance
+const enablePerfMonitor = props.enablePerfMonitor ?? false;
 
 type Device = 'desktop' | 'tablet' | 'mobile' | 'custom';
 
@@ -33,27 +39,97 @@ const selectedDevice = ref<Device>('desktop');
 const customWidth = ref(800);
 const selectedDpr = ref<1 | 2 | 3>(2);
 
-// Debounce timer for source preview sync (VAL-SRC-004: changes reflect within 500ms)
-// Using 300ms debounce as specified in feature description
-let updateTimeout: ReturnType<typeof setTimeout> | null = null;
-const debounceDelay = 300;
+// Performance monitoring for stress testing (VAL-CROSS-002)
+const perfMonitor = usePerformanceMonitor({
+  samplingWindow: 60,
+  targetFps: 60,
+  trackMemory: true,
+});
+
+// Track performance metrics for display
+const showPerfOverlay = ref(false);
+const perfMetrics = ref({
+  fps: 60,
+  avgFps: 60,
+  updateCount: 0,
+  lastUpdateTime: 0,
+});
+
+// Performance metrics update counter
+let perfUpdateCount = 0;
+let lastPerfUpdateTime = performance.now();
+
+// Debounce/throttle configuration for preview updates
+const DEBOUNCE_DELAY = 200; // ms - primary debounce for typing
+const THROTTLE_DELAY = 16; // ms - ~60fps rate limiting
 
 // Track last rendered content to avoid unnecessary refreshes
 const lastRenderedHtml = ref('');
 
-// Watch for HTML changes and debounce preview updates
+// Batched updater for preview refreshes - ensures smooth updates without jank
+const batchedPreviewUpdater = createBatchedUpdater<string>((newHtml) => {
+  lastRenderedHtml.value = newHtml;
+  refreshKey.value++;
+  
+  // Track update for performance monitoring
+  perfUpdateCount++;
+  lastPerfUpdateTime = performance.now();
+  perfMetrics.value.updateCount = perfUpdateCount;
+  perfMetrics.value.lastUpdateTime = lastPerfUpdateTime;
+}, {
+  batchWindow: DEBOUNCE_DELAY,
+  maxBatchSize: 5, // Flush after 5 rapid updates to prevent staleness
+});
+
+// Throttled update function for smoother preview during rapid typing
+const throttledUpdate = throttleRAF((newHtml: string) => {
+  batchedPreviewUpdater.update(newHtml);
+}, { leading: true, trailing: true });
+
+// Watch for HTML changes and batch/throttle preview updates
 watch(() => props.html, (newHtml) => {
   // Skip if content hasn't actually changed
   if (newHtml === lastRenderedHtml.value) return;
   
-  if (updateTimeout) {
-    clearTimeout(updateTimeout);
-  }
-  updateTimeout = setTimeout(() => {
-    lastRenderedHtml.value = newHtml;
-    refreshKey.value++;
-  }, debounceDelay);
+  // Use throttled update for smoother rendering during rapid input
+  throttledUpdate(newHtml);
 });
+
+// Start performance monitoring when enabled
+onMounted(() => {
+  if (enablePerfMonitor) {
+    perfMonitor.start();
+    showPerfOverlay.value = true;
+    
+    // Update perf metrics periodically
+    const metricsInterval = setInterval(() => {
+      if (perfMonitor.isActive.value) {
+        const metrics = perfMonitor.getMetrics();
+        perfMetrics.value.fps = metrics.fps;
+        perfMetrics.value.avgFps = metrics.averageFps;
+      }
+    }, 100);
+    
+    // Store interval for cleanup
+    (window as any).__perfInterval = metricsInterval;
+  }
+});
+
+onBeforeUnmount(() => {
+  perfMonitor.stop();
+  batchedPreviewUpdater.cancel();
+  
+  // Clear performance monitoring interval
+  const interval = (window as any).__perfInterval;
+  if (interval) {
+    clearInterval(interval);
+  }
+});
+
+// Force immediate refresh (bypasses batching)
+function forceRefresh() {
+  batchedPreviewUpdater.flush();
+}
 
 // Compute base width without DPR
 const baseWidth = computed<number>(() => {
@@ -427,7 +503,7 @@ const previewContent = computed(() => {
         </div>
       </div>
       
-      <button class="refresh-btn" title="Refresh preview" @click="refresh">↻</button>
+      <button class="refresh-btn" title="Refresh preview" @click="forceRefresh">↻</button>
     </div>
     
     <div class="preview-viewport">
@@ -446,6 +522,20 @@ const previewContent = computed(() => {
           sandbox="allow-scripts allow-same-origin"
           :srcdoc="previewContent"
         />
+      </div>
+    </div>
+    
+    <!-- Performance monitoring overlay (visible when enablePerfMonitor=true) -->
+    <div v-if="showPerfOverlay" class="perf-overlay">
+      <div class="perf-stat">
+        <span class="perf-label">FPS</span>
+        <span class="perf-value" :class="{ warning: perfMetrics.avgFps < 54 }">
+          {{ perfMetrics.fps }}/{{ perfMetrics.avgFps }}
+        </span>
+      </div>
+      <div class="perf-stat">
+        <span class="perf-label">Updates</span>
+        <span class="perf-value">{{ perfMetrics.updateCount }}</span>
       </div>
     </div>
   </div>
@@ -578,5 +668,46 @@ const previewContent = computed(() => {
   display: block;
   border: 0;
   background: white;
+}
+
+/* Performance monitoring overlay */
+.perf-overlay {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  background: rgba(0, 0, 0, 0.8);
+  border-radius: 4px;
+  padding: 6px 10px;
+  display: flex;
+  gap: 12px;
+  font-size: 11px;
+  font-family: monospace;
+  z-index: 100;
+  pointer-events: none;
+}
+
+.perf-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.perf-label {
+  color: #888;
+  font-size: 9px;
+  text-transform: uppercase;
+}
+
+.perf-value {
+  color: #4caf50;
+  font-weight: bold;
+}
+
+.perf-value.warning {
+  color: #ff9800;
+}
+
+.perf-value.critical {
+  color: #f44336;
 }
 </style>
