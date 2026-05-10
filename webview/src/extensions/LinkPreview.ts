@@ -49,7 +49,10 @@ export const LinkPreview = Node.create({
         default: null,
         parseHTML: (element) => {
           const link = element.querySelector('a');
-          return link?.getAttribute('href') || element.getAttribute('data-url') || null;
+          const url = link?.getAttribute('href') || element.getAttribute('data-url') || null;
+          // Validate URL to prevent XSS attacks
+          if (url && !isSafeUrl(url)) return null;
+          return url;
         },
         renderHTML: (attributes) => {
           if (!attributes.url) return {};
@@ -82,7 +85,10 @@ export const LinkPreview = Node.create({
         default: '',
         parseHTML: (element) => {
           const img = element.querySelector('.link-preview-image img');
-          return img?.getAttribute('src') || '';
+          const src = img?.getAttribute('src') || '';
+          // Validate image URL to prevent XSS attacks
+          if (src && !isSafeUrl(src)) return '';
+          return src;
         },
         renderHTML: (attributes) => {
           if (!attributes.image) return {};
@@ -182,7 +188,7 @@ export const LinkPreview = Node.create({
       
       const { url, title, description, image, hostname, fetched } = node.attrs;
       
-      if (!url) {
+      if (!url || !isSafeUrl(url)) {
         container.classList.add('link-preview--empty');
         container.textContent = 'Link preview placeholder';
         wrapper.appendChild(container);
@@ -233,7 +239,7 @@ export const LinkPreview = Node.create({
       link.rel = 'noopener noreferrer';
       
       // Image
-      if (image) {
+      if (image && isSafeUrl(image)) {
         const imageContainer = document.createElement('div');
         imageContainer.className = 'link-preview-image';
         const img = document.createElement('img');
@@ -306,10 +312,10 @@ export const LinkPreview = Node.create({
           
           // Update image
           const imgEl = container.querySelector('.link-preview-image img');
-          if (newImage && imgEl) {
+          if (newImage && isSafeUrl(newImage) && imgEl) {
             (imgEl as HTMLImageElement).src = newImage;
             (imgEl as HTMLImageElement).alt = newTitle || 'Preview image';
-          } else if (newImage && !imgEl) {
+          } else if (newImage && isSafeUrl(newImage) && !imgEl) {
             const imageContainer = document.createElement('div');
             imageContainer.className = 'link-preview-image';
             const img = document.createElement('img');
@@ -509,6 +515,19 @@ export function extractHostname(url: string): string {
     return new URL(url).hostname;
   } catch {
     return '';
+  }
+}
+
+// Helper function to validate URLs against XSS attacks (javascript: scheme)
+export function isSafeUrl(url: string): boolean {
+  if (!url) return false;
+  try {
+    const parsed = new URL(url);
+    // Only allow http and https protocols
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+  } catch {
+    // If URL parsing fails, check for javascript: scheme directly
+    return !url.trim().toLowerCase().startsWith('javascript:');
   }
 }
 
