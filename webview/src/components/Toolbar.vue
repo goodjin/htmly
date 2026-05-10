@@ -5,6 +5,8 @@ import type { EditorMode } from '../../../src/shared/types';
 import { escapeHtml } from '../core/htmlUtils';
 import LinkDialog from './LinkDialog.vue';
 import ImageDialog from './ImageDialog.vue';
+import EmbedDialog from './EmbedDialog.vue';
+import { toEmbedUrl } from '../extensions/Embed';
 
 const props = defineProps<{
   editor: Editor | undefined;
@@ -20,6 +22,26 @@ const emit = defineEmits<{
   setMode: [mode: EditorMode];
   activateFormatPainter: [multiUse: boolean];
 }>();
+
+// Embed dialog state
+const embedDialogVisible = ref(false);
+
+function openEmbedDialog() {
+  embedDialogVisible.value = true;
+}
+
+function onEmbedConfirm(payload: { url: string }) {
+  if (!props.editor || !payload.url) return;
+  // Convert URL to embed format and insert
+  const embedUrl = toEmbedUrl(payload.url);
+  if (embedUrl) {
+    props.editor.chain().focus().insertContent({
+      type: 'embed',
+      attrs: { src: embedUrl },
+    }).run();
+  }
+  embedDialogVisible.value = false;
+}
 
 // Format painter double-click detection
 let formatPainterClickTimer: ReturnType<typeof setTimeout> | null = null;
@@ -370,6 +392,13 @@ function onCellBgColorChange(e: Event) {
           <span class="btn-label">Callout</span>
         </button>
         <button
+          title="Embed"
+          @mousedown="btn(openEmbedDialog)"
+        >
+          <span class="btn-icon">🔗</span>
+          <span class="btn-label">Embed</span>
+        </button>
+        <button
           title="Format Painter (click once or double-click to keep active)"
           :class="{ active: formatPainterActive }"
           @click="onFormatPainterClick"
@@ -463,6 +492,11 @@ function onCellBgColorChange(e: Event) {
     :visible="imageDialogVisible"
     @confirm="onImageConfirm"
     @cancel="imageDialogVisible = false"
+  />
+  <EmbedDialog
+    :visible="embedDialogVisible"
+    @confirm="onEmbedConfirm"
+    @cancel="embedDialogVisible = false"
   />
 </template>
 

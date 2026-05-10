@@ -25,8 +25,9 @@ import json from 'highlight.js/lib/languages/json';
 import { NodeSelection } from '@tiptap/pm/state';
 import LinkDialog from './LinkDialog.vue';
 import ImageDialog from './ImageDialog.vue';
+import EmbedDialog from './EmbedDialog.vue';
 import { escapeHtml } from '../core/htmlUtils';
-import { SlashCommandsExtension } from '../extensions/slashCommands';
+import { SlashCommandsExtension, setEmbedDialogOpener } from '../extensions/slashCommands';
 import { MarkdownShortcutsExtension } from '../extensions/markdownShortcuts';
 import { 
   DragHandleExtension, 
@@ -38,6 +39,7 @@ import {
 } from '../extensions/dragHandle';
 import { ImageResizeExtension, imageResizeKey, type ResizeState } from '../extensions/imageResize';
 import { Callout } from '../extensions/Callout';
+import { Embed, toEmbedUrl } from '../extensions/Embed';
 
 const props = withDefaults(defineProps<{
   modelValue: string;   // HTML string
@@ -115,6 +117,7 @@ const editor = useEditor({
     DragHandleExtension,
     ImageResizeExtension,
     Callout,
+    Embed,
   ],
   editorProps: {
     attributes: { class: 'tiptap-editor' },
@@ -494,6 +497,26 @@ function onCalloutBgColorChange(e: Event) {
   editor.value?.chain().focus().updateCalloutBackground(value).run();
 }
 
+// Embed dialog state
+const embedDialogVisible = ref(false);
+
+function openEmbedDialog() {
+  embedDialogVisible.value = true;
+}
+
+function onEmbedConfirm(payload: { url: string }) {
+  if (!editor.value || !payload.url) return;
+  
+  const embedUrl = toEmbedUrl(payload.url);
+  if (embedUrl) {
+    editor.value.chain().focus().insertEmbed(embedUrl).run();
+  }
+  embedDialogVisible.value = false;
+}
+
+// Register embed dialog opener for slash commands
+setEmbedDialogOpener(openEmbedDialog);
+
 function onEditorDblClick(e: MouseEvent) {
   // Check if double-clicked on an image
   const target = e.target as HTMLElement;
@@ -753,6 +776,12 @@ function onEditorDrop(e: DragEvent) {
     :initial-alt="imageAltInitialAlt"
     @confirm="onImageAltConfirm"
     @cancel="imageAltDialogVisible = false"
+  />
+  
+  <EmbedDialog
+    :visible="embedDialogVisible"
+    @confirm="onEmbedConfirm"
+    @cancel="embedDialogVisible = false"
   />
 </template>
 

@@ -3,6 +3,18 @@ import Suggestion, { SuggestionOptions } from '@tiptap/suggestion';
 import { VueRenderer } from '@tiptap/vue-3';
 import SlashCommandMenu from '../components/SlashCommandMenu.vue';
 import { Callout } from './Callout';
+import { toEmbedUrl } from './Embed';
+
+// Global embed dialog state - will be set by TiptapEditor
+let openEmbedDialogFn: (() => void) | null = null;
+
+export function setEmbedDialogOpener(fn: () => void) {
+  openEmbedDialogFn = fn;
+}
+
+export function openEmbedDialog() {
+  openEmbedDialogFn?.();
+}
 
 export interface SlashCommandItem {
   title: string;
@@ -89,6 +101,12 @@ export const slashCommandItems: SlashCommandItem[] = [
     description: 'Highlight important information',
     icon: '💡',
     command: (editor) => editor.chain().focus().insertCallout().run(),
+  },
+  {
+    title: 'Embed',
+    description: 'Embed YouTube, Vimeo, CodePen, CodeSandbox',
+    icon: '🔗',
+    command: (editor) => openEmbedDialog(),
   },
 ];
 
