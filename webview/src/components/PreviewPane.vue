@@ -1,25 +1,96 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, watch } from 'vue';
 
 const props = defineProps<{
   html: string;
 }>();
 
-type Device = 'desktop' | 'tablet' | 'mobile';
+type Device = 'desktop' | 'tablet' | 'mobile' | 'custom';
 
-const device = ref<Device>('desktop');
+interface DevicePreset {
+  width: number;
+  label: string;
+}
 
-const deviceSizes: Record<Device, { width: string; label: string }> = {
-  desktop: { width: '100%', label: 'Desktop' },
-  tablet: { width: '768px', label: 'Tablet' },
-  mobile: { width: '375px', label: 'Mobile' },
+// Device presets with real device sizes (DPR is controlled independently)
+const devicePresets: Record<Device, DevicePreset | null> = {
+  desktop: { width: 1440, label: 'Desktop' },
+  tablet: { width: 768, label: 'Tablet' },
+  mobile: { width: 375, label: 'Mobile' },
+  custom: null,
 };
 
-const frameStyle = computed(() => {
-  const size = deviceSizes[device.value];
+const selectedDevice = ref<Device>('desktop');
+const customWidth = ref(800);
+const selectedDpr = ref<1 | 2 | 3>(2);
+
+// Debounce timer for responsive preview refresh
+let updateTimeout: ReturnType<typeof setTimeout> | null = null;
+const debounceDelay = 150; // < 200ms as required
+
+// Watch for HTML changes and debounce preview updates
+watch(() => props.html, () => {
+  if (updateTimeout) {
+    clearTimeout(updateTimeout);
+  }
+  updateTimeout = setTimeout(() => {
+    refreshKey.value++;
+  }, debounceDelay);
+});
+
+// Compute base width without DPR
+const baseWidth = computed<number>(() => {
+  if (selectedDevice.value === 'custom') {
+    return customWidth.value;
+  }
+  return devicePresets[selectedDevice.value]!.width;
+});
+
+// Compute device label
+const deviceLabel = computed<string>(() => {
+  if (selectedDevice.value === 'custom') {
+    return 'Custom';
+  }
+  return devicePresets[selectedDevice.value]!.label;
+});
+
+// Current preset with independent DPR control
+const currentPreset = computed<DevicePreset & { dpr: number }>(() => ({
+  width: baseWidth.value,
+  label: deviceLabel.value,
+  dpr: selectedDpr.value,
+}));
+
+// Calculate iframe dimensions based on DPR for crisp rendering
+const frameDimensions = computed(() => {
+  const preset = currentPreset.value;
   return {
-    width: size.width,
-    maxWidth: size.width === '100%' ? '100%' : size.width,
+    width: preset.width,
+    height: Math.round(preset.width * 0.6), // Default aspect ratio
+    scale: 1 / preset.dpr, // Scale down for higher DPR displays
+  };
+});
+
+// Apply DPR scaling via CSS transform
+const frameStyle = computed(() => {
+  const dims = frameDimensions.value;
+  const scale = dims.scale;
+  
+  if (scale === 1) {
+    // No scaling needed for 1x
+    return {
+      width: `${dims.width}px`,
+      height: `${dims.height}px`,
+      transform: 'none',
+    };
+  }
+  
+  // For 2x/3x DPR, scale the iframe and adjust dimensions
+  return {
+    width: `${dims.width}px`,
+    height: `${dims.height}px`,
+    transform: `scale(${scale})`,
+    transformOrigin: 'top left',
   };
 });
 
@@ -32,7 +103,7 @@ function refresh() {
 /**
  * Inject preview styles into the HTML content for proper rendering of new blocks.
  * This ensures callout, columns, embed, and other custom blocks render correctly
- * in the preview pane.
+ * in the preview pane. Includes print-ready CSS with proper margins and page breaks.
  */
 const previewContent = computed(() => {
   // Styles needed for proper preview rendering of all block types
@@ -133,6 +204,73 @@ const previewContent = computed(() => {
       /* Tables and images in columns */
       .column table { max-width: 100%; overflow-x: auto; }
       .column img { max-width: 100%; height: auto; }
+      
+      /* Print-ready stylesheet */
+      @media print {
+        body {
+          font-size: 12pt;
+          line-height: 1.5;
+          padding: 0.5in 0.5in;
+          color: #000;
+          background: white;
+        }
+        
+        /* Proper margins for print */
+        @page {
+          margin: 0.75in;
+          size: auto;
+        }
+        
+        /* Page breaks */
+        h1, h2, h3, h4, h5, h6 {
+          page-break-after: avoid;
+          orphans: 3;
+          widows: 3;
+        }
+        
+        p {
+          orphans: 3;
+          widows: 3;
+        }
+        
+        /* Allow page breaks inside these elements */
+        pre, blockquote, table, figure {
+          page-break-inside: avoid;
+        }
+        
+        /* Ensure links are visible in print */
+        a {
+          color: #0066cc;
+          text-decoration: underline;
+        }
+        
+        /* Hide non-essential elements */
+        .embed-block iframe {
+          display: none;
+        }
+        
+        /* Columns print layout */
+        .columns {
+          display: block;
+        }
+        .column {
+          width: 100% !important;
+          border: none;
+          margin-bottom: 1em;
+        }
+        
+        /* Preserve images */
+        img {
+          max-width: 100%;
+          page-break-inside: avoid;
+        }
+        
+        /* Force background colors to print */
+        * {
+          -webkit-print-color-adjust: exact !important;
+          print-color-adjust: exact !important;
+        }
+      }
     </style>
   `;
   
@@ -163,22 +301,64 @@ const previewContent = computed(() => {
 <template>
   <div class="preview-shell">
     <div class="preview-toolbar">
-      <div class="preview-devices">
-        <button
-          v-for="(info, key) in deviceSizes"
-          :key="key"
-          :class="{ active: device === key }"
-          @click="device = key as Device"
-        >{{ info.label }}</button>
+      <div class="preview-controls">
+        <div class="preview-devices">
+          <button
+            v-for="(info, key) in devicePresets"
+            :key="key"
+            v-show="info !== null"
+            :class="{ active: selectedDevice === key }"
+            @click="selectedDevice = key as Device"
+          >{{ info?.label }}</button>
+          <button
+            :class="{ active: selectedDevice === 'custom' }"
+            @click="selectedDevice = 'custom'"
+          >Custom</button>
+        </div>
+        
+        <!-- Custom width input -->
+        <div v-if="selectedDevice === 'custom'" class="custom-controls">
+          <label>
+            Width:
+            <input
+              v-model.number="customWidth"
+              type="number"
+              min="100"
+              max="2560"
+              step="10"
+              class="width-input"
+            />
+            <span class="unit">px</span>
+          </label>
+        </div>
+        
+        <!-- DPR selector -->
+        <div class="dpr-controls">
+          <span class="dpr-label">DPR:</span>
+          <button
+            v-for="dpr in [1, 2, 3]"
+            :key="dpr"
+            :class="{ active: selectedDpr === dpr }"
+            @click="selectedDpr = dpr as 1 | 2 | 3"
+          >{{ dpr }}x</button>
+        </div>
       </div>
+      
       <button class="refresh-btn" title="Refresh preview" @click="refresh">↻</button>
     </div>
+    
     <div class="preview-viewport">
-      <div class="preview-frame-wrapper" :style="frameStyle">
+      <div 
+        class="preview-frame-wrapper" 
+        :style="frameStyle"
+        :data-device="currentPreset.label"
+        :data-width="currentPreset.width"
+        :data-dpr="currentPreset.dpr"
+      >
         <iframe
           :key="refreshKey"
           class="preview-frame"
-          title="HTML Preview"
+          :title="`HTML Preview - ${currentPreset.label} (${currentPreset.width}px @ ${currentPreset.dpr}x)`"
           sandbox="allow-scripts allow-same-origin"
           :srcdoc="previewContent"
         />
@@ -205,6 +385,15 @@ const previewContent = computed(() => {
   background: var(--vscode-editorGroupHeader-tabsBackground, #252526);
   border-bottom: 1px solid var(--vscode-panel-border, #3c3c3c);
   flex-shrink: 0;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.preview-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
 .preview-devices {
@@ -213,6 +402,7 @@ const previewContent = computed(() => {
 }
 
 .preview-devices button,
+.dpr-controls button,
 .refresh-btn {
   background: transparent;
   border: 1px solid transparent;
@@ -224,14 +414,61 @@ const previewContent = computed(() => {
 }
 
 .preview-devices button:hover,
+.dpr-controls button:hover,
 .refresh-btn:hover {
   background: var(--vscode-toolbar-hoverBackground, #2a2d2e);
   border-color: var(--vscode-panel-border, #3c3c3c);
 }
 
-.preview-devices button.active {
+.preview-devices button.active,
+.dpr-controls button.active {
   background: var(--vscode-button-background, #0e639c);
   color: var(--vscode-button-foreground, #fff);
+}
+
+.custom-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.custom-controls label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--vscode-editor-foreground, #ccc);
+  font-size: 12px;
+}
+
+.width-input {
+  width: 70px;
+  padding: 2px 6px;
+  border: 1px solid var(--vscode-panel-border, #3c3c3c);
+  border-radius: 3px;
+  background: var(--vscode-editor-background, #1e1e1e);
+  color: var(--vscode-editor-foreground, #ccc);
+  font-size: 12px;
+}
+
+.width-input:focus {
+  outline: none;
+  border-color: var(--vscode-focusBorder, #007acc);
+}
+
+.unit {
+  color: var(--vscode-editor-foreground, #999);
+}
+
+.dpr-controls {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.dpr-label {
+  color: var(--vscode-editor-foreground, #999);
+  font-size: 11px;
+  margin-right: 4px;
 }
 
 .preview-viewport {
@@ -239,19 +476,22 @@ const previewContent = computed(() => {
   min-height: 0;
   display: flex;
   justify-content: center;
+  align-items: flex-start;
   overflow: auto;
   padding: 8px;
 }
 
 .preview-frame-wrapper {
-  height: 100%;
-  transition: width 0.2s ease;
+  background: white;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  border-radius: 4px;
+  transition: transform 0.2s ease;
   flex-shrink: 0;
+  overflow: hidden;
 }
 
 .preview-frame {
-  width: 100%;
-  height: 100%;
+  display: block;
   border: 0;
   background: white;
 }
