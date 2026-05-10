@@ -33,16 +33,24 @@ const selectedDevice = ref<Device>('desktop');
 const customWidth = ref(800);
 const selectedDpr = ref<1 | 2 | 3>(2);
 
-// Debounce timer for responsive preview refresh
+// Debounce timer for source preview sync (VAL-SRC-004: changes reflect within 500ms)
+// Using 300ms debounce as specified in feature description
 let updateTimeout: ReturnType<typeof setTimeout> | null = null;
-const debounceDelay = 150; // < 200ms as required
+const debounceDelay = 300;
+
+// Track last rendered content to avoid unnecessary refreshes
+const lastRenderedHtml = ref('');
 
 // Watch for HTML changes and debounce preview updates
-watch(() => props.html, () => {
+watch(() => props.html, (newHtml) => {
+  // Skip if content hasn't actually changed
+  if (newHtml === lastRenderedHtml.value) return;
+  
   if (updateTimeout) {
     clearTimeout(updateTimeout);
   }
   updateTimeout = setTimeout(() => {
+    lastRenderedHtml.value = newHtml;
     refreshKey.value++;
   }, debounceDelay);
 });

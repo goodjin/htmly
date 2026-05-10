@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount, watch } from 'vue';
-import { EditorState, Extension } from '@codemirror/state';
+import { EditorState, Extension, Transaction } from '@codemirror/state';
 import { EditorView, keymap, lineNumbers, highlightActiveLine, ViewUpdate } from '@codemirror/view';
-import { defaultKeymap, history, historyKeymap } from '@codemirror/commands';
+import { defaultKeymap, history, historyKeymap, undo as cmUndo, redo as cmRedo } from '@codemirror/commands';
 import { html } from '@codemirror/lang-html';
 import { oneDark } from '@codemirror/theme-one-dark';
 import { 
@@ -81,6 +81,18 @@ function formatHtml(html: string): string {
   return formatted.trim();
 }
 
+// Cursor position interface for cross-mode sync
+export interface CodeEditorCursorPosition {
+  /** Position as percentage (0-1) through the document */
+  percentage: number;
+  /** Character offset in the document */
+  offset: number;
+  /** Line number (1-based) */
+  line: number;
+  /** Total lines in document */
+  totalLines: number;
+}
+
 const props = defineProps<{
   modelValue: string;
   isDark: boolean;
@@ -89,11 +101,34 @@ const props = defineProps<{
 const emit = defineEmits<{
   'update:modelValue': [code: string];
   'format': [];
+  'cursor-change': [position: CodeEditorCursorPosition];
 }>();
 
 const containerRef = ref<HTMLElement | null>(null);
 let view: EditorView | null = null;
 let isUpdatingFromProp = false;
+let lastCursorOffset = -1;
+
+// Calculate current cursor position
+function getCursorPosition(): CodeEditorCursorPosition {
+  if (!view) {
+    return { percentage: 0, offset: 0, line: 1, totalLines: 1 };
+  }
+  
+  const state = view.state;
+  const selection = state.selection.main;
+  const offset = selection.from;
+  const docSize = state.doc.length;
+  const line = state.doc.lineAt(offset);
+  const totalLines = state.doc.lines;
+  
+  return {
+    percentage: docSize > 0 ? offset / docSize : 0,
+    offset,
+    line: line.number,
+    totalLines,
+  };
+}
 
 // Format button handler
 function handleFormat() {
@@ -111,9 +146,38 @@ function handleFormat() {
   }
 }
 
-// Expose format function for external use
+// Get current content
+function getContent(): string {
+  return view?.state.doc.toString() ?? '';
+}
+
+// Set content without triggering update event
+function setContent(content: string, cursorPosition?: number): void {
+  if (!view) return;
+  isUpdatingFromProp = true;
+  const current = view.state.doc.toString();
+  if (current !== content) {
+    view.dispatch({
+      changes: { from: 0, to: current.length, insert: content },
+    });
+  }
+  // Restore cursor position if specified
+  if (cursorPosition !== undefined && view) {
+    const targetOffset = Math.round(cursorPosition * view.state.doc.length);
+    view.dispatch({
+      selection: { anchor: targetOffset },
+      scrollIntoView: true,
+    });
+  }
+  isUpdatingFromProp = false;
+}
+
+// Expose format function and content operations for external use
 defineExpose({
   format: handleFormat,
+  getContent,
+  setContent,
+  getCursorPosition,
 });
 
 onMounted(() => {
@@ -150,6 +214,15 @@ onMounted(() => {
     EditorView.updateListener.of((update: ViewUpdate) => {
       if (update.docChanged && !isUpdatingFromProp) {
         emit('update:modelValue', update.state.doc.toString());
+      }
+      
+      // Emit cursor position on selection change
+      if (update.selectionSet) {
+        const pos = getCursorPosition();
+        if (pos.offset !== lastCursorOffset) {
+          lastCursorOffset = pos.offset;
+          emit('cursor-change', pos);
+        }
       }
     }),
   ];

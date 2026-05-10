@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { computed, ref, watch, onMounted, onBeforeUnmount } from 'vue';
+import { computed, ref, watch, onMounted, onBeforeUnmount, nextTick } from 'vue';
 import type { EditorMode, HtmlySettings } from '../../src/shared/types';
 import { useVSCode } from './composables/useVSCode';
+import { useSharedHistory } from './composables/useSharedHistory';
 import { extractBodyContent, replaceBodyContent } from './core/htmlUtils';
 import Toolbar from './components/Toolbar.vue';
 import TiptapEditor, { type CursorPosition } from './components/TiptapEditor.vue';
-import CodeEditor from './components/CodeEditor.vue';
+import CodeEditor, { type CodeEditorCursorPosition } from './components/CodeEditor.vue';
 import PreviewPane from './components/PreviewPane.vue';
 import SplitPane from './components/SplitPane.vue';
 import SearchBar from './components/SearchBar.vue';
@@ -13,13 +14,23 @@ import TOCPanel from './components/TOCPanel.vue';
 
 const { onMessage, notifyReady, sendContentUpdate, sendModeChanged, isDark } = useVSCode();
 
+// Shared history for cross-mode undo/redo
+const sharedHistory = useSharedHistory();
+
 const content = ref('');
 const mode = ref<EditorMode>('wysiwyg');
 const initialized = ref(false);
 const isDirty = ref(false);
 const readOnly = ref(false);
 const settings = ref<HtmlySettings>({ showButtonLabels: true });
-const modeOrder: EditorMode[] = ['wysiwyg', 'source', 'preview'];
+const modeOrder: EditorMode[] = ['wysiwyg', 'source', 'split', 'preview'];
+
+// Previous mode for cursor preservation
+const previousMode = ref<EditorMode | null>(null);
+const savedCursorPosition = ref<number | null>(null);
+
+// CodeEditor ref for cursor operations
+const codeEditorRef = ref<InstanceType<typeof CodeEditor> | null>(null);
 
 const visualHtml = computed(() => extractBodyContent(content.value));
 
@@ -27,10 +38,101 @@ const visualHtml = computed(() => extractBodyContent(content.value));
 let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 function onContentChange(newHtml: string) {
   content.value = newHtml;
+  // Push to shared history for cross-mode undo
+  sharedHistory.push(newHtml, calculateCursorPercentage());
   if (debounceTimer) clearTimeout(debounceTimer);
   debounceTimer = setTimeout(() => {
     sendContentUpdate(newHtml);
   }, 300);
+}
+
+// Calculate cursor position as percentage (0-1) across all modes
+function calculateCursorPercentage(): number {
+  if (!content.value) return 0;
+  
+  if (mode.value === 'wysiwyg' && tiptapRef.value?.editor) {
+    const editor = tiptapRef.value.editor;
+    const { from } = editor.state.selection;
+    const docSize = editor.state.doc.content.size;
+    return docSize > 0 ? from / docSize : 0;
+  }
+  
+  if (mode.value === 'source' && codeEditorRef.value) {
+    const pos = codeEditorRef.value.getCursorPosition();
+    return pos.percentage;
+  }
+  
+  return savedCursorPosition.value ?? 0;
+}
+
+// Convert cursor percentage to Tiptap-compatible position
+function percentageToTiptapCursor(percentage: number): CursorPosition {
+  if (!content.value) {
+    return { percentage: 0, offset: 0, blockIndex: 0, totalBlocks: 1 };
+  }
+  
+  // For visual mode, we need to estimate block positions
+  const bodyContent = extractBodyContent(content.value);
+  const blocks = bodyContent.split(/(?=<(?:p|h[1-6]|ul|ol|blockquote|pre|div|table|details))/g);
+  const totalBlocks = blocks.length || 1;
+  const targetBlockIndex = Math.floor(percentage * totalBlocks);
+  
+  return {
+    percentage,
+    offset: Math.round(percentage * bodyContent.length),
+    blockIndex: Math.min(targetBlockIndex, totalBlocks - 1),
+    totalBlocks,
+  };
+}
+
+// Convert cursor percentage to CodeEditor position
+function percentageToCodeCursor(percentage: number): CodeEditorCursorPosition {
+  if (!content.value) {
+    return { percentage: 0, offset: 0, line: 1, totalLines: 1 };
+  }
+  
+  const lines = content.value.split('\n');
+  const totalLines = lines.length || 1;
+  const targetLine = Math.ceil(percentage * totalLines);
+  
+  // Calculate offset by counting characters up to target line
+  let offset = 0;
+  for (let i = 0; i < Math.min(targetLine - 1, lines.length); i++) {
+    offset += lines[i].length + 1; // +1 for newline
+  }
+  
+  return {
+    percentage,
+    offset: Math.round(percentage * content.value.length),
+    line: Math.min(targetLine, totalLines),
+    totalLines,
+  };
+}
+
+// Handle mode switch with cursor preservation
+function switchModeWithCursorPreservation(next: EditorMode) {
+  // Save current cursor position before switching
+  if (mode.value === 'wysiwyg' && tiptapRef.value?.editor) {
+    savedCursorPosition.value = calculateCursorPercentage();
+  } else if (mode.value === 'source' && codeEditorRef.value) {
+    savedCursorPosition.value = codeEditorRef.value.getCursorPosition().percentage;
+  }
+  
+  previousMode.value = mode.value;
+  setMode(next);
+  
+  // Restore cursor position after mode switch (deferred to allow component mount)
+  nextTick(() => {
+    if (savedCursorPosition.value !== null) {
+      if (next === 'wysiwyg' && tiptapRef.value?.editor) {
+        // Tiptap cursor restoration is handled via percentage-based positioning
+        cursorPosition.value = percentageToTiptapCursor(savedCursorPosition.value);
+      } else if (next === 'source' && codeEditorRef.value) {
+        // Restore cursor in CodeEditor
+        codeEditorRef.value.setContent(content.value, savedCursorPosition.value);
+      }
+    }
+  });
 }
 
 function setMode(next: EditorMode) {
@@ -42,11 +144,15 @@ function setMode(next: EditorMode) {
 function cycleMode() {
   const currentIndex = modeOrder.indexOf(mode.value);
   const next = modeOrder[(currentIndex + 1) % modeOrder.length];
-  setMode(next);
+  switchModeWithCursorPreservation(next);
 }
 
 function onVisualContentChange(bodyHtml: string) {
-  onContentChange(replaceBodyContent(content.value, bodyHtml));
+  const newContent = replaceBodyContent(content.value, bodyHtml);
+  onContentChange(newContent);
+  
+  // In split mode, sync is automatic via content prop
+  // In preview mode, PreviewPane handles debounced updates
 }
 
 const tiptapRef = ref<InstanceType<typeof TiptapEditor> | null>(null);
@@ -56,8 +162,16 @@ const showTOC = ref(false);
 // Cursor position for scroll sync
 const cursorPosition = ref<CursorPosition | null>(null);
 
+// Track cursor position changes from TiptapEditor
 function onCursorPositionUpdate(position: CursorPosition) {
   cursorPosition.value = position;
+  // Also update saved position for cross-mode preservation
+  savedCursorPosition.value = position.percentage;
+}
+
+// Track cursor position changes from CodeEditor
+function onSourceCursorChange(position: CodeEditorCursorPosition) {
+  savedCursorPosition.value = position.percentage;
 }
 
 function toggleTOC() {
@@ -142,6 +256,24 @@ function onGlobalKeydown(e: KeyboardEvent) {
   if (e.key === 'Escape' && formatPainterActive.value) {
     deactivateFormatPainter();
   }
+  
+  // Ctrl+Z / Cmd+Z - Cross-mode undo
+  if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+    e.preventDefault();
+    const prevContent = sharedHistory.undo(content.value);
+    if (prevContent !== null) {
+      content.value = prevContent;
+    }
+  }
+  
+  // Ctrl+Shift+Z / Cmd+Shift+Z - Cross-mode redo
+  if ((e.ctrlKey || e.metaKey) && e.key === 'z' && e.shiftKey) {
+    e.preventDefault();
+    const nextContent = sharedHistory.redo(content.value);
+    if (nextContent !== null) {
+      content.value = nextContent;
+    }
+  }
 }
 
 // Register message handler
@@ -151,6 +283,8 @@ const unsubscribe = onMessage((msg) => {
       content.value = msg.content;
       mode.value = msg.mode;
       initialized.value = true;
+      // Initialize shared history with initial content
+      sharedHistory.initialize(msg.content);
       break;
 
     case 'contentChanged':
@@ -161,10 +295,12 @@ const unsubscribe = onMessage((msg) => {
         debounceTimer = null;
       }
       content.value = msg.content;
+      // Re-initialize history with new content
+      sharedHistory.initialize(msg.content);
       break;
 
     case 'setMode':
-      setMode(msg.mode);
+      switchModeWithCursorPreservation(msg.mode);
       break;
 
     case 'cycleMode':
@@ -255,9 +391,11 @@ onBeforeUnmount(() => {
       />
       <CodeEditor
         v-else-if="mode === 'source'"
+        ref="codeEditorRef"
         :model-value="content"
         :is-dark="isDark"
         @update:model-value="onContentChange"
+        @cursor-change="onSourceCursorChange"
       />
       <PreviewPane
         v-else
