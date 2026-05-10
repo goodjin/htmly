@@ -104,8 +104,12 @@ export const ColumnResizeExtension = Extension.create({
                         e.preventDefault();
                         e.stopPropagation();
                         
-                        const leftColumn = node.child(i);
-                        const rightColumn = node.child(i + 1);
+                        // Capture pos and node in local variables to avoid closure bug
+                        const currentPos = pos;
+                        const currentNode = node;
+                        
+                        const leftColumn = currentNode.child(i);
+                        const rightColumn = currentNode.child(i + 1);
                         
                         // Calculate starting widths
                         const leftWidth = parseFloat(leftColumn.attrs.width) || 50;
@@ -131,7 +135,7 @@ export const ColumnResizeExtension = Extension.create({
                           if (!currentState?.active) return;
                           
                           const deltaX = moveEvent.clientX - e.clientX;
-                          const container = document.querySelector('.columns') as HTMLElement;
+                          const container = handle.closest('.columns') as HTMLElement;
                           
                           if (container) {
                             const containerWidth = container.offsetWidth;
@@ -181,7 +185,7 @@ export const ColumnResizeExtension = Extension.create({
                           if (!currentState?.active) return;
                           
                           const deltaX = upEvent.clientX - e.clientX;
-                          const container = document.querySelector('.columns') as HTMLElement;
+                          const container = handle.closest('.columns') as HTMLElement;
                           
                           if (container) {
                             const containerWidth = container.offsetWidth;
@@ -209,7 +213,7 @@ export const ColumnResizeExtension = Extension.create({
                               let foundLeft = false;
                               let foundRight = false;
                               
-                              state.doc.nodesBetween(pos, pos + node.nodeSize, (n, p) => {
+                              state.doc.nodesBetween(currentPos, currentPos + currentNode.nodeSize, (n, p) => {
                                 if (n.type.name === 'column' && !foundLeft && colIndex === i) {
                                   const newAttrs = { ...n.attrs, width: `${newLeftWidth.toFixed(1)}%` };
                                   tr.setNodeMarkup(p, undefined, newAttrs);

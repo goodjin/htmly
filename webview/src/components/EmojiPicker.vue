@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, onMounted, onBeforeUnmount } from 'vue';
 
 const props = defineProps<{
   currentEmoji: string;
@@ -61,6 +61,15 @@ function handleKeydown(e: KeyboardEvent) {
     isOpen.value = false;
   }
 }
+
+// Register click outside handler
+onMounted(() => {
+  document.addEventListener('click', handleClickOutside);
+});
+
+onBeforeUnmount(() => {
+  document.removeEventListener('click', handleClickOutside);
+});
 </script>
 
 <template>

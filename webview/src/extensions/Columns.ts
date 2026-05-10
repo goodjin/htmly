@@ -173,22 +173,47 @@ export const Columns = Node.create({
             // Insert the new column after current column
             tr.insert(columnPos, newColumn);
             
-            // Update widths of all columns
+            // Update widths of all columns - collect positions BEFORE calculating
+            // because after insertion, positions shift
             const basePos = $from.before(columnsDepth);
-            columnsNode.forEach((child, offset, index) => {
-              const colStart = basePos + offset;
-              if (index === 0) {
-                // First column gets the new width
-                tr.setNodeMarkup(colStart, undefined, { width: `${newWidth}%` });
-              } else {
-                tr.setNodeMarkup(colStart, undefined, { ...child.attrs, width: `${newWidth}%` });
-              }
-            });
+            const oldChildCount = columnsNode.childCount;
             
-            // The new column was already created with newWidth, so we just need to update the last one
-            // to make sure total is 100%
-            const totalWidth = columnsNode.childCount * newWidth;
-            const lastColWidth = 100 - (totalWidth - newWidth);
+            // Collect all column positions from the old state
+            const columnPositions: number[] = [];
+            let cumOffset = 0;
+            for (let i = 0; i < oldChildCount; i++) {
+              columnPositions.push(basePos + cumOffset);
+              cumOffset += columnsNode.child(i)!.nodeSize;
+            }
+            
+            // Add position for the new column (at columnPos)
+            const newColumnPos = columnPos;
+            
+            // Update widths for all columns (including new one)
+            // Redistribute so they sum to 100%
+            const allWidths: string[] = [];
+            for (let i = 0; i < oldChildCount - 1; i++) {
+              allWidths.push(`${newWidth}%`);
+            }
+            // Last column gets the remainder to ensure total is 100%
+            const lastColWidth = 100 - (newWidth * (oldChildCount - 1));
+            allWidths.push(`${lastColWidth}%`);
+            
+            // Apply widths to existing columns (they shifted after insertion)
+            for (let i = 0; i < oldChildCount; i++) {
+              const originalPos = columnPositions[i];
+              // After inserting newColumn at columnPos, columns at or after that position shift
+              if (originalPos >= columnPos) {
+                // This column is at or after the insertion point, shift it
+                const newActualPos = originalPos + newColumn.nodeSize;
+                tr.setNodeMarkup(newActualPos, undefined, { width: allWidths[i] });
+              } else {
+                tr.setNodeMarkup(originalPos, undefined, { width: allWidths[i] });
+              }
+            }
+            
+            // Set width for the new column
+            tr.setNodeMarkup(newColumnPos, undefined, { width: `${newWidth}%` });
             
             dispatch(tr);
           }
@@ -243,21 +268,38 @@ export const Columns = Node.create({
             const columnNode = state.doc.nodeAt(columnStart);
             if (!columnNode) return false;
             
-            // Delete the column
-            tr.delete(columnStart, columnStart + columnNode.nodeSize);
+            // Collect column positions BEFORE deletion
+            // Bug 4 fix: collect positions before tr.delete() modifies document
+            const basePos = columnStart - columnsNode.offset(columnIndex);
+            const columnPositions: number[] = [];
+            let cumOffset = 0;
+            for (let i = 0; i < columnsNode.childCount; i++) {
+              columnPositions.push(basePos + cumOffset);
+              cumOffset += columnsNode.child(i)!.nodeSize;
+            }
+            const deletedNodeSize = columnNode.nodeSize;
             
-            // Update widths of remaining columns
-            let offset = 0;
-            columnsNode.forEach((child, childOffset, index) => {
-              if (index === columnIndex) return; // Skip deleted column
+            // Delete the column
+            tr.delete(columnStart, columnStart + deletedNodeSize);
+            
+            // Update widths of remaining columns using collected positions
+            // Bug 3 fix: properly identify the last remaining column
+            const lastRemainingIndex = remainingColumns - 1;
+            for (let i = 0; i < columnsNode.childCount; i++) {
+              if (i === columnIndex) continue; // Skip deleted column
               
-              // Calculate new position after deletion
-              const newColPos = columnStart + offset;
+              // Get the original position
+              let newColPos = columnPositions[i];
               
-              // Update width attribute
+              // Columns after the deleted one shift by deletedNodeSize
+              if (i > columnIndex) {
+                newColPos -= deletedNodeSize;
+              }
+              
+              // Determine the correct width
               let newWidthValue: string;
-              if (index === remainingColumns) {
-                // Last remaining column gets the remainder to ensure 100%
+              if (i > lastRemainingIndex) {
+                // This is the last remaining column (original index was after lastRemainingIndex)
                 newWidthValue = `${lastWidth}%`;
               } else {
                 newWidthValue = `${newWidth}%`;
@@ -269,10 +311,7 @@ export const Columns = Node.create({
                   tr.setNodeMarkup(newColPos, undefined, { width: newWidthValue });
                 }
               }
-              
-              // Only increment offset if this wasn't the deleted column
-              offset += child.nodeSize;
-            });
+            }
             
             dispatch(tr);
           }
