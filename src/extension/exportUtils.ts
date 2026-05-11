@@ -38,7 +38,7 @@ export async function showExportSaveDialog(
   
   const defaultFileName = `${baseName}.${extension}`;
 
-  const filters: Record<string, string[]> = {
+  const filters: Record<ExportFormat, [string, string]> = {
     pdf: ['PDF Files', 'pdf'],
     markdown: ['Markdown Files', 'md'],
     plaintext: ['Text Files', 'txt'],
@@ -50,7 +50,7 @@ export async function showExportSaveDialog(
       vscode.workspace.workspaceFolders?.[0]?.uri ?? vscode.Uri.file(''),
       defaultFileName
     ),
-    filters: filters[format],
+    filters: { [filters[format][0]]: [filters[format][1]] },
     saveLabel: `Export as ${format.charAt(0).toUpperCase() + format.slice(1)}`,
   });
 
@@ -106,9 +106,9 @@ export function convertToMarkdown(html: string): string {
   markdown = markdown.replace(/<img[^>]*src=["']([^"']*)["'][^>]*\/?>/gi, '![]($1)');
 
   // Ordered lists (before stripHtmlTags)
-  markdown = markdown.replace(/<ol[^>]*>([\s\S]*?)<\/ol>/gi, (match, content) => {
+  markdown = markdown.replace(/<ol[^>]*>([\s\S]*?)<\/ol>/gi, (match: string, content: string) => {
     let index = 0;
-    const processedContent = content.replace(/<li[^>]*>([\s\S]*?)<\/li>/gi, (liMatch, liContent) => {
+    const processedContent = content.replace(/<li[^>]*>([\s\S]*?)<\/li>/gi, (liMatch: string, liContent: string) => {
       const itemContent = stripHtmlTags(liContent).trim();
       return `${++index}. ${itemContent}\n`;
     });
@@ -116,8 +116,8 @@ export function convertToMarkdown(html: string): string {
   });
 
   // Unordered lists (before stripHtmlTags)
-  markdown = markdown.replace(/<ul[^>]*>([\s\S]*?)<\/ul>/gi, (match, content) => {
-    const processedContent = content.replace(/<li[^>]*>([\s\S]*?)<\/li>/gi, (liMatch, liContent) => {
+  markdown = markdown.replace(/<ul[^>]*>([\s\S]*?)<\/ul>/gi, (match: string, content: string) => {
+    const processedContent = content.replace(/<li[^>]*>([\s\S]*?)<\/li>/gi, (liMatch: string, liContent: string) => {
       const itemContent = stripHtmlTags(liContent).trim();
       return `- ${itemContent}\n`;
     });
