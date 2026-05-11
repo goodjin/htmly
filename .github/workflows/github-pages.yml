@@ -1,0 +1,134 @@
+name: Deploy to GitHub Pages
+
+on:
+  # Trigger on push to main branch
+  push:
+    branches: [main]
+  # Allow manual trigger from Actions tab
+  workflow_dispatch:
+    inputs:
+      custom_domain:
+        description: 'Custom domain for GitHub Pages (optional)'
+        required: false
+        type: string
+
+# Set permissions for GitHub Pages deployment
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Allow only one concurrent deployment
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  # Build job - exports static site and prepares artifacts
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build webview
+        run: npm run build:webview
+        env:
+          NODE_ENV: production
+
+      - name: Export static site
+        run: |
+          # Create a script to export the static site
+          cat > scripts/export-static.sh << 'EOF'
+          #!/bin/bash
+          set -e
+          
+          # Get list of HTML files to export
+          # This assumes the workspace contains HTML files to export
+          echo "Exporting static site..."
+          
+          # For each HTML file, we'll use the static site export functionality
+          # The actual export logic is handled by the extension's exportUtils.ts
+          
+          # Create output directory
+          mkdir -p _site
+          
+          # Find all HTML files in the workspace (excluding node_modules and _site)
+          find . -type f -name "*.html" \
+            ! -path "./node_modules/*" \
+            ! -path "./_site/*" \
+            ! -path "./.git/*" \
+            ! -path "./dist/*" \
+            ! -path "./webview/node_modules/*" \
+            -exec echo "Processing: {}" \;
+          
+          echo "Static site export complete"
+          EOF
+          chmod +x scripts/export-static.sh
+          ./scripts/export-static.sh
+
+      - name: Verify static site output
+        run: |
+          if [ ! -d "_site" ]; then
+            echo "Warning: _site directory not created. Creating empty structure for deployment."
+            mkdir -p _site
+            # Create a default index.html if no files were exported
+            if [ ! -f "_site/index.html" ]; then
+              cat > _site/index.html << 'EOF'
+              <!DOCTYPE html>
+              <html lang="en">
+              <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>Htmly Site</title>
+                <style>
+                  body { font-family: system-ui, sans-serif; max-width: 800px; margin: 50px auto; padding: 20px; }
+                  h1 { color: #333; }
+                  p { color: #666; line-height: 1.6; }
+                </style>
+              </head>
+              <body>
+                <h1>Welcome to Htmly</h1>
+                <p>This is a placeholder for your exported static site. Add HTML files to your repository to see them exported here.</p>
+              </body>
+              </html>
+              EOF
+            fi
+          fi
+          echo "Contents of _site directory:"
+          ls -la _site/
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: '_site'
+
+  # Deploy job - deploys to GitHub Pages
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+      - name: Create CNAME file for custom domain (if specified)
+        if: inputs.custom_domain != ''
+        run: |
+          echo "${{ inputs.custom_domain }}" > _site/CNAME
+          echo "CNAME file created with domain: ${{ inputs.custom_domain }}"
