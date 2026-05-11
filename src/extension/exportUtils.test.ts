@@ -899,6 +899,197 @@ describe('exportUtils', () => {
     });
   });
 
+  describe('SEO Settings', () => {
+    it('includes og:image meta tag when ogImage is provided', () => {
+      const pages = [
+        { name: 'Home', path: 'index.html', content: '<h1>Welcome</h1>' },
+      ];
+      const options = {
+        siteTitle: 'My Site',
+        siteDescription: 'A test site',
+        includeSearch: false,
+        includeToc: false,
+        ogImage: 'https://example.com/social-image.png',
+      };
+      
+      const result = exportStaticSite(pages, options);
+      const html = result.get('index.html');
+      
+      expect(html).toContain('og:image');
+      expect(html).toContain('https://example.com/social-image.png');
+      expect(html).toContain('twitter:image');
+    });
+
+    it('includes og:title and og:description meta tags', () => {
+      const pages = [
+        { name: 'Home', path: 'index.html', content: '<h1>Welcome</h1>' },
+      ];
+      const options = {
+        siteTitle: 'My Site',
+        siteDescription: 'Site description',
+        includeSearch: false,
+        includeToc: false,
+      };
+      
+      const result = exportStaticSite(pages, options);
+      const html = result.get('index.html');
+      
+      expect(html).toContain('og:title');
+      expect(html).toContain('og:description');
+      expect(html).toContain('Site description');
+    });
+
+    it('uses customDescription when provided', () => {
+      const pages = [
+        { name: 'Home', path: 'index.html', content: '<h1>Welcome</h1>' },
+      ];
+      const options = {
+        siteTitle: 'My Site',
+        siteDescription: 'Default description',
+        includeSearch: false,
+        includeToc: false,
+        customDescription: 'Custom SEO description for search engines',
+      };
+      
+      const result = exportStaticSite(pages, options);
+      const html = result.get('index.html');
+      
+      expect(html).toContain('Custom SEO description for search engines');
+      expect(html).not.toContain('Default description');
+    });
+
+    it('uses seoTitle when provided to override page title', () => {
+      const pages = [
+        { name: 'Home', path: 'index.html', content: '<h1>Welcome</h1>' },
+      ];
+      const options = {
+        siteTitle: 'My Site',
+        siteDescription: 'Test description',
+        includeSearch: false,
+        includeToc: false,
+        seoTitle: 'Custom SEO Title',
+      };
+      
+      const result = exportStaticSite(pages, options);
+      const html = result.get('index.html');
+      
+      // Title tag should show SEO title
+      expect(html).toContain('<title>Custom SEO Title - My Site</title>');
+      // og:title should also use SEO title
+      expect(html).toContain('og:title');
+      expect(html).toContain('content="Custom SEO Title"');
+    });
+
+    it('uses customTitle when provided to override page title extraction', () => {
+      const pages = [
+        { name: 'Page', path: 'page.html', content: '<h1>Auto Title</h1>' },
+      ];
+      const options = {
+        siteTitle: 'My Site',
+        siteDescription: 'Test',
+        includeSearch: false,
+        includeToc: false,
+        customTitle: 'Manually Set Title',
+      };
+      
+      const result = exportStaticSite(pages, options);
+      const html = result.get('page.html');
+      
+      expect(html).toContain('<title>Manually Set Title - My Site</title>');
+      expect(html).not.toContain('Auto Title - My Site');
+    });
+
+    it('includes twitter:card meta tag', () => {
+      const pages = [
+        { name: 'Home', path: 'index.html', content: '<h1>Welcome</h1>' },
+      ];
+      const options = {
+        siteTitle: 'My Site',
+        siteDescription: 'Test',
+        includeSearch: false,
+        includeToc: false,
+      };
+      
+      const result = exportStaticSite(pages, options);
+      const html = result.get('index.html');
+      
+      expect(html).toContain('twitter:card');
+      expect(html).toContain('summary_large_image');
+    });
+
+    it('includes og:type meta tag', () => {
+      const pages = [
+        { name: 'Home', path: 'index.html', content: '<h1>Welcome</h1>' },
+      ];
+      const options = {
+        siteTitle: 'My Site',
+        siteDescription: 'Test',
+        includeSearch: false,
+        includeToc: false,
+      };
+      
+      const result = exportStaticSite(pages, options);
+      const html = result.get('index.html');
+      
+      expect(html).toContain('og:type');
+      expect(html).toContain('article');
+    });
+
+    it('escapes HTML in SEO meta tags', () => {
+      const pages = [
+        { name: 'Home', path: 'index.html', content: '<h1>Welcome</h1>' },
+      ];
+      const options = {
+        siteTitle: 'My "Site"',
+        siteDescription: 'Description with <special> characters & symbols',
+        includeSearch: false,
+        includeToc: false,
+        ogImage: 'https://example.com/image.png',
+      };
+      
+      const result = exportStaticSite(pages, options);
+      const html = result.get('index.html');
+      
+      // Check that quotes are properly escaped
+      expect(html).toContain('&quot;Site&quot;');
+      expect(html).toContain('&lt;special&gt;');
+      expect(html).toContain('&amp;');
+    });
+
+    it('works with all SEO options combined', () => {
+      const pages = [
+        { name: 'Home', path: 'index.html', content: '<h1>Welcome</h1>' },
+      ];
+      const options = {
+        siteTitle: 'My Site',
+        siteDescription: 'Default description',
+        includeSearch: false,
+        includeToc: false,
+        seoTitle: 'SEO Optimized Title',
+        customDescription: 'Custom SEO description',
+        ogImage: 'https://example.com/og-image.jpg',
+        customTitle: 'Custom Page Title',
+      };
+      
+      const result = exportStaticSite(pages, options);
+      const html = result.get('index.html');
+      
+      // Verify all SEO meta tags are present
+      expect(html).toContain('og:title');
+      expect(html).toContain('og:description');
+      expect(html).toContain('og:image');
+      expect(html).toContain('og:type');
+      expect(html).toContain('twitter:card');
+      
+      // Verify values - seoTitle takes precedence for HTML title
+      expect(html).toContain('SEO Optimized Title');
+      expect(html).toContain('Custom SEO description');
+      expect(html).toContain('https://example.com/og-image.jpg');
+      // Title tag uses seoTitle (if provided) over customTitle
+      expect(html).toContain('<title>SEO Optimized Title - My Site</title>');
+    });
+  });
+
   describe('getStaticSiteContent', () => {
     it('returns same result as exportStaticSite', () => {
       const pages = [

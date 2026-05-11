@@ -26,12 +26,12 @@ describe('ExportDialog.vue', () => {
       expect(wrapper.find('.export-title').text()).toBe('Export Document');
     });
 
-    it('renders all four export options', () => {
+    it('renders all five export options', () => {
       const wrapper = mount(ExportDialog, {
         props: { visible: true },
       });
       const options = wrapper.findAll('.export-option');
-      expect(options).toHaveLength(4);
+      expect(options).toHaveLength(5);
     });
   });
 
@@ -128,6 +128,80 @@ describe('ExportDialog.vue', () => {
       });
       await wrapper.find('.pdf-options-toggle').trigger('click');
       expect(wrapper.find('.save-preset-btn').exists()).toBe(true);
+    });
+  });
+
+  describe('SEO Settings Section', () => {
+    it('shows SEO settings toggle button', () => {
+      const wrapper = mount(ExportDialog, {
+        props: { visible: true },
+      });
+      expect(wrapper.find('.seo-options-toggle').exists()).toBe(true);
+    });
+
+    it('expands SEO options when toggle is clicked', async () => {
+      const wrapper = mount(ExportDialog, {
+        props: { visible: true },
+      });
+      await wrapper.find('.seo-options-toggle').trigger('click');
+      expect(wrapper.find('.seo-options-content').exists()).toBe(true);
+    });
+
+    it('shows SEO title input', async () => {
+      const wrapper = mount(ExportDialog, {
+        props: { visible: true },
+      });
+      await wrapper.find('.seo-options-toggle').trigger('click');
+      expect(wrapper.find('#seo-title').exists()).toBe(true);
+    });
+
+    it('shows SEO description textarea', async () => {
+      const wrapper = mount(ExportDialog, {
+        props: { visible: true },
+      });
+      await wrapper.find('.seo-options-toggle').trigger('click');
+      expect(wrapper.find('#seo-description').exists()).toBe(true);
+    });
+
+    it('shows OG image URL input', async () => {
+      const wrapper = mount(ExportDialog, {
+        props: { visible: true },
+      });
+      await wrapper.find('.seo-options-toggle').trigger('click');
+      expect(wrapper.find('#og-image').exists()).toBe(true);
+    });
+
+    it('shows help text about OG image', async () => {
+      const wrapper = mount(ExportDialog, {
+        props: { visible: true },
+      });
+      await wrapper.find('.seo-options-toggle').trigger('click');
+      expect(wrapper.find('.seo-help-hint').text()).toContain('social media');
+    });
+
+    it('emits export with seo settings when site export is selected', async () => {
+      const wrapper = mount(ExportDialog, {
+        props: { visible: true },
+      });
+      
+      // Expand SEO options and fill in values
+      await wrapper.find('.seo-options-toggle').trigger('click');
+      await wrapper.find('#seo-title').setValue('My Custom SEO Title');
+      await wrapper.find('#seo-description').setValue('My custom description for SEO');
+      await wrapper.find('#og-image').setValue('https://example.com/og-image.png');
+      
+      // Click Static Site export option (index 4)
+      const siteOption = wrapper.findAll('.export-option')[4];
+      await siteOption.trigger('click');
+      
+      expect(wrapper.emitted('export')).toBeTruthy();
+      const emitted = wrapper.emitted('export')![0];
+      expect(emitted[0]).toBe('site');
+      expect(emitted[1]).toBeUndefined(); // No PDF options
+      expect(emitted[2]).toBeDefined(); // SEO settings
+      expect(emitted[2]).toHaveProperty('seoTitle', 'My Custom SEO Title');
+      expect(emitted[2]).toHaveProperty('seoDescription', 'My custom description for SEO');
+      expect(emitted[2]).toHaveProperty('ogImage', 'https://example.com/og-image.png');
     });
   });
 

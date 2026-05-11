@@ -1350,17 +1350,39 @@ function wrapInHtmlDocument(
   title: string,
   siteTitle: string,
   siteDescription: string,
-  customCss?: string
+  customCss?: string,
+  seoTitle?: string,
+  seoDescription?: string,
+  ogImage?: string
 ): string {
   const allCss = STATIC_SITE_BASE_CSS + NAVIGATION_CSS + (customCss || '');
+  
+  // Build meta tags
+  const description = seoDescription || siteDescription;
+  const pageTitle = seoTitle || title;
+  const fullTitle = `${pageTitle} - ${siteTitle}`;
+  
+  // Build SEO meta tags
+  let seoMetaTags = `  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="${escapeHtml(description)}">
+  <meta property="og:title" content="${escapeHtml(pageTitle)}">
+  <meta property="og:description" content="${escapeHtml(description)}">
+  <meta property="og:type" content="article">
+  <meta name="twitter:card" content="summary_large_image">`;
+  
+  // Add og:image if provided
+  if (ogImage) {
+    seoMetaTags += `
+  <meta property="og:image" content="${escapeHtml(ogImage)}">
+  <meta name="twitter:image" content="${escapeHtml(ogImage)}">`;
+  }
   
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="${escapeHtml(siteDescription)}">
-  <title>${escapeHtml(title)} - ${escapeHtml(siteTitle)}</title>
+${seoMetaTags}
+  <title>${escapeHtml(fullTitle)}</title>
   <style>
 ${allCss}
   </style>
@@ -1411,10 +1433,14 @@ function convertPageToStaticSite(
   indexPath: string,
   siteTitle: string,
   siteDescription: string,
-  customCss?: string
+  customCss?: string,
+  seoTitle?: string,
+  seoDescription?: string,
+  ogImage?: string,
+  customTitle?: string
 ): string {
-  // Extract title
-  const pageTitle = extractTitle(page.content) || page.name;
+  // Extract title - use customTitle if provided, otherwise extract from content
+  const pageTitle = customTitle || extractTitle(page.content) || page.name;
   
   // Convert relative links and images
   let processedContent = page.content;
@@ -1440,8 +1466,17 @@ function convertPageToStaticSite(
   // Combine content
   const fullContent = header + bodyContent + footer;
   
-  // Wrap in HTML document
-  return wrapInHtmlDocument(fullContent, pageTitle, siteTitle, siteDescription, customCss);
+  // Wrap in HTML document with SEO settings
+  return wrapInHtmlDocument(
+    fullContent, 
+    pageTitle, 
+    siteTitle, 
+    siteDescription, 
+    customCss,
+    seoTitle,
+    seoDescription,
+    ogImage
+  );
 }
 
 /**
@@ -1474,7 +1509,11 @@ export function exportStaticSite(
       indexPath,
       options.siteTitle,
       options.siteDescription,
-      options.customCss
+      options.customCss,
+      options.seoTitle,
+      options.customDescription || options.siteDescription,
+      options.ogImage,
+      options.customTitle
     );
     result.set(page.path, htmlContent);
   }

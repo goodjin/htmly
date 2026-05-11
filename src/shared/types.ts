@@ -22,6 +22,14 @@ export interface StaticSiteOptions {
   siteTitle: string;
   /** Site description for meta tags */
   siteDescription: string;
+  /** SEO title (overrides page title if set) */
+  seoTitle?: string;
+  /** Custom page title for specific page export */
+  customTitle?: string;
+  /** Custom description for SEO (overrides siteDescription) */
+  customDescription?: string;
+  /** Open Graph image URL for social sharing */
+  ogImage?: string;
   /** Base URL for the site (optional, for absolute links) */
   baseUrl?: string;
   /** Include search functionality */
@@ -30,6 +38,16 @@ export interface StaticSiteOptions {
   includeToc: boolean;
   /** CSS to include in all pages */
   customCss?: string;
+}
+
+// SEO settings for static site export
+export interface SeoSettings {
+  /** SEO title - overrides page title */
+  seoTitle: string;
+  /** SEO description - used in meta description */
+  seoDescription: string;
+  /** Open Graph image URL */
+  ogImage: string;
 }
 
 // Export preset type (print/screen/ebook)

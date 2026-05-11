@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, watch, computed, onMounted } from 'vue';
-import type { ExportFormat, ExportPreset, PdfExportOptions } from '../../../src/shared/types';
+import type { ExportFormat, ExportPreset, PdfExportOptions, SeoSettings } from '../../../src/shared/types';
 import { useExportPresets } from '../composables/useExportPresets';
 
 const props = defineProps<{
@@ -8,7 +8,7 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{
-  export: [format: ExportFormat, options?: PdfExportOptions];
+  export: [format: ExportFormat, options?: PdfExportOptions, seoSettings?: SeoSettings];
   cancel: [];
 }>();
 
@@ -42,6 +42,12 @@ const footerText = ref('');
 const newPresetName = ref('');
 const showSavePresetDialog = ref(false);
 
+// SEO-specific options (for when static site format is selected)
+const showSeoOptions = ref(false);
+const seoTitle = ref('');
+const seoDescription = ref('');
+const ogImage = ref('');
+
 // Track hover state for keyboard navigation
 const hoveredIndex = ref(-1);
 
@@ -51,6 +57,13 @@ const currentOptions = computed<PdfExportOptions>(() => ({
   headerText: headerText.value,
   footerText: footerText.value,
   preset: selectedPreset.value.type,
+}));
+
+// SEO settings for static site export
+const currentSeoSettings = computed<SeoSettings>(() => ({
+  seoTitle: seoTitle.value,
+  seoDescription: seoDescription.value,
+  ogImage: ogImage.value,
 }));
 
 // Watch for preset changes and update local options
@@ -68,6 +81,7 @@ watch(() => props.visible, (v) => {
   if (v) {
     hoveredIndex.value = -1;
     showPdfOptions.value = false;
+    showSeoOptions.value = false;
     loadPresets();
     // Reset to selected preset values
     const preset = presets.value.find(p => p.id === selectedPresetId.value);
@@ -91,6 +105,8 @@ watch([includePageNumbers, headerText, footerText], () => {
 function onExport(format: ExportFormat) {
   if (format === 'pdf') {
     emit('export', format, currentOptions.value);
+  } else if (format === 'site') {
+    emit('export', format, undefined, currentSeoSettings.value);
   } else {
     emit('export', format);
   }
@@ -151,6 +167,10 @@ function onDeletePreset() {
 
 function togglePdfOptions() {
   showPdfOptions.value = !showPdfOptions.value;
+}
+
+function toggleSeoOptions() {
+  showSeoOptions.value = !showSeoOptions.value;
 }
 </script>
 
@@ -264,6 +284,59 @@ function togglePdfOptions() {
               Save as Preset
             </button>
           </div>
+        </div>
+      </div>
+
+      <!-- SEO Options Section (for Static Site export) -->
+      <div class="seo-options-section">
+        <button 
+          class="seo-options-toggle"
+          @click="toggleSeoOptions"
+        >
+          <span class="toggle-icon">{{ showSeoOptions ? '▼' : '▶' }}</span>
+          <span>SEO Settings</span>
+        </button>
+        
+        <div v-if="showSeoOptions" class="seo-options-content">
+          <p class="seo-help-text">Configure search engine optimization settings for your static site.</p>
+          
+          <!-- SEO Title -->
+          <div class="option-row">
+            <label class="option-label" for="seo-title">Title:</label>
+            <input 
+              id="seo-title"
+              type="text"
+              class="option-input"
+              v-model="seoTitle"
+              placeholder="Custom SEO title (optional)"
+            />
+          </div>
+          
+          <!-- SEO Description -->
+          <div class="option-row">
+            <label class="option-label" for="seo-description">Description:</label>
+            <textarea 
+              id="seo-description"
+              class="option-textarea"
+              v-model="seoDescription"
+              placeholder="Meta description for search engines"
+              rows="2"
+            ></textarea>
+          </div>
+          
+          <!-- OG Image URL -->
+          <div class="option-row">
+            <label class="option-label" for="og-image">OG Image:</label>
+            <input 
+              id="og-image"
+              type="text"
+              class="option-input"
+              v-model="ogImage"
+              placeholder="https://example.com/image.png"
+            />
+          </div>
+          
+          <p class="seo-help-hint">The OG image is used when sharing on social media like Facebook, Twitter, and LinkedIn.</p>
         </div>
       </div>
 
@@ -429,6 +502,68 @@ function togglePdfOptions() {
   display: flex;
   flex-direction: column;
   gap: 10px;
+}
+
+/* SEO Options Section */
+.seo-options-section {
+  border-top: 1px solid var(--vscode-panel-border, #3c3c3c);
+  padding: 8px 14px;
+}
+
+.seo-options-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: transparent;
+  border: none;
+  color: var(--vscode-editor-foreground, #cccccc);
+  font-size: 13px;
+  cursor: pointer;
+  padding: 4px 0;
+  font-family: inherit;
+}
+
+.seo-options-toggle:hover {
+  color: var(--vscode-textLink-foreground, #4fc1ff);
+}
+
+.seo-options-content {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.seo-help-text {
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground, #aaaaaa);
+  margin: 0 0 8px 0;
+  line-height: 1.4;
+}
+
+.seo-help-hint {
+  font-size: 10px;
+  color: var(--vscode-descriptionForeground, #aaaaaa);
+  margin: 4px 0 0 0;
+  line-height: 1.3;
+}
+
+.option-textarea {
+  flex: 1;
+  background: var(--vscode-input-background, #3c3c3c);
+  border: 1px solid var(--vscode-input-border, #454545);
+  border-radius: 4px;
+  padding: 6px 8px;
+  color: var(--vscode-input-foreground, #cccccc);
+  font-size: 12px;
+  font-family: inherit;
+  resize: vertical;
+  min-height: 40px;
+}
+
+.option-textarea:focus {
+  outline: none;
+  border-color: var(--vscode-focusBorder, #007acc);
 }
 
 .option-row {
