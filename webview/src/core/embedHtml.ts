@@ -284,6 +284,9 @@ function processFonts(dom: JSDOM): void {
     if (hasCustomFont) {
       processedFonts.push('sans-serif');
     }
+
+    // Set the processed font-family on the element
+    el.style.fontFamily = processedFonts.join(', ');
   }
 }
 
@@ -328,19 +331,134 @@ function sanitizeContent(dom: JSDOM): void {
 }
 
 /**
+ * Parse a simple CSS selector to check if an element matches
+ * Supports basic selectors: tag, .class, #id, [attr], compound selectors
+ */
+function selectorMatchesElement(selector: string, element: Element): boolean {
+  const trimmed = selector.trim();
+  if (!trimmed || trimmed === '*') return true;
+
+  // Handle multiple selectors (comma-separated)
+  const selectors = trimmed.split(',').map(s => s.trim());
+  return selectors.some(sel => selectorMatchesElement(sel, element));
+}
+
+function selectorMatchesElementSingle(selector: string, element: Element): boolean {
+  const trimmed = selector.trim();
+  
+  // Universal selector
+  if (trimmed === '*') return true;
+  
+  // ID selector
+  if (trimmed.startsWith('#')) {
+    return element.id === trimmed.slice(1);
+  }
+  
+  // Class selector
+  if (trimmed.startsWith('.')) {
+    const className = trimmed.slice(1);
+    return element.classList.contains(className);
+  }
+  
+  // Attribute selector (simplified)
+  if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+    const attrContent = trimmed.slice(1, -1);
+    const attrMatch = attrContent.match(/^([a-zA-Z-]+)(?:=(.+))?$/);
+    if (attrMatch) {
+      const [, attrName, attrValue] = attrMatch;
+      const elValue = element.getAttribute(attrName);
+      if (attrValue !== undefined) {
+        // Remove quotes from value if present
+        const expectedValue = attrValue.replace(/['"]/g, '');
+        return elValue === expectedValue;
+      }
+      return elValue !== null;
+    }
+    return false;
+  }
+  
+  // Tag selector (with optional pseudo-classes ignored)
+  const tagMatch = trimmed.match(/^([a-zA-Z][a-zA-Z0-9]*)/);
+  if (tagMatch) {
+    const tagName = tagMatch[1].toLowerCase();
+    return element.tagName.toLowerCase() === tagName;
+  }
+  
+  return false;
+}
+
+/**
+ * Apply a single CSS declaration (property: value) to an element's style
+ */
+function applyCssDeclaration(element: Element, declaration: string): void {
+  const colonIndex = declaration.indexOf(':');
+  if (colonIndex === -1) return;
+  
+  const property = declaration.slice(0, colonIndex).trim();
+  const value = declaration.slice(colonIndex + 1).trim();
+  
+  if (!property || !value) return;
+  
+  // Convert camelCase to kebab-case for CSS properties
+  const cssProperty = property.replace(/([A-Z])/g, '-$1').toLowerCase();
+  
+  // Apply the style
+  (element as HTMLElement).style.setProperty(cssProperty, value);
+}
+
+/**
  * Extract and inline styles from <style> tags
  */
 function inlineStylesFromStyleTags(dom: JSDOM): void {
   const styleTags = dom.window.document.querySelectorAll('style');
-  const cssRules: string[] = [];
+  const stylesToRemove: Node[] = [];
 
   for (const styleTag of styleTags) {
-    cssRules.push(styleTag.textContent || '');
+    const cssContent = styleTag.textContent || '';
+    // Parse CSS rules (simplified parser - doesn't handle @media queries or complex rules)
+    const ruleMatches = cssContent.match(/([^{]+)\{([^}]*)\}/g);
+    
+    if (!ruleMatches) continue;
+    
+    for (const rule of ruleMatches) {
+      const braceOpen = rule.indexOf('{');
+      const braceClose = rule.indexOf('}');
+      
+      if (braceOpen === -1 || braceClose === -1) continue;
+      
+      const selector = rule.slice(0, braceOpen).trim();
+      const declarations = rule.slice(braceOpen + 1, braceClose).trim();
+      
+      if (!selector || !declarations) continue;
+      
+      // Find all elements matching the selector
+      try {
+        const matchingElements = dom.window.document.querySelectorAll(selector);
+        
+        for (const element of matchingElements) {
+          // Parse and apply each declaration
+          const declarationParts = declarations.split(';');
+          for (const declaration of declarationParts) {
+            const trimmed = declaration.trim();
+            if (trimmed) {
+              applyCssDeclaration(element, trimmed);
+            }
+          }
+        }
+      } catch (e) {
+        // Invalid selector, skip (e.g., @media queries, :hover pseudo-classes)
+        // This is a simplified implementation
+      }
+    }
+    
+    // Mark style tag for removal after processing
+    stylesToRemove.push(styleTag);
   }
 
-  // The styles remain in <style> tags for now
-  // In a full implementation, we would parse these and apply to elements
-  // For now, we preserve the <style> tags which browsers handle natively
+  // Remove processed style tags
+  for (const styleTag of stylesToRemove) {
+    styleTag.remove();
+  }
 }
 
 /**

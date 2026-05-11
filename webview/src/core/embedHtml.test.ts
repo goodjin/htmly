@@ -183,6 +183,93 @@ describe('embedHtmlSync', () => {
     });
   });
 
+  describe('Font Replacement', () => {
+    it('replaces custom font with web-safe fallback and sets font-family', () => {
+      const html = '<p style="font-family: Roboto, sans-serif;">Custom font text</p>';
+      const result = embedHtmlSync(html);
+      // Custom font should be replaced with sans-serif fallback
+      expect(result).toContain('sans-serif');
+      // The font-family should be set in the output
+      expect(result).toContain('font-family');
+    });
+
+    it('adds fallback to custom fonts without existing fallback', () => {
+      const html = '<p style="font-family: Inter;">Inter font text</p>';
+      const result = embedHtmlSync(html);
+      // Should have sans-serif fallback added
+      expect(result).toContain('sans-serif');
+    });
+
+    it('preserves web-safe font stacks', () => {
+      const html = '<p style="font-family: Arial, Helvetica, sans-serif;">Web safe</p>';
+      const result = embedHtmlSync(html);
+      expect(result).toContain('Arial');
+      expect(result).toContain('sans-serif');
+    });
+
+    it('replaces multiple custom fonts in single element', () => {
+      const html = '<p style="font-family: CustomFont1, CustomFont2, serif;">Multiple customs</p>';
+      const result = embedHtmlSync(html);
+      // Should have fallback chain
+      expect(result).toContain('sans-serif');
+    });
+  });
+
+  describe('CSS Inlining', () => {
+    it('inlines CSS rule to element with matching class', () => {
+      const html = '<style>.red-text { color: red; }</style><p class="red-text">Red</p>';
+      const result = embedHtmlSync(html, { inlineStyles: true });
+      // The inline style should contain the color property
+      expect(result).toContain('style=');
+      expect(result).toContain('color');
+    });
+
+    it('inlines CSS rule to element with matching tag selector', () => {
+      const html = '<style>p { font-size: 18px; }</style><p>Styled paragraph</p>';
+      const result = embedHtmlSync(html, { inlineStyles: true });
+      // The element should have font-size inline style
+      expect(result).toContain('font-size');
+    });
+
+    it('inlines CSS rule to element with matching ID', () => {
+      const html = '<style>#main { background: blue; }</style><div id="main">Main</div>';
+      const result = embedHtmlSync(html, { inlineStyles: true });
+      // The element should have background inline style
+      expect(result).toContain('background');
+    });
+
+    it('removes style tags after inlining when inlineStyles is true', () => {
+      const html = '<style>.test { color: red; }</style><p class="test">Content</p>';
+      const result = embedHtmlSync(html, { inlineStyles: true });
+      // Style tag should be removed, CSS should be inlined
+      expect(result).not.toContain('.test');
+      expect(result).toContain('color');
+    });
+
+    it('preserves style tags when inlineStyles is false', () => {
+      const html = '<style>.test { color: red; }</style><p class="test">Content</p>';
+      const result = embedHtmlSync(html, { inlineStyles: false });
+      // Style tag should be preserved
+      expect(result).toContain('.test');
+      expect(result).toContain('color: red');
+    });
+
+    it('inlines multiple CSS rules to matching elements', () => {
+      const html = '<style>.bold { font-weight: bold; } .red { color: red; }</style><p class="bold red">Styled</p>';
+      const result = embedHtmlSync(html, { inlineStyles: true });
+      expect(result).toContain('font-weight');
+      expect(result).toContain('color');
+    });
+
+    it('inlines CSS to multiple elements with same class', () => {
+      const html = '<style>.highlight { background: yellow; }</style><p class="highlight">First</p><p class="highlight">Second</p>';
+      const result = embedHtmlSync(html, { inlineStyles: true });
+      // Both paragraphs should have the inlined style
+      const count = (result.match(/background/g) || []).length;
+      expect(count).toBeGreaterThanOrEqual(2);
+    });
+  });
+
   describe('Link Tag Handling', () => {
     it('handles link tags in head', () => {
       const html = '<head><link rel="stylesheet" href="styles.css"></head><body><p>Content</p></body>';
