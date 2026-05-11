@@ -86,6 +86,7 @@ function compareCells(a: string, b: string, direction: 'asc' | 'desc'): number {
 
 /**
  * Get text content from a cell node
+ * Also handles special cell types like checkbox cells that store sort values in attrs
  */
 function getCellText(cell: any): string {
   let text = '';
@@ -96,6 +97,18 @@ function getCellText(cell: any): string {
     cell.forEach((child: any) => {
       text += getCellText(child) + ' ';
     });
+  } else if (cell.type?.name === 'checkboxCell' || cell.type?.name === 'datePickerCell') {
+    // For special cell types, try to get the sort value from attrs
+    // CheckboxCell: data-sort-value is "1" (checked) or "0" (unchecked)
+    // DatePickerCell: data-sort-value is the date string
+    const attrs = cell.attrs || {};
+    if (attrs['data-sort-value']) {
+      return attrs['data-sort-value'];
+    }
+    // Fallback to other known attribute names
+    if (attrs.sortValue) {
+      return attrs.sortValue;
+    }
   }
   
   return text.trim();
