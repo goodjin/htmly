@@ -1150,3 +1150,42 @@ body {
 .lazy-extension-loader {
   display: none;
 }
+
+/* =========================================
+   Search Highlight Styles for CodeMirror
+   ========================================= */
+
+/**
+ * Search match highlighting for CodeMirror source editor
+ * These styles are used by the highlightSearchField in SourceSearchBar
+ */
+
+/* Regular search match highlight */
+.cm-searchMatch {
+  background-color: rgba(255, 213, 0, 0.3);
+  border-radius: 2px;
+}
+
+/* Selected/current search match highlight */
+.cm-searchMatch-selected {
+  background-color: rgba(0, 120, 212, 0.4);
+  border-radius: 2px;
+}
+
+/* Ensure highlights are visible in both light and dark themes */
+.cm-editor .cm-searchMatch {
+  background-color: rgba(255, 213, 0, 0.3);
+}
+
+.cm-editor .cm-searchMatch-selected {
+  background-color: rgba(0, 120, 212, 0.4);
+}
+
+/* Dark theme adjustments */
+.cm-editor.cm-focused .cm-searchMatch {
+  background-color: rgba(255, 213, 0, 0.35);
+}
+
+.cm-editor.cm-focused .cm-searchMatch-selected {
+  background-color: rgba(0, 120, 212, 0.5);
+}

@@ -1,9 +1,8 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick } from 'vue';
 import type { EditorView } from '@codemirror/view';
-import { StateField, StateEffect } from '@codemirror/state';
-import { Decoration, DecorationSet } from '@codemirror/view';
-import { searchKeymap, highlightMatches } from '@codemirror/search';
+import { Decoration } from '@codemirror/view';
+import { highlightSearchEffect } from '../composables/useSearchHighlight';
 
 const props = defineProps<{
   editorView: EditorView | undefined;
@@ -276,23 +275,6 @@ function onReplaceKeydown(e: KeyboardEvent) {
   if (e.key === 'Enter') replaceCurrent();
   if (e.key === 'Escape') emit('close');
 }
-
-// State field and effect for search highlights
-const highlightSearchEffect = StateEffect.define<DecorationSet>();
-const highlightSearchField = StateField.define<DecorationSet>({
-  create() {
-    return Decoration.none;
-  },
-  update(decorations, tr) {
-    return tr.effects.reduce((set, effect) => {
-      if (effect.is(highlightSearchEffect)) {
-        return effect.value;
-      }
-      return set;
-    }, decorations.map(tr.changes));
-  },
-  provide: f => EditorView.decorations.from(f),
-});
 </script>
 
 <template>

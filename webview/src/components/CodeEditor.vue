@@ -15,6 +15,7 @@ import {
 import { search, searchKeymap } from '@codemirror/search';
 import { abbreviationTracker, expandAbbreviation } from '@emmetio/codemirror6-plugin';
 import { tags } from '@lezer/highlight';
+import { highlightSearchField } from '../composables/useSearchHighlight';
 
 // HTML-specific highlight style using highlight.js tags
 const htmlHighlightStyle = HighlightStyle.define([
@@ -196,6 +197,8 @@ onMounted(() => {
     keymap.of([...defaultKeymap, ...historyKeymap, ...searchKeymap]),
     // Search
     search(),
+    // Search highlight field for custom search highlighting
+    highlightSearchField,
     // HTML language support
     html(),
     // Indent on input
