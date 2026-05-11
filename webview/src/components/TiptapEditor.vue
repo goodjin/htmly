@@ -63,6 +63,7 @@ import { useLazyExtensionLoader } from '../composables/useLazyExtensionLoader';
 import { useCloudUpload } from '../composables/useCloudUpload';
 import { SpellCheckExtension, type SpellCheckMark } from '../extensions/SpellCheck';
 import { MathExtension } from '../extensions/Math';
+import { WikiLinkExtension } from '../extensions/WikiLink';
 import type { CloudStorageConfig } from '../../../src/shared/types';
 
 const props = withDefaults(defineProps<{
@@ -194,6 +195,8 @@ const editor = useEditor({
     }),
     // Math extensions for LaTeX rendering
     ...MathExtension,
+    // Wiki link extension for [[Page Name]] syntax
+    ...WikiLinkExtension,
   ],
   addProseMirrorPlugins() {
     return [FootnotePlugin];
