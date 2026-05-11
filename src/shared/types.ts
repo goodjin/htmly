@@ -181,6 +181,12 @@ export interface KeybindingCommand {
   isOverridden?: boolean;
 }
 
+// Wiki link page types
+export interface WikiPage {
+  name: string;
+  path?: string;
+}
+
 // Messages from extension → webview
 export type ExtToWebMsg =
   | { type: 'init'; content: string; mode: EditorMode }
@@ -218,7 +224,8 @@ export type ExtToWebMsg =
   | { type: 'keybindingManager'; show: true }
   | { type: 'keybindingsList'; commands: KeybindingCommand[] }
   | { type: 'keybindingExportResponse'; success: boolean; filePath?: string; error?: string }
-  | { type: 'keybindingImportResponse'; success: boolean; count?: number; error?: string };
+  | { type: 'keybindingImportResponse'; success: boolean; count?: number; error?: string }
+  | { type: 'wikiPages'; pages: WikiPage[] };
 
 // Messages from webview → extension
 export type WebToExtMsg =

@@ -23,6 +23,7 @@ import type { Template, Snippet } from './core/types';
 import { TEMPLATE_CATEGORIES } from './core/template';
 import { SNIPPET_CATEGORIES } from './core/snippet';
 import { setSnippetSelectorOpener } from './extensions/slashCommands';
+import { setPageIndex } from './extensions/WikiLink';
 
 const { 
   onMessage, 
@@ -858,6 +859,11 @@ const unsubscribe = onMessage((msg) => {
     case 'keybindingsList':
       // Store keybindings list for the keybinding manager
       keybindingsList.value = msg.commands;
+      break;
+
+    case 'wikiPages':
+      // Update the wiki link page index for autocomplete
+      setPageIndex(msg.pages);
       break;
   }
 });

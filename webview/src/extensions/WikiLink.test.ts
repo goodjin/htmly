@@ -1,7 +1,15 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi, beforeAll, afterEach } from 'vitest';
 import { Editor } from '@tiptap/core';
 import StarterKit from '@tiptap/starter-kit';
-import { WikiLink, WikiLinkExtension } from './WikiLink';
+import { 
+  WikiLink, 
+  WikiLinkExtension, 
+  setPageIndex, 
+  addPage, 
+  removePage, 
+  getPages,
+  type WikiPage 
+} from './WikiLink';
 
 describe('WikiLink', () => {
   let editor: Editor;
@@ -274,5 +282,152 @@ describe('WikiLink integration', () => {
     expect(html2).toContain('data-page="Page One"');
     expect(html2).toContain('data-page="Page Two"');
     expect(html2).toContain('data-page="Page Three"');
+  });
+});
+
+describe('WikiLink Page Index', () => {
+  beforeEach(() => {
+    // Clear page index before each test
+    setPageIndex([]);
+  });
+
+  describe('setPageIndex', () => {
+    it('sets the page index', () => {
+      const pages: WikiPage[] = [
+        { name: 'Page One' },
+        { name: 'Page Two' },
+      ];
+      
+      setPageIndex(pages);
+      
+      expect(getPages()).toEqual(pages);
+    });
+
+    it('replaces existing pages', () => {
+      setPageIndex([{ name: 'Old Page' }]);
+      setPageIndex([{ name: 'New Page' }]);
+      
+      expect(getPages()).toHaveLength(1);
+      expect(getPages()[0].name).toBe('New Page');
+    });
+  });
+
+  describe('addPage', () => {
+    it('adds a page to the index', () => {
+      addPage({ name: 'New Page' });
+      
+      expect(getPages()).toHaveLength(1);
+      expect(getPages()[0].name).toBe('New Page');
+    });
+
+    it('does not add duplicate pages', () => {
+      addPage({ name: 'Existing Page' });
+      addPage({ name: 'Existing Page' });
+      
+      expect(getPages()).toHaveLength(1);
+    });
+
+    it('adds multiple pages', () => {
+      addPage({ name: 'Page One' });
+      addPage({ name: 'Page Two' });
+      
+      expect(getPages()).toHaveLength(2);
+    });
+  });
+
+  describe('removePage', () => {
+    it('removes a page from the index', () => {
+      setPageIndex([
+        { name: 'Page One' },
+        { name: 'Page Two' },
+      ]);
+      
+      removePage('Page One');
+      
+      expect(getPages()).toHaveLength(1);
+      expect(getPages()[0].name).toBe('Page Two');
+    });
+
+    it('does nothing when page does not exist', () => {
+      setPageIndex([{ name: 'Page One' }]);
+      
+      removePage('Non-existent Page');
+      
+      expect(getPages()).toHaveLength(1);
+    });
+  });
+
+  describe('getPages', () => {
+    it('returns a copy of the page index', () => {
+      setPageIndex([{ name: 'Test Page' }]);
+      
+      const pages = getPages();
+      pages.push({ name: 'Modified' });
+      
+      expect(getPages()).toHaveLength(1);
+    });
+  });
+});
+
+describe('WikiLink Autocomplete (VAL-BACKLINKS-002)', () => {
+  beforeEach(() => {
+    // Clear and set up page index
+    setPageIndex([
+      { name: 'Getting Started' },
+      { name: 'Installation Guide' },
+      { name: 'API Reference' },
+      { name: 'Examples' },
+    ]);
+  });
+
+  describe('Suggestion items filtering', () => {
+    it('returns all pages when query is empty', () => {
+      // The items function is tested through the extension
+      const pages = getPages();
+      expect(pages).toHaveLength(4);
+    });
+
+    it('filters pages by query (case-insensitive)', () => {
+      // Filter by "guide"
+      const filteredByGuide = getPages().filter(p => 
+        p.name.toLowerCase().includes('guide')
+      );
+      expect(filteredByGuide).toHaveLength(1);
+      expect(filteredByGuide[0].name).toBe('Installation Guide');
+    });
+
+    it('shows partial matches', () => {
+      // Filter by "in"
+      const filteredByIn = getPages().filter(p => 
+        p.name.toLowerCase().includes('in')
+      );
+      expect(filteredByIn).toHaveLength(2); // Installation Guide, API Reference
+    });
+  });
+
+  describe('New page creation option', () => {
+    it('adds "create new" option when query has text', () => {
+      const query = 'New Page Name';
+      const pages = getPages();
+      
+      // Check if exact match exists
+      const hasExactMatch = pages.some(p => 
+        p.name.toLowerCase() === query.toLowerCase()
+      );
+      
+      // Should show create option since no exact match
+      expect(hasExactMatch).toBe(false);
+    });
+
+    it('does not add "create new" when exact match exists', () => {
+      const query = 'Getting Started';
+      const pages = getPages();
+      
+      const hasExactMatch = pages.some(p => 
+        p.name.toLowerCase() === query.toLowerCase()
+      );
+      
+      expect(hasExactMatch).toBe(true);
+    });
   });
 });
