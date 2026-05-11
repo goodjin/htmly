@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, defineAsyncComponent } from 'vue';
 import type { Editor } from '@tiptap/core';
-import type { EditorMode, ExportFormat } from '../../../src/shared/types';
+import type { EditorMode, ExportFormat, PdfExportOptions } from '../../../src/shared/types';
 import { escapeHtml } from '../core/htmlUtils';
 import LinkDialog from './LinkDialog.vue';
 import ImageDialog from './ImageDialog.vue';
@@ -33,7 +33,7 @@ const emit = defineEmits<{
   toggleHistory: [];
   toggleTemplate: [];
   openCoverDialog: [];
-  exportRequest: [format: ExportFormat];
+  exportRequest: [format: ExportFormat, options?: PdfExportOptions];
 }>();
 
 // Embed dialog state
@@ -46,8 +46,8 @@ function openExportDialog() {
   exportDialogVisible.value = true;
 }
 
-function onExport(format: ExportFormat) {
-  emit('exportRequest', format);
+function onExport(format: ExportFormat, options?: PdfExportOptions) {
+  emit('exportRequest', format, options);
   exportDialogVisible.value = false;
 }
 

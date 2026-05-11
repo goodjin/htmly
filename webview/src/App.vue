@@ -534,8 +534,12 @@ function handleDeleteSnippet(id: string) {
 }
 
 // Export handler
-function handleExportRequest(format: 'pdf' | 'markdown' | 'plaintext' | 'embedded') {
+function handleExportRequest(format: 'pdf' | 'markdown' | 'plaintext' | 'embedded', options?: import('../../src/shared/types').PdfExportOptions) {
   if (format === 'pdf') {
+    // PDF export with options
+    if (options) {
+      applyPdfExportOptions(options);
+    }
     // PDF export is handled directly in the webview using window.print()
     // The print CSS in global.css hides the editor UI and shows clean document
     window.print();
@@ -543,6 +547,61 @@ function handleExportRequest(format: 'pdf' | 'markdown' | 'plaintext' | 'embedde
   }
   // Get the full HTML content for export
   requestExport(format, content.value);
+}
+
+// Apply PDF export options to the document for printing
+function applyPdfExportOptions(options: import('../../src/shared/types').PdfExportOptions): void {
+  const body = document.body;
+  
+  // Remove any existing print elements
+  const existingElements = body.querySelectorAll('.print-header, .print-footer, .print-page-number');
+  existingElements.forEach(el => el.remove());
+  
+  // Remove existing classes
+  body.classList.remove('show-page-numbers', 'print-has-header', 'print-has-footer');
+  
+  // Apply page numbers
+  if (options.includePageNumbers) {
+    body.classList.add('show-page-numbers');
+    const pageNumberEl = document.createElement('div');
+    pageNumberEl.className = 'print-page-number';
+    pageNumberEl.textContent = `Page {page} of {total}`;
+    body.appendChild(pageNumberEl);
+  }
+  
+  // Apply header text
+  if (options.headerText && options.headerText.trim()) {
+    body.classList.add('print-has-header');
+    const headerEl = document.createElement('div');
+    headerEl.className = 'print-header';
+    headerEl.textContent = options.headerText;
+    body.appendChild(headerEl);
+  }
+  
+  // Apply footer text (supports {page} and {total} placeholders)
+  if (options.footerText && options.footerText.trim()) {
+    body.classList.add('print-has-footer');
+    const footerEl = document.createElement('div');
+    footerEl.className = 'print-footer';
+    
+    // Replace placeholders with actual page numbers
+    footerEl.textContent = options.footerText
+      .replace('{page}', '<span class="page-number"></span>')
+      .replace('{total}', '<span class="total-pages"></span>');
+    
+    body.appendChild(footerEl);
+  }
+  
+  // Clean up after print is done (when printing dialog closes)
+  const mediaQuery = window.matchMedia('print');
+  const cleanupHandler = () => {
+    // Remove print elements
+    const elements = document.body.querySelectorAll('.print-header, .print-footer, .print-page-number');
+    elements.forEach(el => el.remove());
+    document.body.classList.remove('show-page-numbers', 'print-has-header', 'print-has-footer');
+    mediaQuery.removeEventListener('change', cleanupHandler);
+  };
+  mediaQuery.addEventListener('change', cleanupHandler);
 }
 
 // Crash recovery functions

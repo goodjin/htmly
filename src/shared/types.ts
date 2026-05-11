@@ -6,6 +6,26 @@ export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 // Export format options
 export type ExportFormat = 'pdf' | 'markdown' | 'plaintext' | 'embedded';
 
+// Export preset type (print/screen/ebook)
+export type ExportPresetType = 'print' | 'screen' | 'ebook' | 'custom';
+
+// PDF export options
+export interface PdfExportOptions {
+  includePageNumbers: boolean;
+  headerText: string;
+  footerText: string;
+  preset: ExportPresetType;
+}
+
+// Export preset configuration
+export interface ExportPreset {
+  id: string;
+  name: string;
+  type: ExportPresetType;
+  options: PdfExportOptions;
+  isBuiltIn: boolean;
+}
+
 // History entry for undo/redo persistence
 export interface HistoryEntry {
   /** The HTML content at this point in history */
@@ -176,6 +196,9 @@ export type ExtToWebMsg =
   | { type: 'crashRecovery'; data: CrashRecoveryData }
   | { type: 'historyExported'; path: string }
   | { type: 'exportResponse'; success: boolean; filePath?: string; error?: string }
+  | { type: 'exportPresets'; presets: ExportPreset[] }
+  | { type: 'saveExportPresetResponse'; success: boolean; preset?: ExportPreset; error?: string }
+  | { type: 'deleteExportPresetResponse'; success: boolean; error?: string }
   | { type: 'userTemplates'; templates: UserTemplateMetadata[] }
   | { type: 'saveTemplateResponse'; success: boolean; template?: UserTemplateMetadata; error?: string }
   | { type: 'deleteTemplateResponse'; success: boolean; error?: string }
@@ -206,7 +229,10 @@ export type WebToExtMsg =
   | { type: 'syncHistory'; history: HistoryState }
   | { type: 'selectiveUndo'; targetIndex: number }
   | { type: 'exportHistory' }
-  | { type: 'exportRequest'; format: ExportFormat; content: string }
+  | { type: 'exportRequest'; format: ExportFormat; content: string; options?: PdfExportOptions }
+  | { type: 'loadExportPresets' }
+  | { type: 'saveExportPreset'; preset: Omit<ExportPreset, 'id' | 'isBuiltIn'> }
+  | { type: 'deleteExportPreset'; id: string }
   | { type: 'loadUserTemplates' }
   | { type: 'saveAsTemplate'; name: string; category: TemplateCategory; content: string; description?: string }
   | { type: 'deleteTemplate'; id: string }

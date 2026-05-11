@@ -73,15 +73,79 @@ describe('ExportDialog.vue', () => {
     });
   });
 
+  describe('PDF Options Section', () => {
+    it('shows PDF options toggle button', () => {
+      const wrapper = mount(ExportDialog, {
+        props: { visible: true },
+      });
+      expect(wrapper.find('.pdf-options-toggle').exists()).toBe(true);
+    });
+
+    it('expands PDF options when toggle is clicked', async () => {
+      const wrapper = mount(ExportDialog, {
+        props: { visible: true },
+      });
+      await wrapper.find('.pdf-options-toggle').trigger('click');
+      expect(wrapper.find('.pdf-options-content').exists()).toBe(true);
+    });
+
+    it('shows preset selector dropdown', async () => {
+      const wrapper = mount(ExportDialog, {
+        props: { visible: true },
+      });
+      await wrapper.find('.pdf-options-toggle').trigger('click');
+      expect(wrapper.find('#preset-select').exists()).toBe(true);
+    });
+
+    it('shows page numbers checkbox', async () => {
+      const wrapper = mount(ExportDialog, {
+        props: { visible: true },
+      });
+      await wrapper.find('.pdf-options-toggle').trigger('click');
+      expect(wrapper.find('input[type="checkbox"]').exists()).toBe(true);
+      expect(wrapper.find('.checkbox-label span').text()).toBe('Include page numbers');
+    });
+
+    it('shows header text input', async () => {
+      const wrapper = mount(ExportDialog, {
+        props: { visible: true },
+      });
+      await wrapper.find('.pdf-options-toggle').trigger('click');
+      expect(wrapper.find('#header-text').exists()).toBe(true);
+    });
+
+    it('shows footer text input', async () => {
+      const wrapper = mount(ExportDialog, {
+        props: { visible: true },
+      });
+      await wrapper.find('.pdf-options-toggle').trigger('click');
+      expect(wrapper.find('#footer-text').exists()).toBe(true);
+    });
+
+    it('shows save as preset button', async () => {
+      const wrapper = mount(ExportDialog, {
+        props: { visible: true },
+      });
+      await wrapper.find('.pdf-options-toggle').trigger('click');
+      expect(wrapper.find('.save-preset-btn').exists()).toBe(true);
+    });
+  });
+
   describe('Interaction', () => {
-    it('emits export with "pdf" format when PDF option is clicked', async () => {
+    it('emits export with "pdf" format and options when PDF option is clicked', async () => {
       const wrapper = mount(ExportDialog, {
         props: { visible: true },
       });
       const pdfOption = wrapper.findAll('.export-option')[0];
       await pdfOption.trigger('click');
       expect(wrapper.emitted('export')).toBeTruthy();
-      expect(wrapper.emitted('export')![0]).toEqual(['pdf']);
+      const emitted = wrapper.emitted('export')![0];
+      expect(emitted[0]).toBe('pdf');
+      // Options should be included
+      expect(emitted[1]).toBeDefined();
+      expect(emitted[1]).toHaveProperty('includePageNumbers');
+      expect(emitted[1]).toHaveProperty('headerText');
+      expect(emitted[1]).toHaveProperty('footerText');
     });
 
     it('emits export with "markdown" format when Markdown option is clicked', async () => {

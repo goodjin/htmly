@@ -929,7 +929,8 @@ body {
   .crash-recovery-overlay,
   .export-notification,
   .large-file-banner,
-  .loading {
+  .loading,
+  .pdf-export-options {
     display: none !important;
   }
 
@@ -974,10 +975,74 @@ body {
     display: none !important;
   }
 
-  /* Proper page margins */
+  /* Proper page margins with room for header/footer */
   @page {
-    margin: 1in;
+    margin: 0.75in;
+    margin-top: 0.5in;
+    margin-bottom: 0.75in;
     size: auto;
+  }
+
+  /* Page number styles - shown when .show-page-numbers is present */
+  .print-page-number {
+    display: none;
+  }
+  
+  body.show-page-numbers .print-page-number {
+    display: block;
+    position: fixed;
+    bottom: 0.5in;
+    left: 0;
+    right: 0;
+    text-align: center;
+    font-size: 10pt;
+    color: #666;
+  }
+
+  /* Page number - right side for left pages */
+  body.show-page-numbers .print-page-number.left {
+    text-align: left;
+  }
+
+  /* Page number - left side for right pages */
+  body.show-page-numbers .print-page-number.right {
+    text-align: right;
+  }
+
+  /* Header styles */
+  .print-header {
+    display: none;
+  }
+  
+  body.print-has-header .print-header {
+    display: block;
+    position: fixed;
+    top: 0.25in;
+    left: 0.75in;
+    right: 0.75in;
+    text-align: center;
+    font-size: 10pt;
+    color: #666;
+    border-bottom: 1px solid #ddd;
+    padding-bottom: 4pt;
+  }
+
+  /* Footer styles */
+  .print-footer {
+    display: none;
+  }
+  
+  body.print-has-footer .print-footer {
+    display: block;
+    position: fixed;
+    bottom: 0.25in;
+    left: 0.75in;
+    right: 0.75in;
+    text-align: center;
+    font-size: 10pt;
+    color: #666;
+    border-top: 1px solid #ddd;
+    padding-top: 4pt;
   }
 
   /* Ensure content fits page width */
