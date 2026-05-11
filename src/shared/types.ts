@@ -3,6 +3,9 @@ export type EditorMode = 'wysiwyg' | 'source' | 'preview' | 'split';
 // Save status for the toolbar indicator
 export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 
+// Export format options
+export type ExportFormat = 'pdf' | 'markdown' | 'plaintext' | 'embedded';
+
 // History entry for undo/redo persistence
 export interface HistoryEntry {
   /** The HTML content at this point in history */
@@ -56,7 +59,8 @@ export type ExtToWebMsg =
   | { type: 'saveStatus'; status: SaveStatus }
   | { type: 'historyUpdate'; history: HistoryState }
   | { type: 'crashRecovery'; data: CrashRecoveryData }
-  | { type: 'historyExported'; path: string };
+  | { type: 'historyExported'; path: string }
+  | { type: 'exportResponse'; success: boolean; filePath?: string; error?: string };
 
 // Messages from webview → extension
 export type WebToExtMsg =
@@ -66,4 +70,5 @@ export type WebToExtMsg =
   | { type: 'requestMode' }
   | { type: 'syncHistory'; history: HistoryState }
   | { type: 'selectiveUndo'; targetIndex: number }
-  | { type: 'exportHistory' };
+  | { type: 'exportHistory' }
+  | { type: 'exportRequest'; format: ExportFormat; content: string };
