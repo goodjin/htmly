@@ -144,6 +144,23 @@ export interface MisspelledWord {
   end: number;
 }
 
+// Keybinding types
+export interface Keybinding {
+  command: string;
+  key: string;
+  mac?: string;
+  when?: string;
+}
+
+export interface KeybindingCommand {
+  id: string;
+  title: string;
+  category: string;
+  description?: string;
+  keybinding: Keybinding;
+  isOverridden?: boolean;
+}
+
 // Messages from extension → webview
 export type ExtToWebMsg =
   | { type: 'init'; content: string; mode: EditorMode }
@@ -174,7 +191,11 @@ export type ExtToWebMsg =
   | { type: 'spellCheckSettings'; enabled: boolean; customDictionary: string[] }
   | { type: 'spellCheckSuggestions'; suggestions: SpellSuggestion[] }
   | { type: 'spellCheckMisspelledWords'; words: MisspelledWord[] }
-  | { type: 'spellCheckWord'; word: string; suggestions: string[] };
+  | { type: 'spellCheckWord'; word: string; suggestions: string[] }
+  | { type: 'keybindingManager'; show: true }
+  | { type: 'keybindingsList'; commands: KeybindingCommand[] }
+  | { type: 'keybindingExportResponse'; success: boolean; filePath?: string; error?: string }
+  | { type: 'keybindingImportResponse'; success: boolean; count?: number; error?: string };
 
 // Messages from webview → extension
 export type WebToExtMsg =
@@ -200,4 +221,11 @@ export type WebToExtMsg =
   | { type: 'removeFromSpellDictionary'; word: string }
   | { type: 'setSpellCheckEnabled'; enabled: boolean }
   | { type: 'requestSpellCheck'; content: string }
-  | { type: 'requestSpellCheckWord'; word: string };
+  | { type: 'requestSpellCheckWord'; word: string }
+  | { type: 'loadKeybindings' }
+  | { type: 'showKeybindingManager' }
+  | { type: 'exportKeybindings' }
+  | { type: 'importKeybindings' }
+  | { type: 'setKeybindingOverride'; command: string; key: string; mac?: string }
+  | { type: 'removeKeybindingOverride'; command: string }
+  | { type: 'resetKeybindings' };

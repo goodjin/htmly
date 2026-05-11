@@ -1,6 +1,10 @@
 import * as vscode from 'vscode';
 import { HtmlyEditorProvider } from './editorProvider';
 import type { EditorMode } from '../shared/types';
+import {
+  exportKeybindings,
+  importKeybindings,
+} from './keybindingManager';
 
 const MODE_LABELS: Record<EditorMode, string> = {
   wysiwyg: 'WYSIWYG',
@@ -105,6 +109,37 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     vscode.commands.registerCommand('htmly.searchProject', () => {
       provider.showProjectSearch();
+    })
+  );
+
+  // Keybinding management commands
+  context.subscriptions.push(
+    vscode.commands.registerCommand('htmly.openKeybindingManager', () => {
+      provider.showKeybindingManager();
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('htmly.exportKeybindings', async () => {
+      const result = await exportKeybindings();
+      if (result.success) {
+        vscode.window.showInformationMessage(`Keybindings exported to ${result.filePath}`);
+      } else if (result.error && result.error !== 'Export cancelled') {
+        vscode.window.showErrorMessage(`Failed to export keybindings: ${result.error}`);
+      }
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('htmly.importKeybindings', async () => {
+      const result = await importKeybindings();
+      if (result.success) {
+        vscode.window.showInformationMessage(`Imported ${result.count} keybinding(s)`);
+        // Notify all open editors to refresh their keybinding list
+        provider.notifyKeybindingChange();
+      } else if (result.error && result.error !== 'Import cancelled') {
+        vscode.window.showErrorMessage(`Failed to import keybindings: ${result.error}`);
+      }
     })
   );
 

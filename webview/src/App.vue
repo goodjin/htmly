@@ -18,6 +18,7 @@ import HistoryPanel from './components/HistoryPanel.vue';
 import TemplateSelector from './components/TemplateSelector.vue';
 import SnippetSelector from './components/SnippetSelector.vue';
 import ProjectSearchPanel from './components/ProjectSearchPanel.vue';
+import KeybindingManager from './components/KeybindingManager.vue';
 import type { Template, Snippet } from './core/types';
 import { TEMPLATE_CATEGORIES } from './core/template';
 import { SNIPPET_CATEGORIES } from './core/snippet';
@@ -305,6 +306,8 @@ const showHistoryPanel = ref(false);
 const showTemplateSelector = ref(false);
 const showSnippetSelector = ref(false);
 const showCrashRecoveryDialog = ref(false);
+const showKeybindingManager = ref(false);
+const keybindingsList = ref<import('../../src/shared/types').KeybindingCommand[]>([]);
 
 // Save template dialog state
 const showSaveTemplateDialog = ref(false);
@@ -772,6 +775,14 @@ const unsubscribe = onMessage((msg) => {
       // Show project search panel when command is triggered
       showProjectSearch.value = true;
       break;
+    case 'keybindingManager':
+      // Show keybinding manager when command is triggered
+      showKeybindingManager.value = true;
+      break;
+    case 'keybindingsList':
+      // Store keybindings list for the keybinding manager
+      keybindingsList.value = msg.commands;
+      break;
   }
 });
 
@@ -1030,6 +1041,11 @@ onBeforeUnmount(() => {
       @previous="projectPreviousResult"
       @open-result="projectGoToResult"
       @toggle-regex="projectToggleRegex"
+    />
+    <!-- Keybinding Manager -->
+    <KeybindingManager
+      :visible="showKeybindingManager"
+      @close="showKeybindingManager = false"
     />
   </div>
 </template>

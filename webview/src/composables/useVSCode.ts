@@ -1,5 +1,5 @@
 import { ref } from 'vue';
-import type { ExtToWebMsg, WebToExtMsg, EditorMode, HistoryState, CrashRecoveryData, ExportFormat, TemplateCategory, SnippetCategory, UserTemplateMetadata, UserSnippetMetadata } from '../../../src/shared/types';
+import type { ExtToWebMsg, WebToExtMsg, EditorMode, HistoryState, CrashRecoveryData, ExportFormat, TemplateCategory, SnippetCategory, UserTemplateMetadata, UserSnippetMetadata, KeybindingCommand } from '../../../src/shared/types';
 
 // VS Code API injected by the extension host
 declare function acquireVsCodeApi(): {
@@ -37,6 +37,12 @@ export function useVSCode() {
 
   // User snippets state
   const userSnippets = ref<UserSnippetMetadata[]>([]);
+
+  // Keybinding manager state
+  const keybindingCommands = ref<KeybindingCommand[]>([]);
+  const showKeybindingManager = ref(false);
+  const keybindingExportResult = ref<{ success: boolean; filePath?: string; error?: string } | null>(null);
+  const keybindingImportResult = ref<{ success: boolean; count?: number; error?: string } | null>(null);
 
   function postMessage(msg: WebToExtMsg) {
     getVsApi()?.postMessage(msg);
@@ -207,6 +213,69 @@ export function useVSCode() {
     postMessage({ type: 'setSpellCheckEnabled', enabled });
   }
 
+  /**
+   * Request list of keybindings from extension
+   */
+  function loadKeybindings(): void {
+    postMessage({ type: 'loadKeybindings' });
+  }
+
+  /**
+   * Show keybinding manager UI
+   */
+  function showKeybindingsManager(): void {
+    postMessage({ type: 'showKeybindingManager' });
+  }
+
+  /**
+   * Export keybindings to file
+   */
+  function exportKeybindings(): void {
+    postMessage({ type: 'exportKeybindings' });
+  }
+
+  /**
+   * Import keybindings from file
+   */
+  function importKeybindings(): void {
+    postMessage({ type: 'importKeybindings' });
+  }
+
+  /**
+   * Set a keybinding override for a command
+   */
+  function setKeybindingOverride(command: string, key: string, mac?: string): void {
+    postMessage({ type: 'setKeybindingOverride', command, key, mac });
+  }
+
+  /**
+   * Remove a keybinding override (revert to default)
+   */
+  function removeKeybindingOverride(command: string): void {
+    postMessage({ type: 'removeKeybindingOverride', command });
+  }
+
+  /**
+   * Reset all keybindings to defaults
+   */
+  function resetKeybindings(): void {
+    postMessage({ type: 'resetKeybindings' });
+  }
+
+  /**
+   * Clear keybinding export result
+   */
+  function clearKeybindingExportResult(): void {
+    keybindingExportResult.value = null;
+  }
+
+  /**
+   * Clear keybinding import result
+   */
+  function clearKeybindingImportResult(): void {
+    keybindingImportResult.value = null;
+  }
+
   return {
     initialContent,
     initialMode,
@@ -238,5 +307,19 @@ export function useVSCode() {
     addToSpellDictionary,
     removeFromSpellDictionary,
     setSpellCheckEnabled,
+    // Keybinding management
+    keybindingCommands,
+    showKeybindingManager,
+    keybindingExportResult,
+    keybindingImportResult,
+    loadKeybindings,
+    showKeybindingsManager,
+    exportKeybindings,
+    importKeybindings,
+    setKeybindingOverride,
+    removeKeybindingOverride,
+    resetKeybindings,
+    clearKeybindingExportResult,
+    clearKeybindingImportResult,
   };
 }

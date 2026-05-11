@@ -30,6 +30,14 @@ import {
   deleteSnippet as deleteSnippetFromStorage,
   loadSnippetContent,
 } from './snippetStorage';
+import {
+  getAllKeybindings,
+  setKeybindingOverride,
+  removeKeybindingOverride,
+  resetKeybindings,
+  exportKeybindings,
+  importKeybindings,
+} from './keybindingManager';
 
 const HISTORY_STATE_KEY = 'htmly.history';
 const CRASH_RECOVERY_KEY = 'htmly.crashRecovery';
@@ -122,6 +130,35 @@ export class HtmlyEditorProvider implements vscode.CustomTextEditorProvider {
     this.postMessage(panel, { type: 'showProjectSearch' });
   }
 
+  /**
+   * Show the keybinding manager panel in the webview
+   */
+  public showKeybindingManager(): void {
+    if (!this.activePanel) {
+      return;
+    }
+
+    const entry = this.getActivePanelEntry();
+    if (!entry) {
+      return;
+    }
+
+    const [, panel] = entry;
+    const keybindings = getAllKeybindings();
+    this.postMessage(panel, { type: 'keybindingsList', commands: keybindings });
+    this.postMessage(panel, { type: 'keybindingManager', show: true });
+  }
+
+  /**
+   * Notify all open panels that keybindings have changed
+   */
+  public notifyKeybindingChange(): void {
+    const keybindings = getAllKeybindings();
+    for (const [, panel] of this.panels) {
+      this.postMessage(panel, { type: 'keybindingsList', commands: keybindings });
+    }
+  }
+
   public getTestState(): { active: boolean; documentUri?: string; mode?: EditorMode } {
     if (!this.activePanel) {
       return { active: false };
@@ -203,7 +240,7 @@ export class HtmlyEditorProvider implements vscode.CustomTextEditorProvider {
     };
 
     // Webview → Extension
-    webviewPanel.webview.onDidReceiveMessage((msg: WebToExtMsg) => {
+    webviewPanel.webview.onDidReceiveMessage(async (msg: WebToExtMsg) => {
       switch (msg.type) {
         case 'ready':
           // Check for crash recovery
@@ -339,6 +376,34 @@ export class HtmlyEditorProvider implements vscode.CustomTextEditorProvider {
 
         case 'requestSpellCheckWord':
           this.handleRequestSpellCheckWord(msg.word, webviewPanel);
+          break;
+
+        case 'showKeybindingManager':
+          this.handleShowKeybindingManager(webviewPanel);
+          break;
+
+        case 'loadKeybindings':
+          this.handleLoadKeybindings(webviewPanel);
+          break;
+
+        case 'exportKeybindings':
+          await this.handleExportKeybindings(webviewPanel);
+          break;
+
+        case 'importKeybindings':
+          await this.handleImportKeybindings(webviewPanel);
+          break;
+
+        case 'setKeybindingOverride':
+          this.handleSetKeybindingOverride(msg.command, msg.key, msg.mac);
+          break;
+
+        case 'removeKeybindingOverride':
+          this.handleRemoveKeybindingOverride(msg.command);
+          break;
+
+        case 'resetKeybindings':
+          await this.handleResetKeybindings(webviewPanel);
           break;
       }
     });
@@ -1560,6 +1625,107 @@ export class HtmlyEditorProvider implements vscode.CustomTextEditorProvider {
     }
 
     return matrix[b.length][a.length];
+  }
+
+  /**
+   * Handle show keybinding manager request
+   */
+  private handleShowKeybindingManager(panel: vscode.WebviewPanel): void {
+    const keybindings = getAllKeybindings();
+    this.postMessage(panel, { type: 'keybindingsList', commands: keybindings });
+    this.postMessage(panel, { type: 'keybindingManager', show: true });
+  }
+
+  /**
+   * Handle load keybindings request
+   */
+  private handleLoadKeybindings(panel: vscode.WebviewPanel): void {
+    const keybindings = getAllKeybindings();
+    this.postMessage(panel, { type: 'keybindingsList', commands: keybindings });
+  }
+
+  /**
+   * Handle export keybindings request
+   */
+  private async handleExportKeybindings(panel: vscode.WebviewPanel): Promise<void> {
+    try {
+      const result = await exportKeybindings();
+      if (result.success) {
+        this.postMessage(panel, {
+          type: 'keybindingExportResponse',
+          success: true,
+          filePath: result.filePath,
+        });
+      } else {
+        this.postMessage(panel, {
+          type: 'keybindingExportResponse',
+          success: false,
+          error: result.error,
+        });
+      }
+    } catch (error) {
+      this.postMessage(panel, {
+        type: 'keybindingExportResponse',
+        success: false,
+        error: String(error),
+      });
+    }
+  }
+
+  /**
+   * Handle import keybindings request
+   */
+  private async handleImportKeybindings(panel: vscode.WebviewPanel): Promise<void> {
+    try {
+      const result = await importKeybindings();
+      if (result.success) {
+        // Notify all panels of the keybinding change
+        this.notifyKeybindingChange();
+        this.postMessage(panel, {
+          type: 'keybindingImportResponse',
+          success: true,
+          count: result.count,
+        });
+      } else {
+        this.postMessage(panel, {
+          type: 'keybindingImportResponse',
+          success: false,
+          error: result.error,
+        });
+      }
+    } catch (error) {
+      this.postMessage(panel, {
+        type: 'keybindingImportResponse',
+        success: false,
+        error: String(error),
+      });
+    }
+  }
+
+  /**
+   * Handle set keybinding override request
+   */
+  private handleSetKeybindingOverride(command: string, key: string, mac?: string): void {
+    setKeybindingOverride(command, { command, key, mac });
+    this.notifyKeybindingChange();
+  }
+
+  /**
+   * Handle remove keybinding override request
+   */
+  private handleRemoveKeybindingOverride(command: string): void {
+    removeKeybindingOverride(command);
+    this.notifyKeybindingChange();
+  }
+
+  /**
+   * Handle reset all keybindings request
+   */
+  private async handleResetKeybindings(panel: vscode.WebviewPanel): Promise<void> {
+    await resetKeybindings();
+    this.notifyKeybindingChange();
+    const keybindings = getAllKeybindings();
+    this.postMessage(panel, { type: 'keybindingsList', commands: keybindings });
   }
 
   private getWebviewHtml(webview: vscode.Webview): string {

@@ -44,6 +44,18 @@
       {
         "command": "htmly.searchProject",
         "title": "Htmly: Project-Wide Search"
+      },
+      {
+        "command": "htmly.openKeybindingManager",
+        "title": "Htmly: Open Keybinding Manager"
+      },
+      {
+        "command": "htmly.exportKeybindings",
+        "title": "Htmly: Export Keybindings"
+      },
+      {
+        "command": "htmly.importKeybindings",
+        "title": "Htmly: Import Keybindings"
       }
     ],
     "keybindings": [
@@ -172,6 +184,23 @@
           },
           "default": [],
           "description": "Custom dictionary words to ignore (added via 'Add to Dictionary' action)"
+        },
+        "htmly.keybindings.overrides": {
+          "type": "object",
+          "default": {},
+          "description": "Override default keybindings for Htmly commands. Format: { \"commandId\": { \"key\": \"ctrl+b\", \"mac\": \"cmd+b\", \"when\": \"...\" } }",
+          "patternProperties": {
+            "^htmly\\.": {
+              "type": "object",
+              "properties": {
+                "command": { "type": "string" },
+                "key": { "type": "string" },
+                "mac": { "type": "string" },
+                "when": { "type": "string" }
+              },
+              "additionalProperties": false
+            }
+          }
         }
       }
     },
