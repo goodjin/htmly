@@ -547,17 +547,6 @@ function isExternalUrl(url: string): boolean {
 }
 
 /**
- * Check if a URL is a relative path (local file reference)
- */
-function isRelativePath(url: string): boolean {
-  const trimmed = url.trim();
-  return trimmed.startsWith('/') || 
-         trimmed.startsWith('./') || 
-         trimmed.startsWith('../') ||
-         (!trimmed.includes('://') && !trimmed.startsWith('data:'));
-}
-
-/**
  * Get MIME type from file extension
  */
 function getMimeType(filePath: string): string {
@@ -752,7 +741,7 @@ function processFonts(html: string): string {
     const fonts = fontValue.split(',').map((f: string) => f.trim().toLowerCase().replace(/['"]/g, ''));
     
     let hasCustomFont = false;
-    let processedFonts: string[] = [];
+    const processedFonts: string[] = [];
     
     for (const font of fonts) {
       // Remove size/weight qualifiers
