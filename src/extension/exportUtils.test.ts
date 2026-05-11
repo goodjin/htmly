@@ -169,11 +169,18 @@ describe('exportUtils', () => {
       expect(result).toContain('\n\n');
     });
 
-    it('converts headings with underlines', () => {
+    it('converts headings with blank lines', () => {
       const html = '<h1>Title</h1>';
       const result = convertToPlainText(html);
-      expect(result).toContain('TITLE');
-      expect(result).toContain('-----');
+      expect(result).toContain('Title');
+      expect(result).not.toContain('<');
+      expect(result).not.toContain('>');
+    });
+
+    it('converts all heading levels', () => {
+      expect(convertToPlainText('<h1>H1</h1>')).toContain('H1');
+      expect(convertToPlainText('<h2>H2</h2>')).toContain('H2');
+      expect(convertToPlainText('<h3>H3</h3>')).toContain('H3');
     });
 
     it('converts links to text (url) format', () => {
@@ -183,10 +190,28 @@ describe('exportUtils', () => {
       expect(result).toContain('(https://example.com)');
     });
 
-    it('converts list items with bullets', () => {
+    it('handles mailto links', () => {
+      const html = '<a href="mailto:test@example.com">Email</a>';
+      const result = convertToPlainText(html);
+      expect(result).toContain('Email');
+      expect(result).toContain('(mailto:test@example.com)');
+    });
+
+    it('converts unordered list items with bullets', () => {
       const html = '<ul><li>Item 1</li><li>Item 2</li></ul>';
       const result = convertToPlainText(html);
-      expect(result).toContain('•');
+      expect(result).toContain('\u2022');
+      expect(result).toContain('Item 1');
+      expect(result).toContain('Item 2');
+    });
+
+    it('converts ordered list items with numbers', () => {
+      const html = '<ol><li>First</li><li>Second</li></ol>';
+      const result = convertToPlainText(html);
+      expect(result).toContain('1.');
+      expect(result).toContain('2.');
+      expect(result).toContain('First');
+      expect(result).toContain('Second');
     });
 
     it('decodes HTML entities', () => {
@@ -194,6 +219,89 @@ describe('exportUtils', () => {
       const result = convertToPlainText(html);
       expect(result).toContain('Hello & World');
       expect(result).toContain('Test');
+    });
+
+    it('decodes nbsp entity', () => {
+      const html = '<p>Word1&nbsp;&nbsp;Word2</p>';
+      const result = convertToPlainText(html);
+      expect(result).toContain('Word1');
+      expect(result).toContain('Word2');
+    });
+
+    it('converts images with alt text to [alt]', () => {
+      const html = '<p>See <img src="photo.jpg" alt="My Photo"> for details</p>';
+      const result = convertToPlainText(html);
+      expect(result).toContain('[My Photo]');
+      expect(result).not.toContain('<img');
+    });
+
+    it('converts images without alt to [image: src]', () => {
+      const html = '<img src="graph.png">';
+      const result = convertToPlainText(html);
+      expect(result).toContain('[image: graph.png]');
+    });
+
+    it('converts tables to pipe syntax', () => {
+      const html = '<table><tr><th>Col1</th><th>Col2</th></tr><tr><td>A</td><td>B</td></tr></table>';
+      const result = convertToPlainText(html);
+      expect(result).toContain('Col1 | Col2');
+      expect(result).toContain('A | B');
+    });
+
+    it('converts blockquotes with blank lines', () => {
+      const html = '<blockquote>This is a quote</blockquote>';
+      const result = convertToPlainText(html);
+      expect(result).toContain('This is a quote');
+      expect(result).not.toContain('<blockquote>');
+    });
+
+    it('preserves preformatted text whitespace', () => {
+      const html = '<pre>function test() {\n  return 1;\n}</pre>';
+      const result = convertToPlainText(html);
+      expect(result).toContain('function test()');
+      expect(result).toContain('return 1');
+    });
+
+    it('strips script content for security', () => {
+      const html = '<script>alert("xss");</script><p>Safe content</p>';
+      const result = convertToPlainText(html);
+      expect(result).not.toContain('alert');
+      expect(result).toContain('Safe content');
+    });
+
+    it('strips style content', () => {
+      const html = '<style>.hidden{display:none}</style><p>Visible</p>';
+      const result = convertToPlainText(html);
+      expect(result).not.toContain('.hidden');
+      expect(result).toContain('Visible');
+    });
+
+    it('handles nested block elements', () => {
+      const html = '<div><p>Para 1</p><p>Para 2</p></div>';
+      const result = convertToPlainText(html);
+      expect(result).toContain('Para 1');
+      expect(result).toContain('Para 2');
+    });
+
+    it('handles plain text without HTML', () => {
+      const text = 'Just plain text';
+      expect(convertToPlainText(text)).toBe(text);
+    });
+
+    it('handles empty string', () => {
+      expect(convertToPlainText('')).toBe('');
+    });
+
+    it('converts complex document with mixed content', () => {
+      const html = '<h1>Title</h1><p>Para with <strong>bold</strong> and <a href="https://example.com">link</a>.</p><ul><li>Item</li></ul>';
+      const result = convertToPlainText(html);
+      expect(result).toContain('Title');
+      expect(result).toContain('bold');
+      expect(result).toContain('link');
+      expect(result).toContain('(https://example.com)');
+      expect(result).toContain('\u2022');
+      expect(result).not.toContain('<');
+      expect(result).not.toContain('>');
     });
   });
 
