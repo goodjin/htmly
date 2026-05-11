@@ -332,6 +332,14 @@ export class HtmlyEditorProvider implements vscode.CustomTextEditorProvider {
         case 'setSpellCheckEnabled':
           this.handleSetSpellCheckEnabled(msg.enabled);
           break;
+
+        case 'requestSpellCheck':
+          this.handleRequestSpellCheck(msg.content, webviewPanel);
+          break;
+
+        case 'requestSpellCheckWord':
+          this.handleRequestSpellCheckWord(msg.word, webviewPanel);
+          break;
       }
     });
 
@@ -1365,6 +1373,193 @@ export class HtmlyEditorProvider implements vscode.CustomTextEditorProvider {
     } catch (error) {
       console.error('Failed to update spell check setting:', error);
     }
+  }
+
+  /**
+   * Handle spell check request - extracts words from content and identifies misspellings
+   * Note: VS Code's spell checker is not directly accessible from webviews,
+   * so we use a simple dictionary-based approach here
+   */
+  private handleRequestSpellCheck(content: string, panel: vscode.WebviewPanel): void {
+    try {
+      // Extract text from HTML
+      const text = this.extractTextForSpellCheck(content);
+      const config = vscode.workspace.getConfiguration('htmly');
+      const customDictionary = config.get<string[]>('spellCheck.customDictionary', []);
+      const dictionarySet = new Set(customDictionary.map(w => w.toLowerCase()));
+      
+      // Common words that are rarely misspelled
+      const commonWords = new Set([
+        'the', 'be', 'to', 'of', 'and', 'a', 'in', 'that', 'have', 'i',
+        'it', 'for', 'not', 'on', 'with', 'he', 'as', 'you', 'do', 'at',
+        'this', 'but', 'his', 'by', 'from', 'they', 'we', 'say', 'her', 'she',
+        'or', 'an', 'will', 'my', 'one', 'all', 'would', 'there', 'their', 'what',
+        'so', 'up', 'out', 'if', 'about', 'who', 'get', 'which', 'go', 'me',
+        'when', 'make', 'can', 'like', 'time', 'no', 'just', 'him', 'know', 'take',
+        'people', 'into', 'year', 'your', 'good', 'some', 'could', 'them', 'see', 'other',
+        'than', 'then', 'now', 'look', 'only', 'come', 'its', 'over', 'think', 'also',
+        'back', 'after', 'use', 'two', 'how', 'our', 'work', 'first', 'well', 'way',
+        'even', 'new', 'want', 'because', 'any', 'these', 'give', 'day', 'most', 'us',
+      ]);
+
+      const misspelled: { word: string; start: number; end: number }[] = [];
+      const wordRegex = /[a-zA-Z]+(?:'[a-zA-Z]+)?/g;
+      let match;
+
+      while ((match = wordRegex.exec(text)) !== null) {
+        const word = match[0];
+        const lowerWord = word.toLowerCase();
+        
+        // Skip short words
+        if (word.length < 3) continue;
+        
+        // Skip if in custom dictionary
+        if (dictionarySet.has(lowerWord)) continue;
+        
+        // Skip if in common words
+        if (commonWords.has(lowerWord)) continue;
+        
+        misspelled.push({
+          word,
+          start: match.index,
+          end: match.index + word.length,
+        });
+      }
+
+      // Send misspelled words to webview
+      this.postMessage(panel, {
+        type: 'spellCheckMisspelledWords',
+        words: misspelled,
+      });
+    } catch (error) {
+      console.error('Failed to process spell check:', error);
+    }
+  }
+
+  /**
+   * Handle spell check word request - get suggestions for a specific word
+   */
+  private handleRequestSpellCheckWord(word: string, panel: vscode.WebviewPanel): void {
+    try {
+      // Generate simple suggestions based on common words
+      const suggestions = this.generateSuggestions(word);
+      
+      this.postMessage(panel, {
+        type: 'spellCheckWord',
+        word,
+        suggestions,
+      });
+    } catch (error) {
+      console.error('Failed to get spell check suggestions:', error);
+    }
+  }
+
+  /**
+   * Extract text content from HTML for spell checking
+   */
+  private extractTextForSpellCheck(html: string): string {
+    const text = html
+      // Remove script and style elements
+      .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+      .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '')
+      // Remove HTML comments
+      .replace(/<!--[\s\S]*?-->/g, ' ')
+      // Remove all HTML tags
+      .replace(/<[^>]+>/g, ' ')
+      // Decode common HTML entities
+      .replace(/&nbsp;/g, ' ')
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
+      // Normalize whitespace
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    return text;
+  }
+
+  /**
+   * Get words from text
+   */
+  private getWordsFromText(text: string): string[] {
+    const wordRegex = /[a-zA-Z]+(?:'[a-zA-Z]+)?/g;
+    const matches = text.match(wordRegex) || [];
+    return [...new Set(matches.filter(w => w.length >= 3))];
+  }
+
+  /**
+   * Generate spelling suggestions for a word
+   */
+  private generateSuggestions(word: string): string[] {
+    const suggestions: string[] = [];
+    const lowerWord = word.toLowerCase();
+
+    const commonWords = [
+      'the', 'be', 'to', 'of', 'and', 'a', 'in', 'that', 'have', 'i',
+      'it', 'for', 'not', 'on', 'with', 'he', 'as', 'you', 'do', 'at',
+      'this', 'but', 'his', 'by', 'from', 'they', 'we', 'say', 'her', 'she',
+      'or', 'an', 'will', 'my', 'one', 'all', 'would', 'there', 'their', 'what',
+      'so', 'up', 'out', 'if', 'about', 'who', 'get', 'which', 'go', 'me',
+      'when', 'make', 'can', 'like', 'time', 'no', 'just', 'him', 'know', 'take',
+      'people', 'into', 'year', 'your', 'good', 'some', 'could', 'them', 'see', 'other',
+      'than', 'then', 'now', 'look', 'only', 'come', 'its', 'over', 'think', 'also',
+      'back', 'after', 'use', 'two', 'how', 'our', 'work', 'first', 'well', 'way',
+      'even', 'new', 'want', 'because', 'any', 'these', 'give', 'day', 'most', 'us',
+    ];
+
+    // Find similar words from common words
+    for (const common of commonWords) {
+      if (common.startsWith(lowerWord.slice(0, 2)) && common !== lowerWord) {
+        if (this.levenshteinDistance(lowerWord, common) <= 2) {
+          suggestions.push(common);
+        }
+      }
+    }
+
+    // If no suggestions found, return a few similar common words
+    if (suggestions.length === 0) {
+      for (const common of commonWords) {
+        if (common.startsWith(lowerWord[0]) && common !== lowerWord) {
+          suggestions.push(common);
+          if (suggestions.length >= 3) break;
+        }
+      }
+    }
+
+    return suggestions.slice(0, 5);
+  }
+
+  /**
+   * Calculate Levenshtein distance between two strings
+   */
+  private levenshteinDistance(a: string, b: string): number {
+    const matrix: number[][] = [];
+
+    for (let i = 0; i <= b.length; i++) {
+      matrix[i] = [i];
+    }
+
+    for (let j = 0; j <= a.length; j++) {
+      matrix[0][j] = j;
+    }
+
+    for (let i = 1; i <= b.length; i++) {
+      for (let j = 1; j <= a.length; j++) {
+        if (b.charAt(i - 1) === a.charAt(j - 1)) {
+          matrix[i][j] = matrix[i - 1][j - 1];
+        } else {
+          matrix[i][j] = Math.min(
+            matrix[i - 1][j - 1] + 1,
+            matrix[i][j - 1] + 1,
+            matrix[i - 1][j] + 1
+          );
+        }
+      }
+    }
+
+    return matrix[b.length][a.length];
   }
 
   private getWebviewHtml(webview: vscode.Webview): string {

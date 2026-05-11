@@ -61,6 +61,7 @@ import { VirtualScroll, isVirtualScrollActive, getDocumentStats } from '../exten
 import { useVirtualScroll } from '../composables/useVirtualScroll';
 import { useLazyExtensionLoader } from '../composables/useLazyExtensionLoader';
 import { useCloudUpload } from '../composables/useCloudUpload';
+import { SpellCheckExtension, type SpellCheckMark } from '../extensions/SpellCheck';
 import type { CloudStorageConfig } from '../../../src/shared/types';
 
 const props = withDefaults(defineProps<{
@@ -72,6 +73,10 @@ const props = withDefaults(defineProps<{
   cursorPosition?: CursorPosition | null;
   /** Cloud storage configuration for image uploads */
   cloudStorageConfig?: CloudStorageConfig;
+  /** Enable spell check */
+  spellCheckEnabled?: boolean;
+  /** Custom dictionary words */
+  customDictionary?: string[];
 }>(), {
   formatPainterActive: false,
   formatPainterState: null,
@@ -82,12 +87,16 @@ const props = withDefaults(defineProps<{
     cloudinary: { apiKey: '', apiSecret: '', cloudName: '' },
     imgbb: { apiKey: '' },
   }),
+  spellCheckEnabled: true,
+  customDictionary: () => [],
 });
 
 const emit = defineEmits<{
   'update:modelValue': [html: string];
   'format-painter-applied': [];
   'cursor-position-update': [position: CursorPosition];
+  'spell-check-word-click': [word: string, position: { from: number; to: number }];
+  'spell-check-add-to-dictionary': [word: string];
 }>();
 
 // Cursor position interface for scroll sync
@@ -172,6 +181,16 @@ const editor = useEditor({
     CoverImage,
     LinkPreview,
     VirtualScroll,
+    SpellCheckExtension.configure({
+      enabled: props.spellCheckEnabled !== false,
+      misspelledWords: [],
+      onWordClick: (word, position) => {
+        emit('spell-check-word-click', word, position);
+      },
+      onAddToDictionary: (word) => {
+        emit('spell-check-add-to-dictionary', word);
+      },
+    }),
   ],
   addProseMirrorPlugins() {
     return [FootnotePlugin];
@@ -646,7 +665,25 @@ function openCoverImageDialog() {
   openCoverDialog();
 }
 
-defineExpose({ editor, openCoverImageDialog, calculateCursorPosition });
+// Set misspelled words for spell check decorations
+function setMisspelledWords(words: SpellCheckMark[]) {
+  if (!editor.value) return;
+  editor.value.commands.setMisspelledWords(words);
+}
+
+// Clear spell check decorations
+function clearMisspelledWords() {
+  if (!editor.value) return;
+  editor.value.commands.clearMisspelledWords();
+}
+
+defineExpose({ 
+  editor, 
+  openCoverImageDialog, 
+  calculateCursorPosition,
+  setMisspelledWords,
+  clearMisspelledWords,
+});
 
 // Format painter: handle click to apply formatting
 function handleEditorClick(e: MouseEvent) {
@@ -1571,5 +1608,16 @@ function onEditorDrop(e: DragEvent) {
   font-size: 12px;
   color: var(--vscode-descriptionForeground, #858585);
   font-family: var(--vscode-editor-font-family, monospace);
+}
+
+/* Spell check misspelled word styling */
+:deep(.spell-check-misspelled) {
+  text-decoration: underline wavy #e74c3c;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+:deep(.spell-check-misspelled:hover) {
+  background-color: rgba(231, 76, 60, 0.1);
 }
 </style>

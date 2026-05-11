@@ -4,6 +4,7 @@ import type { EditorMode, HtmlySettings, TemplateCategory, UserTemplateMetadata,
 import { useVSCode } from './composables/useVSCode';
 import { useSharedHistory, onHistoryChange } from './composables/useSharedHistory';
 import { useProjectSearch } from './composables/useProjectSearch';
+import { useSpellCheck } from './composables/useSpellCheck';
 import { extractBodyContent, replaceBodyContent } from './core/htmlUtils';
 import Toolbar from './components/Toolbar.vue';
 import TiptapEditor, { type CursorPosition } from './components/TiptapEditor.vue';
@@ -66,6 +67,24 @@ const {
   toggleRegex: projectToggleRegex,
 } = useProjectSearch();
 
+// Spell check composable
+const {
+  enabled: spellCheckEnabled,
+  customDictionary,
+  suggestions: spellCheckSuggestions,
+  findMisspelledWords,
+  setMisspelledWords,
+  addToDictionary,
+  setCurrentMisspelling,
+  setSuggestions,
+  requestWordSuggestions,
+} = useSpellCheck();
+
+// Spell check state for context menu
+const showSpellCheckMenu = ref(false);
+const spellCheckMenuPosition = ref({ x: 0, y: 0 });
+const spellCheckWord = ref<string>('');
+
 // Shared history for cross-mode undo/redo
 const sharedHistory = useSharedHistory();
 
@@ -89,6 +108,7 @@ const visualHtml = computed(() => extractBodyContent(content.value));
 
 // Debounce content updates sent to extension
 let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+let spellCheckDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 function onContentChange(newHtml: string) {
   content.value = newHtml;
   // Push to shared history for cross-mode undo
@@ -97,6 +117,74 @@ function onContentChange(newHtml: string) {
   debounceTimer = setTimeout(() => {
     sendContentUpdate(newHtml);
   }, 300);
+  
+  // Update spell check decorations with debounce
+  if (spellCheckEnabled.value) {
+    if (spellCheckDebounceTimer) clearTimeout(spellCheckDebounceTimer);
+    spellCheckDebounceTimer = setTimeout(() => {
+      updateSpellCheckDecorations(newHtml);
+    }, 500);
+  }
+}
+
+// Update spell check decorations in both editors
+function updateSpellCheckDecorations(html: string) {
+  const misspelledWords = findMisspelledWords(html);
+  
+  if (mode.value === 'wysiwyg' && tiptapRef.value) {
+    // Convert HTML positions to text positions for Tiptap
+    const marks = misspelledWords.map(w => ({
+      from: w.start,
+      to: w.end,
+      word: w.word,
+    }));
+    tiptapRef.value.setMisspelledWords(marks);
+  } else if (mode.value === 'source' && codeEditorRef.value) {
+    // For source mode, find misspelled words in the raw HTML text
+    const text = extractBodyContent(html);
+    const marks = misspelledWords.map(w => ({
+      from: w.start,
+      to: w.end,
+      word: w.word,
+    }));
+    codeEditorRef.value.setMisspelled(marks);
+  }
+}
+
+// Handle spell check word click
+function onSpellCheckWordClick(word: string, position: { from: number; to: number }) {
+  spellCheckWord.value = word;
+  setCurrentMisspelling(word);
+  requestWordSuggestions(word);
+  // Position will be set by the menu handler
+}
+
+// Handle spell check add to dictionary
+function onSpellCheckAddToDictionary(word: string) {
+  addToDictionary(word);
+  // Update decorations to remove the word
+  if (spellCheckEnabled.value) {
+    updateSpellCheckDecorations(content.value);
+  }
+}
+
+// Apply spell check suggestion
+function applySpellCheckSuggestion(replacement: string) {
+  if (!spellCheckWord.value) return;
+  
+  const html = content.value;
+  const newHtml = html.replace(
+    new RegExp(`\\b${spellCheckWord.value}\\b`, 'gi'),
+    (match) => {
+      if (match[0] === match[0].toUpperCase()) {
+        return replacement.charAt(0).toUpperCase() + replacement.slice(1);
+      }
+      return replacement;
+    }
+  );
+  
+  onContentChange(newHtml);
+  showSpellCheckMenu.value = false;
 }
 
 // Calculate cursor position as percentage (0-1) across all modes
@@ -777,9 +865,13 @@ onBeforeUnmount(() => {
         :format-painter-state="formatPainterState"
         :cursor-position="cursorPosition"
         :cloud-storage-config="settings.cloudStorage"
+        :spell-check-enabled="spellCheckEnabled"
+        :custom-dictionary="customDictionary"
         @update:model-value="onVisualContentChange"
         @format-painter-applied="onFormatPainterApplied"
         @cursor-position-update="onCursorPositionUpdate"
+        @spell-check-word-click="onSpellCheckWordClick"
+        @spell-check-add-to-dictionary="onSpellCheckAddToDictionary"
       />
       <SplitPane
         v-else-if="mode === 'split'"
@@ -794,8 +886,12 @@ onBeforeUnmount(() => {
         ref="codeEditorRef"
         :model-value="content"
         :is-dark="isDark"
+        :spell-check-enabled="spellCheckEnabled"
+        :custom-dictionary="customDictionary"
         @update:model-value="onContentChange"
         @cursor-change="onSourceCursorChange"
+        @spell-check-word-click="onSpellCheckWordClick"
+        @spell-check-add-to-dictionary="onSpellCheckAddToDictionary"
       />
       <PreviewPane
         v-else

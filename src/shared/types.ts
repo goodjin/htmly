@@ -137,6 +137,13 @@ export interface SpellSuggestion {
   replacements: string[];
 }
 
+// Misspelled word with position
+export interface MisspelledWord {
+  word: string;
+  start: number;
+  end: number;
+}
+
 // Messages from extension → webview
 export type ExtToWebMsg =
   | { type: 'init'; content: string; mode: EditorMode }
@@ -165,7 +172,9 @@ export type ExtToWebMsg =
   | { type: 'openFile'; filePath: string; line?: number; column?: number }
   | { type: 'showProjectSearch' }
   | { type: 'spellCheckSettings'; enabled: boolean; customDictionary: string[] }
-  | { type: 'spellCheckSuggestions'; suggestions: SpellSuggestion[] };
+  | { type: 'spellCheckSuggestions'; suggestions: SpellSuggestion[] }
+  | { type: 'spellCheckMisspelledWords'; words: MisspelledWord[] }
+  | { type: 'spellCheckWord'; word: string; suggestions: string[] };
 
 // Messages from webview → extension
 export type WebToExtMsg =
@@ -189,4 +198,6 @@ export type WebToExtMsg =
   | { type: 'openFile'; filePath: string; line?: number; column?: number }
   | { type: 'addToSpellDictionary'; word: string }
   | { type: 'removeFromSpellDictionary'; word: string }
-  | { type: 'setSpellCheckEnabled'; enabled: boolean };
+  | { type: 'setSpellCheckEnabled'; enabled: boolean }
+  | { type: 'requestSpellCheck'; content: string }
+  | { type: 'requestSpellCheckWord'; word: string };

@@ -16,6 +16,11 @@ import { search, searchKeymap } from '@codemirror/search';
 import { abbreviationTracker, expandAbbreviation } from '@emmetio/codemirror6-plugin';
 import { tags } from '@lezer/highlight';
 import { highlightSearchField } from '../composables/useSearchHighlight';
+import { 
+  spellCheckExtension, 
+  setMisspelledWords, 
+  type SpellCheckMark 
+} from '../extensions/spellCheckCodeMirror';
 
 // HTML-specific highlight style using highlight.js tags
 const htmlHighlightStyle = HighlightStyle.define([
@@ -97,13 +102,21 @@ export interface CodeEditorCursorPosition {
 const props = defineProps<{
   modelValue: string;
   isDark: boolean;
+  spellCheckEnabled?: boolean;
+  customDictionary?: string[];
 }>();
 
 const emit = defineEmits<{
   'update:modelValue': [code: string];
   'format': [];
   'cursor-change': [position: CodeEditorCursorPosition];
+  'spell-check-word-click': [word: string, from: number, to: number];
+  'spell-check-add-to-dictionary': [word: string];
 }>();
+
+// Default values for optional props
+const spellCheckEnabled = props.spellCheckEnabled ?? true;
+const customDictionary = props.customDictionary ?? [];
 
 const containerRef = ref<HTMLElement | null>(null);
 let view: EditorView | null = null;
@@ -173,11 +186,29 @@ function setContent(content: string, cursorPosition?: number): void {
   isUpdatingFromProp = false;
 }
 
+// Set misspelled words for spell check decorations
+function setMisspelled(marks: SpellCheckMark[]): void {
+  if (!view) return;
+  view.dispatch({
+    effects: setMisspelledWords.of(marks),
+  });
+}
+
+// Clear spell check decorations
+function clearMisspelled(): void {
+  if (!view) return;
+  view.dispatch({
+    effects: setMisspelledWords.of([]),
+  });
+}
+
 // Expose format function, content operations, and editor view for external use
 defineExpose({
   format: handleFormat,
   getContent,
   setContent,
+  setMisspelled,
+  clearMisspelled,
   getCursorPosition,
   getEditorView: () => view,
 });
@@ -239,6 +270,20 @@ onMounted(() => {
     extensions.push(oneDark);
   } else {
     extensions.push(syntaxHighlighting(htmlHighlightStyle));
+  }
+
+  // Add spell check extension if enabled
+  if (props.spellCheckEnabled !== false) {
+    extensions.push(
+      spellCheckExtension({
+        onWordClick: (word, from, to) => {
+          emit('spell-check-word-click', word, from, to);
+        },
+        onAddToDictionary: (word) => {
+          emit('spell-check-add-to-dictionary', word);
+        },
+      })
+    );
   }
 
   view = new EditorView({
@@ -366,5 +411,16 @@ onBeforeUnmount(() => {
 :deep(.cm-lineNumbers .cm-gutterElement) {
   padding: 0 8px 0 4px;
   min-width: 40px;
+}
+
+/* Spell check misspelled word styling */
+:deep(.cm-spell-check-misspelled) {
+  text-decoration: underline wavy #e74c3c;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+:deep(.cm-spell-check-misspelled:hover) {
+  background-color: rgba(231, 76, 60, 0.1);
 }
 </style>

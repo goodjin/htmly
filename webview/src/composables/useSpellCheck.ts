@@ -3,7 +3,7 @@
  * Manages spell check integration with VS Code's built-in spell checker
  * and custom dictionary support
  */
-import { ref, computed, watch } from 'vue';
+import { ref, watch } from 'vue';
 import { useVSCode } from './useVSCode';
 
 export interface SpellCheckState {
@@ -17,6 +17,26 @@ export interface SpellSuggestion {
   replacements: string[];
 }
 
+export interface MisspelledWordPosition {
+  word: string;
+  start: number;
+  end: number;
+}
+
+// Common words for suggestions
+const COMMON_WORDS = [
+  'the', 'be', 'to', 'of', 'and', 'a', 'in', 'that', 'have', 'I',
+  'it', 'for', 'not', 'on', 'with', 'he', 'as', 'you', 'do', 'at',
+  'this', 'but', 'his', 'by', 'from', 'they', 'we', 'say', 'her', 'she',
+  'or', 'an', 'will', 'my', 'one', 'all', 'would', 'there', 'their', 'what',
+  'so', 'up', 'out', 'if', 'about', 'who', 'get', 'which', 'go', 'me',
+  'when', 'make', 'can', 'like', 'time', 'no', 'just', 'him', 'know', 'take',
+  'people', 'into', 'year', 'your', 'good', 'some', 'could', 'them', 'see', 'other',
+  'than', 'then', 'now', 'look', 'only', 'come', 'its', 'over', 'think', 'also',
+  'back', 'after', 'use', 'two', 'how', 'our', 'work', 'first', 'well', 'way',
+  'even', 'new', 'want', 'because', 'any', 'these', 'give', 'day', 'most', 'us',
+];
+
 /**
  * Hook to manage spell check functionality
  */
@@ -28,6 +48,7 @@ export function useSpellCheck() {
   const customDictionary = ref<string[]>([]);
   const suggestions = ref<SpellSuggestion[]>([]);
   const currentMisspelling = ref<string | null>(null);
+  const misspelledWords = ref<MisspelledWordPosition[]>([]);
 
   // Spell check state
   const isChecking = ref(false);
@@ -48,6 +69,8 @@ export function useSpellCheck() {
     const normalizedWord = word.toLowerCase().trim();
     if (normalizedWord && !customDictionary.value.includes(normalizedWord)) {
       customDictionary.value = [...customDictionary.value, normalizedWord];
+      // Remove the word from misspelled words
+      misspelledWords.value = misspelledWords.value.filter(m => m.word.toLowerCase() !== normalizedWord);
       // Notify extension to persist the dictionary
       postMessage({
         type: 'addToSpellDictionary',
@@ -126,15 +149,50 @@ export function useSpellCheck() {
   }
 
   /**
-   * Get words from text that might be misspelled
-   * This is a simplified version - VS Code's spell checker handles actual checking
+   * Get words from text with their positions
    */
-  function getWordsFromText(text: string): string[] {
+  function getWordsWithPositions(text: string): { word: string; start: number; end: number }[] {
+    const results: { word: string; start: number; end: number }[] = [];
     // Match words (letters and apostrophes)
     const wordRegex = /[a-zA-Z]+(?:'[a-zA-Z]+)?/g;
-    const matches = text.match(wordRegex) || [];
-    // Filter out short words and return unique words
-    return [...new Set(matches.filter(w => w.length >= 3))];
+    let match;
+
+    while ((match = wordRegex.exec(text)) !== null) {
+      if (match[0].length >= 3) {
+        results.push({
+          word: match[0],
+          start: match.index,
+          end: match.index + match[0].length,
+        });
+      }
+    }
+
+    return results;
+  }
+
+  /**
+   * Get words from text that might be misspelled
+   */
+  function getWordsFromText(text: string): string[] {
+    const words = getWordsWithPositions(text);
+    return words.map(w => w.word);
+  }
+
+  /**
+   * Find misspelled words with their positions in plain text
+   * Uses a simplified dictionary-based approach
+   */
+  function findMisspelledWordsInText(text: string): { word: string; start: number; end: number }[] {
+    const words = getWordsWithPositions(text);
+    
+    return words.filter(({ word }) => {
+      const lowerWord = word.toLowerCase();
+      // Skip if in custom dictionary
+      if (isInDictionary(lowerWord)) return false;
+      // Skip if it's a common word
+      if (COMMON_WORDS.includes(lowerWord)) return false;
+      return true;
+    });
   }
 
   /**
@@ -145,10 +203,29 @@ export function useSpellCheck() {
     const text = extractTextForSpellCheck(html);
     const words = getWordsFromText(text);
     
-    // Filter out words in custom dictionary
-    const potentiallyMisspelled = words.filter(word => !isInDictionary(word));
+    // Filter out words in custom dictionary and common words
+    const potentiallyMisspelled = words.filter(word => {
+      const lowerWord = word.toLowerCase();
+      return !isInDictionary(lowerWord) && !COMMON_WORDS.includes(lowerWord);
+    });
     
     return potentiallyMisspelled;
+  }
+
+  /**
+   * Find misspelled words with positions for editor decorations
+   * Returns positions relative to the plain text content
+   */
+  function findMisspelledWords(html: string): MisspelledWordPosition[] {
+    const text = extractTextForSpellCheck(html);
+    return findMisspelledWordsInText(text);
+  }
+
+  /**
+   * Set misspelled words with positions (for decorations)
+   */
+  function setMisspelledWords(words: MisspelledWordPosition[]): void {
+    misspelledWords.value = words;
   }
 
   /**
@@ -157,7 +234,7 @@ export function useSpellCheck() {
   function setCurrentMisspelling(word: string | null): void {
     currentMisspelling.value = word;
     if (word) {
-      // Generate simple suggestions (in a real implementation, this would come from VS Code)
+      // Generate simple suggestions
       suggestions.value = [{
         word,
         replacements: generateSuggestions(word),
@@ -168,47 +245,39 @@ export function useSpellCheck() {
   }
 
   /**
-   * Generate simple spelling suggestions
-   * This is a simplified implementation - VS Code's spell checker provides actual suggestions
+   * Set suggestions from external source (e.g., VS Code)
+   */
+  function setSuggestions(newSuggestions: SpellSuggestion[]): void {
+    suggestions.value = newSuggestions;
+  }
+
+  /**
+   * Generate spelling suggestions
    */
   function generateSuggestions(word: string): string[] {
-    const suggestions: string[] = [];
+    const result: string[] = [];
     const lowerWord = word.toLowerCase();
 
-    // Common misspellings patterns
-    const commonWords = [
-      'the', 'be', 'to', 'of', 'and', 'a', 'in', 'that', 'have', 'I',
-      'it', 'for', 'not', 'on', 'with', 'he', 'as', 'you', 'do', 'at',
-      'this', 'but', 'his', 'by', 'from', 'they', 'we', 'say', 'her', 'she',
-      'or', 'an', 'will', 'my', 'one', 'all', 'would', 'there', 'their', 'what',
-      'so', 'up', 'out', 'if', 'about', 'who', 'get', 'which', 'go', 'me',
-      'when', 'make', 'can', 'like', 'time', 'no', 'just', 'him', 'know', 'take',
-      'people', 'into', 'year', 'your', 'good', 'some', 'could', 'them', 'see', 'other',
-      'than', 'then', 'now', 'look', 'only', 'come', 'its', 'over', 'think', 'also',
-      'back', 'after', 'use', 'two', 'how', 'our', 'work', 'first', 'well', 'way',
-      'even', 'new', 'want', 'because', 'any', 'these', 'give', 'day', 'most', 'us',
-    ];
-
     // Find similar words from common words
-    for (const common of commonWords) {
+    for (const common of COMMON_WORDS) {
       if (common.startsWith(lowerWord.slice(0, 2)) && common !== lowerWord) {
         if (levenshteinDistance(lowerWord, common) <= 2) {
-          suggestions.push(common);
+          result.push(common);
         }
       }
     }
 
     // If no suggestions found, return a few similar common words
-    if (suggestions.length === 0) {
-      for (const common of commonWords) {
+    if (result.length === 0) {
+      for (const common of COMMON_WORDS) {
         if (common.startsWith(lowerWord[0]) && common !== lowerWord) {
-          suggestions.push(common);
-          if (suggestions.length >= 3) break;
+          result.push(common);
+          if (result.length >= 3) break;
         }
       }
     }
 
-    return suggestions.slice(0, 5);
+    return result.slice(0, 5);
   }
 
   /**
@@ -264,6 +333,27 @@ export function useSpellCheck() {
     return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   }
 
+  /**
+   * Request spell check for content
+   */
+  function requestSpellCheck(content: string): void {
+    isChecking.value = true;
+    postMessage({
+      type: 'requestSpellCheck',
+      content,
+    });
+  }
+
+  /**
+   * Request suggestions for a specific word
+   */
+  function requestWordSuggestions(word: string): void {
+    postMessage({
+      type: 'requestSpellCheckWord',
+      word,
+    });
+  }
+
   // Listen for spell check related messages from extension
   onMessage((msg) => {
     switch (msg.type) {
@@ -278,7 +368,14 @@ export function useSpellCheck() {
 
       case 'spellCheckWord':
         currentMisspelling.value = msg.word;
-        suggestions.value = msg.suggestions ?? generateSuggestions(msg.word);
+        suggestions.value = msg.suggestions 
+          ? [{ word: msg.word, replacements: msg.suggestions }]
+          : generateSuggestions(msg.word);
+        break;
+
+      case 'spellCheckMisspelledWords':
+        misspelledWords.value = msg.words ?? [];
+        isChecking.value = false;
         break;
     }
   });
@@ -289,6 +386,7 @@ export function useSpellCheck() {
     customDictionary,
     suggestions,
     currentMisspelling,
+    misspelledWords,
     isChecking,
 
     // Methods
@@ -301,8 +399,14 @@ export function useSpellCheck() {
     extractTextForSpellCheck,
     getWordsFromText,
     checkSpelling,
+    findMisspelledWords,
+    findMisspelledWordsInText,
+    setMisspelledWords,
     setCurrentMisspelling,
+    setSuggestions,
     applySuggestion,
     generateSuggestions,
+    requestSpellCheck,
+    requestWordSuggestions,
   };
 }
