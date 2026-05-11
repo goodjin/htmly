@@ -62,6 +62,7 @@ import { useVirtualScroll } from '../composables/useVirtualScroll';
 import { useLazyExtensionLoader } from '../composables/useLazyExtensionLoader';
 import { useCloudUpload } from '../composables/useCloudUpload';
 import { SpellCheckExtension, type SpellCheckMark } from '../extensions/SpellCheck';
+import { MathExtension } from '../extensions/Math';
 import type { CloudStorageConfig } from '../../../src/shared/types';
 
 const props = withDefaults(defineProps<{
@@ -191,6 +192,8 @@ const editor = useEditor({
         emit('spell-check-add-to-dictionary', word);
       },
     }),
+    // Math extensions for LaTeX rendering
+    ...MathExtension,
   ],
   addProseMirrorPlugins() {
     return [FootnotePlugin];

@@ -21,6 +21,7 @@ import {
   setMisspelledWords, 
   type SpellCheckMark 
 } from '../extensions/spellCheckCodeMirror';
+import { mathPreviewExtension } from '../extensions/mathPreviewCodeMirror';
 
 // HTML-specific highlight style using highlight.js tags
 const htmlHighlightStyle = HighlightStyle.define([
@@ -285,6 +286,9 @@ onMounted(() => {
       })
     );
   }
+
+  // Add math preview extension for rendering LaTeX math in source mode
+  extensions.push(mathPreviewExtension());
 
   view = new EditorView({
     state: EditorState.create({

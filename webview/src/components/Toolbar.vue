@@ -544,6 +544,13 @@ function onCellBgColorChange(e: Event) {
           <span class="btn-label">Footnote</span>
         </button>
         <button
+          title="Math Block ($$...$$)"
+          @mousedown="btn(() => editor?.chain().focus().insertMathBlock().run())"
+        >
+          <span class="btn-icon">∑</span>
+          <span class="btn-label">Math</span>
+        </button>
+        <button
           title="Format Painter (click once or double-click to keep active)"
           :class="{ active: formatPainterActive }"
           @click="onFormatPainterClick"

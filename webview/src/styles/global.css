@@ -83,6 +83,39 @@ body {
   font-family: var(--vscode-editor-font-family, 'Consolas', 'Courier New', monospace);
 }
 
+/* Math block styles */
+.tiptap-editor .math-block-wrapper {
+  margin: 1em 0;
+  text-align: center;
+}
+
+.tiptap-editor .math-block {
+  display: inline-block;
+  padding: 0.5em 1em;
+}
+
+.tiptap-editor .math-block .katex-display {
+  margin: 0;
+}
+
+/* Math inline styles */
+.tiptap-editor .math-inline {
+  display: inline-block;
+}
+
+.tiptap-editor .math-inline .katex {
+  font-size: 1.1em;
+}
+
+/* Math error styling */
+.tiptap-editor .math-error {
+  font-family: monospace;
+  font-size: 0.9em;
+  padding: 2px 6px;
+  background: rgba(204, 0, 0, 0.1);
+  border-radius: 3px;
+}
+
 /* Ensure hljs theme integrates with VS Code colors */
 .tiptap-editor .hljs {
   background: transparent;
