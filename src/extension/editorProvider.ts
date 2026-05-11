@@ -6,8 +6,14 @@ import {
   HtmlySettings, 
   SaveStatus, 
   HistoryState,
-  CrashRecoveryData 
+  CrashRecoveryData,
+  ExportFormat 
 } from '../shared/types';
+import {
+  showExportSaveDialog,
+  convertContent,
+  saveContentToFile,
+} from './exportUtils';
 
 const HISTORY_STATE_KEY = 'htmly.history';
 const CRASH_RECOVERY_KEY = 'htmly.crashRecovery';
@@ -192,6 +198,10 @@ export class HtmlyEditorProvider implements vscode.CustomTextEditorProvider {
 
         case 'exportHistory':
           this.exportHistory(docKey);
+          break;
+
+        case 'exportRequest':
+          this.handleExportRequest(msg.format, msg.content, docKey, webviewPanel);
           break;
       }
     });
@@ -472,6 +482,68 @@ export class HtmlyEditorProvider implements vscode.CustomTextEditorProvider {
       });
     } catch (error) {
       vscode.window.showErrorMessage(`Failed to export history: ${error}`);
+    }
+  }
+
+  /**
+   * Handle export request from webview
+   * Shows save dialog, converts content, and saves to file
+   */
+  private async handleExportRequest(
+    format: ExportFormat,
+    content: string,
+    docKey: string,
+    panel: vscode.WebviewPanel
+  ): Promise<void> {
+    // Get the original document file name for the default save name
+    const originalDocument = vscode.workspace.textDocuments.find(d => d.uri.toString() === docKey);
+    const originalFileName = originalDocument?.fileName;
+
+    try {
+      // Show save dialog
+      const saveUri = await showExportSaveDialog(format, originalFileName);
+
+      if (!saveUri) {
+        // User cancelled
+        this.postMessage(panel, {
+          type: 'exportResponse',
+          success: false,
+          error: 'Export cancelled by user',
+        });
+        return;
+      }
+
+      // Convert content based on format
+      const convertedContent = convertContent(format, content);
+
+      // Save the file
+      await saveContentToFile(saveUri, convertedContent);
+
+      // Send success response
+      this.postMessage(panel, {
+        type: 'exportResponse',
+        success: true,
+        filePath: saveUri.fsPath,
+      });
+
+      // Show success notification
+      const formatLabel = format.charAt(0).toUpperCase() + format.slice(1);
+      vscode.window.showInformationMessage(
+        `${formatLabel} exported successfully`,
+        'Open File'
+      ).then(selection => {
+        if (selection === 'Open File') {
+          vscode.commands.executeCommand('vscode.open', saveUri);
+        }
+      });
+    } catch (error) {
+      // Send failure response
+      this.postMessage(panel, {
+        type: 'exportResponse',
+        success: false,
+        error: `Export failed: ${error}`,
+      });
+      vscode.window.showErrorMessage(`Export failed: ${error}`);
     }
   }
 
