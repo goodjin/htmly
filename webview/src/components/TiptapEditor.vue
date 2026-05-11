@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onBeforeUnmount, watch, ref, onMounted, nextTick, computed } from 'vue';
+import { onBeforeUnmount, watch, ref, onMounted, nextTick, computed, defineAsyncComponent } from 'vue';
 import { useEditor, EditorContent, BubbleMenu } from '@tiptap/vue-3';
 import StarterKit from '@tiptap/starter-kit';
 import Underline from '@tiptap/extension-underline';
@@ -25,9 +25,14 @@ import json from 'highlight.js/lib/languages/json';
 import { NodeSelection } from '@tiptap/pm/state';
 import LinkDialog from './LinkDialog.vue';
 import ImageDialog from './ImageDialog.vue';
-import EmbedDialog from './EmbedDialog.vue';
 import CoverImageDialog from './CoverImageDialog.vue';
 import EmojiPicker from './EmojiPicker.vue';
+
+// Lazy load EmbedDialog - not needed at initial load
+const EmbedDialog = defineAsyncComponent(() => import('./EmbedDialog.vue'));
+
+// Lazy load LinkPreviewDialog - not needed at initial load
+const LinkPreviewDialog = defineAsyncComponent(() => import('./LinkPreviewDialog.vue'));
 import { escapeHtml } from '../core/htmlUtils';
 import { SlashCommandsExtension, setEmbedDialogOpener } from '../extensions/slashCommands';
 import { MarkdownShortcutsExtension } from '../extensions/markdownShortcuts';
@@ -41,20 +46,18 @@ import {
 } from '../extensions/dragHandle';
 import { ImageResizeExtension, imageResizeKey, type ResizeState } from '../extensions/imageResize';
 import { Callout } from '../extensions/Callout';
-import { Embed, toEmbedUrl } from '../extensions/Embed';
 import { TOCPlugin } from '../extensions/TOC';
 import { Columns } from '../extensions/Columns';
 import { Column } from '../extensions/Column';
 import { ColumnResizeExtension } from '../extensions/columnResize';
 import { Toggle } from '../extensions/Toggle';
 import { BlockBackground } from '../extensions/BlockBackground';
-import { Footnote, Footnotes, FootnotePlugin } from '../extensions/Footnote';
-import { CoverImage, setCoverImageDialogOpener, hasCoverImage, getCoverImagePos } from '../extensions/CoverImage';
-import { LinkPreview, setLinkPreviewDialogOpener, isUrl } from '../extensions/LinkPreview';
+import { CoverImage, hasCoverImage, getCoverImagePos } from '../extensions/CoverImage';
+import { setCoverImageDialogOpener } from '../extensions/dialogOpeners';
+import { setLinkPreviewDialogOpener } from '../extensions/dialogOpeners';
 import { VirtualScroll, isVirtualScrollActive, getDocumentStats } from '../extensions/virtualScroll';
 import { useVirtualScroll } from '../composables/useVirtualScroll';
 import { useLazyExtensionLoader } from '../composables/useLazyExtensionLoader';
-import LinkPreviewDialog from './LinkPreviewDialog.vue';
 
 const props = withDefaults(defineProps<{
   modelValue: string;   // HTML string
@@ -148,15 +151,12 @@ const editor = useEditor({
     DragHandleExtension,
     ImageResizeExtension,
     Callout,
-    Embed,
     TOCPlugin,
     Columns,
     Column,
     ColumnResizeExtension,
     Toggle,
     BlockBackground,
-    Footnote,
-    Footnotes,
     CoverImage,
     LinkPreview,
     VirtualScroll,
@@ -758,9 +758,11 @@ function openEmbedDialog() {
   embedDialogVisible.value = true;
 }
 
-function onEmbedConfirm(payload: { url: string }) {
+async function onEmbedConfirm(payload: { url: string }) {
   if (!editor.value || !payload.url) return;
   
+  // Dynamically import toEmbedUrl to reduce initial bundle size
+  const { toEmbedUrl } = await import('../extensions/Embed');
   const embedUrl = toEmbedUrl(payload.url);
   if (embedUrl) {
     editor.value.chain().focus().insertEmbed(embedUrl).run();

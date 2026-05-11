@@ -3,30 +3,9 @@ import Suggestion, { SuggestionOptions } from '@tiptap/suggestion';
 import { VueRenderer } from '@tiptap/vue-3';
 import SlashCommandMenu from '../components/SlashCommandMenu.vue';
 import { Callout } from './Callout';
-import { toEmbedUrl } from './Embed';
-import { openLinkPreviewDialog } from './LinkPreview';
+import { setEmbedDialogOpener, openEmbedDialog, setCoverImageDialogOpener, openCoverImageDialog } from './dialogOpeners';
 
-// Global embed dialog state - will be set by TiptapEditor
-let openEmbedDialogFn: (() => void) | null = null;
-
-export function setEmbedDialogOpener(fn: () => void) {
-  openEmbedDialogFn = fn;
-}
-
-export function openEmbedDialog() {
-  openEmbedDialogFn?.();
-}
-
-// Global cover image dialog opener
-let openCoverImageDialogFn: ((editor: any) => void) | null = null;
-
-export function setCoverImageDialogOpener(fn: (editor: any) => void) {
-  openCoverImageDialogFn = fn;
-}
-
-export function openCoverImageDialog(editor: any) {
-  openCoverImageDialogFn?.(editor);
-}
+export { setEmbedDialogOpener, openEmbedDialog, setCoverImageDialogOpener, openCoverImageDialog };
 
 export interface SlashCommandItem {
   title: string;
@@ -148,7 +127,11 @@ export const slashCommandItems: SlashCommandItem[] = [
     title: 'Link Preview',
     description: 'Preview card for a URL',
     icon: '🔗',
-    command: (editor) => openLinkPreviewDialog(editor),
+    // Dynamic import to reduce initial bundle size
+    command: async (editor) => {
+      const { openLinkPreviewDialog } = await import('./LinkPreview');
+      openLinkPreviewDialog(editor);
+    },
   },
   {
     title: 'Block Background',

@@ -1,15 +1,17 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, ref, defineAsyncComponent } from 'vue';
 import type { Editor } from '@tiptap/core';
 import type { EditorMode, ExportFormat } from '../../../src/shared/types';
 import { escapeHtml } from '../core/htmlUtils';
 import LinkDialog from './LinkDialog.vue';
 import ImageDialog from './ImageDialog.vue';
-import EmbedDialog from './EmbedDialog.vue';
-import LinkPreviewDialog from './LinkPreviewDialog.vue';
 import ExportDialog from './ExportDialog.vue';
-import { toEmbedUrl } from '../extensions/Embed';
-import { openLinkPreviewDialog } from '../extensions/LinkPreview';
+
+// Lazy load EmbedDialog - not needed at initial load
+const EmbedDialog = defineAsyncComponent(() => import('./EmbedDialog.vue'));
+
+// Lazy load LinkPreviewDialog - not needed at initial load
+const LinkPreviewDialog = defineAsyncComponent(() => import('./LinkPreviewDialog.vue'));
 
 const props = defineProps<{
   editor: Editor | undefined;
@@ -52,9 +54,16 @@ function openEmbedDialog() {
   embedDialogVisible.value = true;
 }
 
-function onEmbedConfirm(payload: { url: string }) {
+// Lazy open link preview dialog with dynamic import
+async function openLinkPreview() {
+  const { openLinkPreviewDialog } = await import('../extensions/LinkPreview');
+  openLinkPreviewDialog(props.editor);
+}
+
+async function onEmbedConfirm(payload: { url: string }) {
   if (!props.editor || !payload.url) return;
-  // Convert URL to embed format and insert
+  // Dynamically import toEmbedUrl to reduce initial bundle size
+  const { toEmbedUrl } = await import('../extensions/Embed');
   const embedUrl = toEmbedUrl(payload.url);
   if (embedUrl) {
     props.editor.chain().focus().insertContent({
@@ -521,7 +530,7 @@ function onCellBgColorChange(e: Event) {
         </button>
         <button
           title="Link Preview"
-          @mousedown="btn(() => openLinkPreviewDialog(editor))"
+          @mousedown="btn(() => openLinkPreview())"
         >
           <span class="btn-icon">🔗</span>
           <span class="btn-label">Preview</span>
