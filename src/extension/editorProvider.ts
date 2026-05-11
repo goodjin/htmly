@@ -12,6 +12,7 @@ import {
 import {
   showExportSaveDialog,
   convertContent,
+  convertToEmbeddedHtmlWithImages,
   saveContentToFile,
 } from './exportUtils';
 
@@ -526,7 +527,21 @@ export class HtmlyEditorProvider implements vscode.CustomTextEditorProvider {
       }
 
       // Convert content based on format
-      const convertedContent = convertContent(format, content);
+      // For embedded HTML, use async version to convert images to base64
+      let convertedContent: string;
+      if (format === 'embedded') {
+        // Create a readFile function using VS Code's fs API
+        const readFile = async (uri: string): Promise<Uint8Array | null> => {
+          try {
+            return await vscode.workspace.fs.readFile(vscode.Uri.parse(uri));
+          } catch {
+            return null;
+          }
+        };
+        convertedContent = await convertToEmbeddedHtmlWithImages(content, undefined, readFile);
+      } else {
+        convertedContent = convertContent(format, content);
+      }
 
       // Save the file
       await saveContentToFile(saveUri, convertedContent);
