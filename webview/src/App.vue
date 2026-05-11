@@ -278,6 +278,12 @@ function handleHistoryExport() {
 
 // Export handler
 function handleExportRequest(format: 'pdf' | 'markdown' | 'plaintext' | 'embedded') {
+  if (format === 'pdf') {
+    // PDF export is handled directly in the webview using window.print()
+    // The print CSS in global.css hides the editor UI and shows clean document
+    window.print();
+    return;
+  }
   // Get the full HTML content for export
   requestExport(format, content.value);
 }

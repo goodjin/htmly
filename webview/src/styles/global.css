@@ -904,6 +904,248 @@ body {
   color: #f55;
 }
 
+/* =========================================
+   Print Styles for PDF Export
+   ========================================= */
+
+/**
+ * Print-specific styles for PDF export
+ * Hides editor UI chrome and shows clean document layout
+ */
+@media print {
+  /* Hide all editor UI elements */
+  .app,
+  body {
+    /* Reset all backgrounds to white for printing */
+    background: white !important;
+  }
+
+  /* Hide toolbar, panels, and all non-content UI */
+  .toolbar,
+  .search-bar,
+  .toc-panel,
+  .history-panel,
+  .export-dialog-backdrop,
+  .crash-recovery-overlay,
+  .export-notification,
+  .large-file-banner,
+  .loading {
+    display: none !important;
+  }
+
+  /* Hide save/dirty indicators */
+  .save-indicator,
+  .dirty-indicator {
+    display: none !important;
+  }
+
+  /* Editor area should take full width */
+  .editor-area {
+    display: block !important;
+    width: 100% !important;
+    height: auto !important;
+    overflow: visible !important;
+    flex: none !important;
+  }
+
+  /* Tiptap editor for print */
+  .tiptap-editor {
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: visible !important;
+    max-width: 100% !important;
+    line-height: 1.6 !important;
+  }
+
+  /* CodeMirror editor - hide during print (source mode) */
+  .cm-editor {
+    display: none !important;
+  }
+
+  /* Preview pane */
+  .preview-pane {
+    display: none !important;
+  }
+
+  /* Split pane - hide during print */
+  .split-pane,
+  .split-pane-source,
+  .split-pane-preview {
+    display: none !important;
+  }
+
+  /* Proper page margins */
+  @page {
+    margin: 1in;
+    size: auto;
+  }
+
+  /* Ensure content fits page width */
+  .tiptap-editor > * {
+    /* Avoid orphaned elements */
+    orphans: 3;
+    widows: 3;
+  }
+
+  /* Headings should not break across pages */
+  .tiptap-editor h1,
+  .tiptap-editor h2,
+  .tiptap-editor h3,
+  .tiptap-editor h4,
+  .tiptap-editor h5,
+  .tiptap-editor h6 {
+    page-break-after: avoid;
+  }
+
+  /* Tables should not break across pages if possible */
+  .tiptap-editor table {
+    page-break-inside: avoid;
+  }
+
+  /* Images should stay with their captions */
+  .tiptap-editor img {
+    page-break-inside: avoid;
+  }
+
+  /* Blockquotes and pre blocks should not break */
+  .tiptap-editor blockquote,
+  .tiptap-editor pre {
+    page-break-inside: avoid;
+  }
+
+  /* Lists should stay together when possible */
+  .tiptap-editor ul,
+  .tiptap-editor ol {
+    page-break-inside: avoid;
+  }
+
+  /* Callouts - keep with their content */
+  .tiptap-editor .callout {
+    page-break-inside: avoid;
+  }
+
+  /* Toggle blocks */
+  .tiptap-editor details {
+    page-break-inside: avoid;
+  }
+
+  /* Code blocks */
+  .tiptap-editor pre,
+  .tiptap-editor pre.code-block {
+    overflow: visible !important;
+    white-space: pre-wrap !important;
+    word-wrap: break-word !important;
+    font-size: 12pt !important;
+  }
+
+  /* Links - show URL after link text for print */
+  .tiptap-editor a[href^="http"]:after {
+    content: " (" attr(href) ")";
+    font-size: 10pt;
+    color: #666;
+  }
+
+  /* Don't show URL for internal links */
+  .tiptap-editor a[href^="#"]:after,
+  .tiptap-editor a:not([href]):after {
+    content: "";
+  }
+
+  /* Images - ensure they fit */
+  .tiptap-editor img {
+    max-width: 100% !important;
+    height: auto !important;
+  }
+
+  /* Embed blocks - hide iframes for print */
+  .tiptap-editor .embed-block iframe {
+    display: none !important;
+  }
+
+  .tiptap-editor .embed-block::after {
+    content: "[Embedded content - view online]";
+    display: block;
+    padding: 1em;
+    background: #f5f5f5;
+    border: 1px dashed #ccc;
+    text-align: center;
+    font-style: italic;
+    color: #666;
+  }
+
+  /* Link preview cards - simplify for print */
+  .tiptap-editor .link-preview {
+    border: 1px solid #ddd;
+    background: white;
+    box-shadow: none;
+  }
+
+  .tiptap-editor .link-preview .link-preview-image {
+    display: none !important;
+  }
+
+  /* Tables */
+  .tiptap-editor th,
+  .tiptap-editor td {
+    border: 1px solid #333;
+    padding: 4pt 8pt;
+  }
+
+  .tiptap-editor th {
+    background: #f0f0f0 !important;
+  }
+
+  /* Ensure cover image is full width */
+  .tiptap-editor .cover-image img {
+    max-height: 200pt;
+  }
+
+  /* Footnotes should be visible */
+  .tiptap-editor aside.footnotes {
+    page-break-before: always;
+  }
+
+  /* Hide editor-specific UI elements */
+  .tiptap-editor [contenteditable="true"],
+  .tiptap-editor [data-drag-handle] {
+    outline: none !important;
+  }
+
+  /* Remove selection highlights */
+  .tiptap-editor .ProseMirror-selectednode {
+    outline: none !important;
+  }
+
+  /* Remove placeholder text */
+  .tiptap-editor p.is-editor-empty:first-child::before {
+    content: "" !important;
+  }
+
+  /* Hide resize handles */
+  .tiptap-editor .column-resize-handle {
+    display: none !important;
+  }
+
+  /* Columns - handle for print */
+  .tiptap-editor .columns {
+    flex-direction: column !important;
+    gap: 8pt !important;
+  }
+
+  .tiptap-editor .column {
+    width: 100% !important;
+    border: 1px solid #ddd !important;
+    margin-bottom: 8pt !important;
+  }
+}
+
+/* Print preview mode - allows showing print layout without actual printing */
+@media screen {
+  .print-preview .toolbar {
+    /* Could show toolbar differently in print preview mode */
+  }
+}
+
 /* Lazy extension loading indicator */
 .lazy-extension-loader {
   display: none;

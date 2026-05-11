@@ -488,6 +488,7 @@ export class HtmlyEditorProvider implements vscode.CustomTextEditorProvider {
   /**
    * Handle export request from webview
    * Shows save dialog, converts content, and saves to file
+   * Note: PDF export is handled directly in the webview using window.print()
    */
   private async handleExportRequest(
     format: ExportFormat,
@@ -495,6 +496,17 @@ export class HtmlyEditorProvider implements vscode.CustomTextEditorProvider {
     docKey: string,
     panel: vscode.WebviewPanel
   ): Promise<void> {
+    // PDF export is handled by the webview (window.print())
+    // The extension doesn't need to do anything for PDF
+    if (format === 'pdf') {
+      // Send success response - actual PDF generation happens in browser
+      this.postMessage(panel, {
+        type: 'exportResponse',
+        success: true,
+      });
+      return;
+    }
+
     // Get the original document file name for the default save name
     const originalDocument = vscode.workspace.textDocuments.find(d => d.uri.toString() === docKey);
     const originalFileName = originalDocument?.fileName;
