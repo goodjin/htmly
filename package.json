@@ -159,6 +159,19 @@
           "type": "string",
           "default": "",
           "description": "ImgBB API Key"
+        },
+        "htmly.spellCheck.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable spell checking in the editor"
+        },
+        "htmly.spellCheck.customDictionary": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "Custom dictionary words to ignore (added via 'Add to Dictionary' action)"
         }
       }
     },
@@ -175,6 +188,14 @@
           }
         ],
         "priority": "default"
+      }
+    ],
+    "languages": [
+      {
+        "id": "htmly-content",
+        "aliases": ["Htmly Content"],
+        "extensions": [],
+        "configuration": "./language-config.json"
       }
     ]
   },

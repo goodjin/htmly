@@ -76,6 +76,10 @@ export interface HtmlySettings {
     primaryColor: string;
   };
   cloudStorage: CloudStorageConfig;
+  spellCheck: {
+    enabled: boolean;
+    customDictionary: string[];
+  };
 }
 
 // Template types
@@ -127,6 +131,12 @@ export interface ProjectSearchState {
   error?: string;
 }
 
+// Spell check suggestion
+export interface SpellSuggestion {
+  word: string;
+  replacements: string[];
+}
+
 // Messages from extension → webview
 export type ExtToWebMsg =
   | { type: 'init'; content: string; mode: EditorMode }
@@ -153,7 +163,9 @@ export type ExtToWebMsg =
   | { type: 'projectSearchResults'; results: SearchResult[] }
   | { type: 'projectSearchError'; error: string }
   | { type: 'openFile'; filePath: string; line?: number; column?: number }
-  | { type: 'showProjectSearch' };
+  | { type: 'showProjectSearch' }
+  | { type: 'spellCheckSettings'; enabled: boolean; customDictionary: string[] }
+  | { type: 'spellCheckSuggestions'; suggestions: SpellSuggestion[] };
 
 // Messages from webview → extension
 export type WebToExtMsg =
@@ -174,4 +186,7 @@ export type WebToExtMsg =
   | { type: 'deleteSnippet'; id: string }
   | { type: 'loadSnippetContent'; id: string }
   | { type: 'projectSearch'; query: string; isRegex: boolean }
-  | { type: 'openFile'; filePath: string; line?: number; column?: number };
+  | { type: 'openFile'; filePath: string; line?: number; column?: number }
+  | { type: 'addToSpellDictionary'; word: string }
+  | { type: 'removeFromSpellDictionary'; word: string }
+  | { type: 'setSpellCheckEnabled'; enabled: boolean };

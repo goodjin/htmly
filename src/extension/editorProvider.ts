@@ -195,6 +195,10 @@ export class HtmlyEditorProvider implements vscode.CustomTextEditorProvider {
             apiKey: config.get<string>('cloudStorage.imgbb.apiKey', ''),
           },
         },
+        spellCheck: {
+          enabled: config.get<boolean>('spellCheck.enabled', true),
+          customDictionary: config.get<string[]>('spellCheck.customDictionary', []),
+        },
       };
     };
 
@@ -315,6 +319,18 @@ export class HtmlyEditorProvider implements vscode.CustomTextEditorProvider {
 
         case 'openFile':
           this.handleOpenFile(msg.filePath, msg.line, msg.column);
+          break;
+
+        case 'addToSpellDictionary':
+          this.handleAddToSpellDictionary(msg.word);
+          break;
+
+        case 'removeFromSpellDictionary':
+          this.handleRemoveFromSpellDictionary(msg.word);
+          break;
+
+        case 'setSpellCheckEnabled':
+          this.handleSetSpellCheckEnabled(msg.enabled);
           break;
       }
     });
@@ -1302,6 +1318,52 @@ export class HtmlyEditorProvider implements vscode.CustomTextEditorProvider {
       }
     } catch (error) {
       vscode.window.showErrorMessage(`Failed to open file: ${error}`);
+    }
+  }
+
+  /**
+   * Handle add word to spell dictionary request
+   */
+  private handleAddToSpellDictionary(word: string): void {
+    try {
+      const config = vscode.workspace.getConfiguration('htmly');
+      const currentDictionary = config.get<string[]>('spellCheck.customDictionary', []);
+      
+      // Add word if not already in dictionary
+      if (!currentDictionary.includes(word.toLowerCase())) {
+        const newDictionary = [...currentDictionary, word.toLowerCase()];
+        config.update('spellCheck.customDictionary', newDictionary, vscode.ConfigurationTarget.Global);
+      }
+    } catch (error) {
+      console.error('Failed to add word to spell dictionary:', error);
+    }
+  }
+
+  /**
+   * Handle remove word from spell dictionary request
+   */
+  private handleRemoveFromSpellDictionary(word: string): void {
+    try {
+      const config = vscode.workspace.getConfiguration('htmly');
+      const currentDictionary = config.get<string[]>('spellCheck.customDictionary', []);
+      
+      // Remove word from dictionary
+      const newDictionary = currentDictionary.filter(w => w !== word.toLowerCase());
+      config.update('spellCheck.customDictionary', newDictionary, vscode.ConfigurationTarget.Global);
+    } catch (error) {
+      console.error('Failed to remove word from spell dictionary:', error);
+    }
+  }
+
+  /**
+   * Handle set spell check enabled/disabled request
+   */
+  private handleSetSpellCheckEnabled(enabled: boolean): void {
+    try {
+      const config = vscode.workspace.getConfiguration('htmly');
+      config.update('spellCheck.enabled', enabled, vscode.ConfigurationTarget.Global);
+    } catch (error) {
+      console.error('Failed to update spell check setting:', error);
     }
   }
 

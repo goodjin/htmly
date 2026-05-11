@@ -1,0 +1,40 @@
+{
+  "language": "htmly-content",
+  "spellChecker": {
+    "spellCheck": true
+  },
+  "comments": {},
+  "brackets": [
+    ["<", ">"],
+    ["<!--", "-->"],
+    ["{", "}"]
+  ],
+  "autoClosingPairs": [
+    { "open": "<", "close": ">" },
+    { "open": "<!--", "close": "-->" },
+    { "open": "{", "close": "}" },
+    { "open": "\"", "close": "\"", "notIn": ["string"] },
+    { "open": "'", "close": "'", "notIn": ["string"] }
+  ],
+  "surroundingPairs": [
+    { "open": "<", "close": ">" },
+    { "open": "\"", "close": "\"" },
+    { "open": "'", "close": "'" },
+    { "open": "{", "close": "}" }
+  ],
+  "indentationRules": {
+    "increaseIndentPattern": "<(?!\\?)(?!\\/\\/)(?!\\/\\*)(?!<!--)(?!-->)(?!\\s*\\/\\s*\\S)(?!\\s*\\/\\s*$)(?!\\s*<\\s*\\/)(?!\\s*\\/\\s*>)(?!\\s*\\S.*\\/>).*[^<>]*[^<\\/>]$",
+    "decreaseIndentPattern": "^(\\s*<\\/\\s*(?!html|head|body|title|script|style|pre|ol|ul|li|tr|td|th|tbody|thead|tfoot|optgroup|option|select|datalist|details|summary|figure|figcaption|main|nav|section|article|aside|header|footer|address|div|p|h[1-6]|blockquote|pre|figure|table|thead|tbody|tfoot|tr|td|th|colgroup|col|optgroup|option|select|datalist|details|summary|map|area|video|audio|source|track|embed|object|param|canvas|svg|math|form|label|fieldset|legend|input|button|select|textarea|meter|progress|output|details|summary|menu|menuitem))>"
+  },
+  "folding": {
+    "markers": {
+      "start": "^\\s*<!--\\s*#region\\b.*-->",
+      "end": "^\\s*<!--\\s*#endregion\\b.*-->"
+    }
+  },
+  "wordPattern": "(-?\\d*\\.?\\d+(?:e[+-]?\\d+)?)?[a-zA-Z0-9]+",
+  "tokenTypes": {
+    "comment": "comment",
+    "string": "string"
+  }
+}

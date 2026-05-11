@@ -186,6 +186,27 @@ export function useVSCode() {
     postMessage({ type: 'loadSnippetContent', id });
   }
 
+  /**
+   * Add a word to the spell check custom dictionary
+   */
+  function addToSpellDictionary(word: string): void {
+    postMessage({ type: 'addToSpellDictionary', word });
+  }
+
+  /**
+   * Remove a word from the spell check custom dictionary
+   */
+  function removeFromSpellDictionary(word: string): void {
+    postMessage({ type: 'removeFromSpellDictionary', word });
+  }
+
+  /**
+   * Enable or disable spell checking
+   */
+  function setSpellCheckEnabled(enabled: boolean): void {
+    postMessage({ type: 'setSpellCheckEnabled', enabled });
+  }
+
   return {
     initialContent,
     initialMode,
@@ -214,5 +235,8 @@ export function useVSCode() {
     saveAsSnippet,
     deleteSnippet,
     loadSnippetContent,
+    addToSpellDictionary,
+    removeFromSpellDictionary,
+    setSpellCheckEnabled,
   };
 }
