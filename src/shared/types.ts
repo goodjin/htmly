@@ -34,6 +34,37 @@ export interface CrashRecoveryData {
   savedAt: number;
 }
 
+// Cloud storage provider types
+export type CloudStorageProvider = 'none' | 's3' | 'cloudinary' | 'imgbb';
+
+// S3 configuration
+export interface S3Config {
+  accessKeyId: string;
+  secretAccessKey: string;
+  bucket: string;
+  region: string;
+}
+
+// Cloudinary configuration
+export interface CloudinaryConfig {
+  apiKey: string;
+  apiSecret: string;
+  cloudName: string;
+}
+
+// ImgBB configuration
+export interface ImgBBConfig {
+  apiKey: string;
+}
+
+// Cloud storage configuration
+export interface CloudStorageConfig {
+  provider: CloudStorageProvider;
+  s3: S3Config;
+  cloudinary: CloudinaryConfig;
+  imgbb: ImgBBConfig;
+}
+
 export interface HtmlySettings {
   defaultMode: EditorMode;
   showButtonLabels: boolean;
@@ -44,6 +75,7 @@ export interface HtmlySettings {
   customTheme: {
     primaryColor: string;
   };
+  cloudStorage: CloudStorageConfig;
 }
 
 // Template types

@@ -8,7 +8,8 @@ import {
   HistoryState,
   CrashRecoveryData,
   ExportFormat,
-  TemplateCategory 
+  TemplateCategory,
+  CloudStorageProvider
 } from '../shared/types';
 import {
   showExportSaveDialog,
@@ -153,6 +154,23 @@ export class HtmlyEditorProvider implements vscode.CustomTextEditorProvider {
         customTheme: {
           primaryColor: config.get<string>('customTheme.primaryColor', '#0e639c'),
         },
+        cloudStorage: {
+          provider: config.get<CloudStorageProvider>('cloudStorage.provider', 'none'),
+          s3: {
+            accessKeyId: config.get<string>('cloudStorage.s3.accessKeyId', ''),
+            secretAccessKey: config.get<string>('cloudStorage.s3.secretAccessKey', ''),
+            bucket: config.get<string>('cloudStorage.s3.bucket', ''),
+            region: config.get<string>('cloudStorage.s3.region', 'us-east-1'),
+          },
+          cloudinary: {
+            apiKey: config.get<string>('cloudStorage.cloudinary.apiKey', ''),
+            apiSecret: config.get<string>('cloudStorage.cloudinary.apiSecret', ''),
+            cloudName: config.get<string>('cloudStorage.cloudinary.cloudName', ''),
+          },
+          imgbb: {
+            apiKey: config.get<string>('cloudStorage.imgbb.apiKey', ''),
+          },
+        },
       };
     };
 
@@ -286,7 +304,16 @@ export class HtmlyEditorProvider implements vscode.CustomTextEditorProvider {
         e.affectsConfiguration('htmly.defaultFontSize') ||
         e.affectsConfiguration('htmly.enableMarkdownShortcuts') ||
         e.affectsConfiguration('htmly.splitScreenDirection') ||
-        e.affectsConfiguration('htmly.customTheme.primaryColor')
+        e.affectsConfiguration('htmly.customTheme.primaryColor') ||
+        e.affectsConfiguration('htmly.cloudStorage.provider') ||
+        e.affectsConfiguration('htmly.cloudStorage.s3.accessKeyId') ||
+        e.affectsConfiguration('htmly.cloudStorage.s3.secretAccessKey') ||
+        e.affectsConfiguration('htmly.cloudStorage.s3.bucket') ||
+        e.affectsConfiguration('htmly.cloudStorage.s3.region') ||
+        e.affectsConfiguration('htmly.cloudStorage.cloudinary.apiKey') ||
+        e.affectsConfiguration('htmly.cloudStorage.cloudinary.apiSecret') ||
+        e.affectsConfiguration('htmly.cloudStorage.cloudinary.cloudName') ||
+        e.affectsConfiguration('htmly.cloudStorage.imgbb.apiKey')
       ) {
         this.postMessage(webviewPanel, {
           type: 'settings',

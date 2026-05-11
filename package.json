@@ -103,6 +103,52 @@
           "type": "boolean",
           "default": false,
           "description": "Use Htmly Editor as the default editor for HTML files (requires restart or re-open of existing files)"
+        },
+        "htmly.cloudStorage.provider": {
+          "type": "string",
+          "enum": ["none", "s3", "cloudinary", "imgbb"],
+          "default": "none",
+          "description": "Cloud storage provider for image uploads. Use 'none' for base64 encoding."
+        },
+        "htmly.cloudStorage.s3.accessKeyId": {
+          "type": "string",
+          "default": "",
+          "description": "AWS S3 Access Key ID"
+        },
+        "htmly.cloudStorage.s3.secretAccessKey": {
+          "type": "string",
+          "default": "",
+          "description": "AWS S3 Secret Access Key"
+        },
+        "htmly.cloudStorage.s3.bucket": {
+          "type": "string",
+          "default": "",
+          "description": "S3 bucket name"
+        },
+        "htmly.cloudStorage.s3.region": {
+          "type": "string",
+          "default": "us-east-1",
+          "description": "AWS region (e.g., us-east-1, eu-west-1)"
+        },
+        "htmly.cloudStorage.cloudinary.apiKey": {
+          "type": "string",
+          "default": "",
+          "description": "Cloudinary API Key"
+        },
+        "htmly.cloudStorage.cloudinary.apiSecret": {
+          "type": "string",
+          "default": "",
+          "description": "Cloudinary API Secret"
+        },
+        "htmly.cloudStorage.cloudinary.cloudName": {
+          "type": "string",
+          "default": "",
+          "description": "Cloudinary Cloud Name"
+        },
+        "htmly.cloudStorage.imgbb.apiKey": {
+          "type": "string",
+          "default": "",
+          "description": "ImgBB API Key"
         }
       }
     },
