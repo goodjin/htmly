@@ -1,6 +1,19 @@
-// Mock elementFromPoint for jsdom environment
-// This is needed because prosemirror-view uses elementFromPoint internally
-// and jsdom doesn't provide a complete implementation
+// Mock elementFromPoint and other missing browser APIs for jsdom environment
+// This is needed because prosemirror-view and other code uses browser APIs
+// that jsdom doesn't provide
+
+// Mock requestAnimationFrame and cancelAnimationFrame for jsdom
+if (typeof requestAnimationFrame === 'undefined') {
+  (globalThis as unknown as Record<string, unknown>).requestAnimationFrame = (callback: FrameRequestCallback) => {
+    return setTimeout(() => callback(Date.now()), 16) as unknown as number;
+  };
+}
+
+if (typeof cancelAnimationFrame === 'undefined') {
+  (globalThis as unknown as Record<string, unknown>).cancelAnimationFrame = (id: number) => {
+    clearTimeout(id);
+  };
+}
 
 // Store original if it exists
 const originalElementFromPoint = typeof document.elementFromPoint === 'function'
