@@ -11,6 +11,7 @@ const FORMAT_EXTENSIONS: Record<ExportFormat, string> = {
   markdown: 'md',
   plaintext: 'txt',
   embedded: 'html',
+  site: 'html',
 };
 
 // Default file name for export
@@ -43,6 +44,7 @@ export async function showExportSaveDialog(
     markdown: ['Markdown Files', 'md'],
     plaintext: ['Text Files', 'txt'],
     embedded: ['HTML Files', 'html'],
+    site: ['HTML Files', 'html'],
   };
 
   const uri = await vscode.window.showSaveDialog({
