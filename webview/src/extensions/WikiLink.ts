@@ -1,6 +1,7 @@
 import { Node, mergeAttributes, InputRule, Extension } from '@tiptap/core';
 import Suggestion, { SuggestionOptions } from '@tiptap/suggestion';
 import { VueRenderer } from '@tiptap/vue-3';
+import { Plugin, PluginKey } from '@tiptap/pm/state';
 import WikiLinkSuggestion from '../components/WikiLinkSuggestion.vue';
 import type { WikiLinkSuggestionItem } from '../components/WikiLinkSuggestion.vue';
 
@@ -12,6 +13,7 @@ import type { WikiLinkSuggestionItem } from '../components/WikiLinkSuggestion.vu
  * - Stores page name in document model
  * - Serializes to: <a class="wiki-link" data-page="Page Name">Page Name</a>
  * - Provides autocomplete suggestions when typing [[
+ * - Handles click on wiki links to open or create pages
  * 
  * The extension is inline and atomic (not editable directly).
  */
@@ -23,6 +25,23 @@ import type { WikiLinkSuggestionItem } from '../components/WikiLinkSuggestion.vu
 export interface WikiPage {
   name: string;
   path?: string;
+}
+
+/**
+ * Callback type for when a wiki link is clicked
+ */
+export type WikiLinkClickCallback = (pageName: string, existingPages: string[]) => void;
+
+/**
+ * Set the callback for wiki link clicks
+ */
+let wikiLinkClickCallback: WikiLinkClickCallback | null = null;
+
+/**
+ * Set the callback for wiki link click events
+ */
+export function setWikiLinkClickCallback(callback: WikiLinkClickCallback | null): void {
+  wikiLinkClickCallback = callback;
 }
 
 const pageIndex: WikiPage[] = [];
@@ -204,6 +223,12 @@ export const WikiLink = Node.create({
       createWikiLinkInputRule(),
     ];
   },
+
+  addProseMirrorPlugins() {
+    return [
+      createWikiLinkClickPlugin(),
+    ];
+  },
 });
 
 /**
@@ -216,6 +241,51 @@ function escapeHtml(str: string): string {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#039;');
+}
+
+/**
+ * Plugin key for wiki link click handler
+ */
+export const wikiLinkClickPluginKey = new PluginKey('wikiLinkClick');
+
+/**
+ * Create a plugin to handle clicks on wiki links
+ */
+function createWikiLinkClickPlugin() {
+  return new Plugin({
+    key: wikiLinkClickPluginKey,
+    props: {
+      handleClick(view, pos, event) {
+        const target = event.target as HTMLElement;
+        
+        // Check if clicked on a wiki link
+        if (target.classList.contains('wiki-link') || target.closest('.wiki-link')) {
+          const wikiLink = target.classList.contains('wiki-link') 
+            ? target 
+            : target.closest('.wiki-link') as HTMLElement;
+          
+          if (wikiLink) {
+            const pageName = wikiLink.getAttribute('data-page');
+            if (pageName && wikiLinkClickCallback) {
+              // Prevent default link behavior
+              event.preventDefault();
+              
+              // Get all existing page names
+              const existingPages = pageIndex.map(p => p.name);
+              
+              // Call the callback
+              wikiLinkClickCallback(pageName, existingPages);
+              
+              // Mark the click as handled
+              return true;
+            }
+          }
+        }
+        
+        return false;
+      },
+    },
+  });
 }
 
 /**

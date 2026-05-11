@@ -234,7 +234,8 @@ export type ExtToWebMsg =
   | { type: 'keybindingExportResponse'; success: boolean; filePath?: string; error?: string }
   | { type: 'keybindingImportResponse'; success: boolean; count?: number; error?: string }
   | { type: 'wikiPages'; pages: WikiPage[] }
-  | { type: 'backlinks'; pageName: string; backlinks: BacklinkInfo[] };
+  | { type: 'backlinks'; pageName: string; backlinks: BacklinkInfo[] }
+  | { type: 'pageCreated'; pageName: string; pagePath: string };
 
 // Messages from webview → extension
 export type WebToExtMsg =
@@ -271,4 +272,6 @@ export type WebToExtMsg =
   | { type: 'setKeybindingOverride'; command: string; key: string; mac?: string }
   | { type: 'removeKeybindingOverride'; command: string }
   | { type: 'resetKeybindings' }
-  | { type: 'requestBacklinks'; pageName: string };
+  | { type: 'requestBacklinks'; pageName: string }
+  | { type: 'createPage'; pageName: string }
+  | { type: 'openWikiLink'; pageName: string; existingPages: string[] };

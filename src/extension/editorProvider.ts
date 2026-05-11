@@ -243,7 +243,7 @@ export class HtmlyEditorProvider implements vscode.CustomTextEditorProvider {
     // Webview → Extension
     webviewPanel.webview.onDidReceiveMessage(async (msg: WebToExtMsg) => {
       switch (msg.type) {
-        case 'ready':
+        case 'ready': {
           // Check for crash recovery
           this.checkCrashRecovery(docKey, document.getText(), webviewPanel);
           
@@ -297,6 +297,7 @@ export class HtmlyEditorProvider implements vscode.CustomTextEditorProvider {
             });
           }
           break;
+        }
 
         case 'contentUpdate':
           // Immediate save (Ctrl+S / Cmd+S) bypasses debounce
@@ -430,6 +431,9 @@ export class HtmlyEditorProvider implements vscode.CustomTextEditorProvider {
           break;
         case 'requestBacklinks':
           await this.handleRequestBacklinks(msg.pageName, webviewPanel);
+          break;
+        case 'openWikiLink':
+          await this.handleOpenWikiLink(msg.pageName, msg.existingPages, webviewPanel);
           break;
       }
     });
@@ -1774,6 +1778,103 @@ export class HtmlyEditorProvider implements vscode.CustomTextEditorProvider {
       pageName,
       backlinks 
     });
+  }
+
+  /**
+   * Handle wiki link click - open existing page or create new one
+   */
+  private async handleOpenWikiLink(pageName: string, existingPages: string[], panel: vscode.WebviewPanel): Promise<void> {
+    // Find the workspace root
+    const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    if (!workspaceRoot) {
+      vscode.window.showWarningMessage('Please open a folder to use wiki links.');
+      return;
+    }
+
+    // Sanitize the page name to create a valid file name
+    const sanitizedName = this.sanitizeFileName(pageName);
+    const fileName = `${sanitizedName}.html`;
+    const filePath = vscode.Uri.joinPath(vscode.Uri.file(workspaceRoot), fileName);
+
+    // Check if the file already exists
+    try {
+      await vscode.workspace.fs.stat(filePath);
+      // File exists - open it
+      const document = await vscode.workspace.openTextDocument(filePath);
+      await vscode.window.showTextDocument(document, {
+        viewColumn: vscode.ViewColumn.One,
+        preserveFocus: false,
+      });
+    } catch {
+      // File doesn't exist - create it
+      // Ask user to confirm creation (unless they already explicitly clicked "create")
+      const response = await vscode.window.showInformationMessage(
+        `Page "${pageName}" doesn't exist. Create it?`,
+        { modal: true },
+        'Create',
+        'Cancel'
+      );
+
+      if (response === 'Create') {
+        // Create empty HTML file
+        const initialContent = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${this.escapeHtml(pageName)}</title>
+</head>
+<body>
+  <h1>${this.escapeHtml(pageName)}</h1>
+  <p>Start writing here...</p>
+</body>
+</html>`;
+
+        // Write the file
+        await vscode.workspace.fs.writeFile(
+          filePath,
+          new TextEncoder().encode(initialContent)
+        );
+
+        // Open the new file
+        const document = await vscode.workspace.openTextDocument(filePath);
+        await vscode.window.showTextDocument(document, {
+          viewColumn: vscode.ViewColumn.One,
+          preserveFocus: false,
+        });
+
+        // Notify webview that page was created
+        this.postMessage(panel, {
+          type: 'pageCreated',
+          pageName,
+          pagePath: filePath.fsPath,
+        });
+      }
+    }
+  }
+
+  /**
+   * Sanitize a string to create a valid file name
+   */
+  private sanitizeFileName(name: string): string {
+    return name
+      .replace(/[<>:"/\\|?*]/g, '-') // Replace invalid chars with dashes
+      .replace(/\s+/g, '-')           // Replace spaces with dashes
+      .replace(/-+/g, '-')            // Replace multiple dashes with single
+      .replace(/^-|-$/g, '')          // Remove leading/trailing dashes
+      .substring(0, 200);             // Limit length
+  }
+
+  /**
+   * Escape HTML special characters
+   */
+  private escapeHtml(str: string): string {
+    return str
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
   }
 
   private getWebviewHtml(webview: vscode.Webview): string {

@@ -23,7 +23,7 @@ import type { Template, Snippet } from './core/types';
 import { TEMPLATE_CATEGORIES } from './core/template';
 import { SNIPPET_CATEGORIES } from './core/snippet';
 import { setSnippetSelectorOpener } from './extensions/slashCommands';
-import { setPageIndex } from './extensions/WikiLink';
+import { setPageIndex, setWikiLinkClickCallback } from './extensions/WikiLink';
 import BacklinksPanel from './components/BacklinksPanel.vue';
 import { useBacklinks } from './composables/useBacklinks';
 import type { BacklinkInfo } from './composables/useBacklinks';
@@ -52,7 +52,8 @@ const {
   renameTemplate,
   saveAsSnippet,
   deleteSnippet,
-  loadSnippetContent
+  loadSnippetContent,
+  handleWikiLinkClick
 } = useVSCode();
 
 // Project search composable
@@ -915,6 +916,11 @@ onMounted(() => {
     // Load user snippets when opening the selector
     loadUserSnippets();
     showSnippetSelector.value = true;
+  });
+
+  // Set up wiki link click handler
+  setWikiLinkClickCallback((pageName: string, existingPages: string[]) => {
+    handleWikiLinkClick(pageName, existingPages);
   });
 
   // Also load user snippets on init for potential use

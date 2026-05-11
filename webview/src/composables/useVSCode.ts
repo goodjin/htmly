@@ -270,6 +270,13 @@ export function useVSCode() {
   }
 
   /**
+   * Handle wiki link click - check if page exists and open or create it
+   */
+  function handleWikiLinkClick(pageName: string, existingPages: string[]): void {
+    postMessage({ type: 'openWikiLink', pageName, existingPages });
+  }
+
+  /**
    * Clear keybinding export result
    */
   function clearKeybindingExportResult(): void {
@@ -327,6 +334,7 @@ export function useVSCode() {
     removeKeybindingOverride,
     resetKeybindings,
     requestBacklinks,
+    handleWikiLinkClick,
     clearKeybindingExportResult,
     clearKeybindingImportResult,
   };
