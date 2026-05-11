@@ -179,6 +179,13 @@ export function useVSCode() {
     postMessage({ type: 'deleteSnippet', id });
   }
 
+  /**
+   * Load snippet content (HTML) from extension storage
+   */
+  function loadSnippetContent(id: string): void {
+    postMessage({ type: 'loadSnippetContent', id });
+  }
+
   return {
     initialContent,
     initialMode,
@@ -206,5 +213,6 @@ export function useVSCode() {
     loadUserSnippets,
     saveAsSnippet,
     deleteSnippet,
+    loadSnippetContent,
   };
 }

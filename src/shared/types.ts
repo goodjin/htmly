@@ -149,6 +149,7 @@ export type ExtToWebMsg =
   | { type: 'userSnippets'; snippets: UserSnippetMetadata[] }
   | { type: 'saveSnippetResponse'; success: boolean; snippet?: UserSnippetMetadata; error?: string }
   | { type: 'deleteSnippetResponse'; success: boolean; error?: string }
+  | { type: 'snippetContentResponse'; id: string; success: boolean; content?: string; error?: string }
   | { type: 'projectSearchResults'; results: SearchResult[] }
   | { type: 'projectSearchError'; error: string }
   | { type: 'openFile'; filePath: string; line?: number; column?: number }
@@ -171,5 +172,6 @@ export type WebToExtMsg =
   | { type: 'loadUserSnippets' }
   | { type: 'saveAsSnippet'; name: string; category: SnippetCategory; html: string; description?: string; preview?: string }
   | { type: 'deleteSnippet'; id: string }
+  | { type: 'loadSnippetContent'; id: string }
   | { type: 'projectSearch'; query: string; isRegex: boolean }
   | { type: 'openFile'; filePath: string; line?: number; column?: number };

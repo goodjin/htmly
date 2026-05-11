@@ -28,6 +28,7 @@ import {
   listSnippets,
   saveSnippet,
   deleteSnippet as deleteSnippetFromStorage,
+  loadSnippetContent,
 } from './snippetStorage';
 
 const HISTORY_STATE_KEY = 'htmly.history';
@@ -302,6 +303,10 @@ export class HtmlyEditorProvider implements vscode.CustomTextEditorProvider {
 
         case 'deleteSnippet':
           this.handleDeleteSnippet(msg.id, webviewPanel);
+          break;
+
+        case 'loadSnippetContent':
+          this.handleLoadSnippetContent(msg.id, webviewPanel);
           break;
 
         case 'projectSearch':
@@ -1133,6 +1138,30 @@ export class HtmlyEditorProvider implements vscode.CustomTextEditorProvider {
         type: 'deleteSnippetResponse',
         success: false,
         error: `Failed to delete snippet: ${error}`,
+      });
+    }
+  }
+
+  /**
+   * Handle load snippet content request
+   */
+  private async handleLoadSnippetContent(id: string, panel: vscode.WebviewPanel): Promise<void> {
+    try {
+      const result = await loadSnippetContent(id);
+
+      this.postMessage(panel, {
+        type: 'snippetContentResponse',
+        id,
+        success: result.success,
+        content: result.content,
+        error: result.error,
+      });
+    } catch (error) {
+      this.postMessage(panel, {
+        type: 'snippetContentResponse',
+        id,
+        success: false,
+        error: `Failed to load snippet content: ${error}`,
       });
     }
   }

@@ -45,7 +45,8 @@ const {
   deleteTemplate,
   renameTemplate,
   saveAsSnippet,
-  deleteSnippet
+  deleteSnippet,
+  loadSnippetContent
 } = useVSCode();
 
 // Project search composable
@@ -384,12 +385,45 @@ function toggleSnippetSelector() {
 }
 
 function handleSnippetSelect(snippet: Snippet) {
-  // Insert the snippet HTML at the current cursor position
+  // Check if this is a built-in snippet (has full HTML) or a user snippet (needs content fetch)
+  const isBuiltIn = snippet.html && snippet.html.length > 0;
+  
+  if (isBuiltIn) {
+    // Built-in snippet: insert directly
+    insertSnippetContent(snippet.html);
+    showSnippetSelector.value = false;
+  } else {
+    // User snippet: need to fetch content from extension
+    const userSnippet = userSnippets.value.find(s => s.id === snippet.id);
+    if (!userSnippet) {
+      console.error('User snippet not found:', snippet.id);
+      showSnippetSelector.value = false;
+      return;
+    }
+    
+    // Register callback for the response
+    snippetContentCallbacks.set(snippet.id, {
+      success: (content: string) => {
+        insertSnippetContent(content);
+        showSnippetSelector.value = false;
+      },
+      error: (error: string) => {
+        console.error('Failed to load snippet content:', error);
+        showSnippetSelector.value = false;
+      }
+    });
+    
+    // Request the content from extension
+    loadSnippetContent(snippet.id);
+  }
+}
+
+// Insert snippet content at current cursor position
+function insertSnippetContent(html: string) {
   if (tiptapRef.value?.editor) {
     const editor = tiptapRef.value.editor;
-    editor.chain().focus().insertContent(snippet.html).run();
+    editor.chain().focus().insertContent(html).run();
   }
-  showSnippetSelector.value = false;
 }
 
 function handleSaveAsSnippetRequest(options: { name: string; category: SnippetCategory; html: string; description?: string }) {
@@ -633,6 +667,19 @@ const unsubscribe = onMessage((msg) => {
       }
       break;
 
+    case 'snippetContentResponse':
+      // Handle snippet content loaded from extension
+      if (snippetContentCallbacks.has(msg.id)) {
+        const callback = snippetContentCallbacks.get(msg.id)!;
+        snippetContentCallbacks.delete(msg.id);
+        if (msg.success && msg.content !== undefined) {
+          callback.success(msg.content);
+        } else {
+          callback.error(msg.error || 'Failed to load snippet content');
+        }
+      }
+      break;
+
     case 'showProjectSearch':
       // Show project search panel when command is triggered
       showProjectSearch.value = true;
@@ -664,6 +711,12 @@ onMounted(() => {
 });
 
 const historyUnsubscribe = ref<(() => void) | null>(null);
+
+// Callbacks for pending snippet content requests
+const snippetContentCallbacks = new Map<string, {
+  success: (content: string) => void;
+  error: (error: string) => void;
+}>();
 
 onBeforeUnmount(() => {
   unsubscribe();
