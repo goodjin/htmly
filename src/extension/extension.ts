@@ -101,6 +101,13 @@ export function activate(context: vscode.ExtensionContext) {
     })
   );
 
+  // Project-wide search command
+  context.subscriptions.push(
+    vscode.commands.registerCommand('htmly.searchProject', () => {
+      provider.showProjectSearch();
+    })
+  );
+
   if (process.env.HTMLY_E2E === '1') {
     context.subscriptions.push(
       vscode.commands.registerCommand('htmly.test.getState', () => provider.getTestState())

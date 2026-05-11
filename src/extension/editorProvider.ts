@@ -98,6 +98,23 @@ export class HtmlyEditorProvider implements vscode.CustomTextEditorProvider {
     this.postMessage(panel, { type: 'setMode', mode });
   }
 
+  /**
+   * Show the project search panel in the webview
+   */
+  public showProjectSearch(): void {
+    if (!this.activePanel) {
+      return;
+    }
+
+    const entry = this.getActivePanelEntry();
+    if (!entry) {
+      return;
+    }
+
+    const [, panel] = entry;
+    this.postMessage(panel, { type: 'showProjectSearch' });
+  }
+
   public getTestState(): { active: boolean; documentUri?: string; mode?: EditorMode } {
     if (!this.activePanel) {
       return { active: false };
@@ -260,6 +277,14 @@ export class HtmlyEditorProvider implements vscode.CustomTextEditorProvider {
 
         case 'renameTemplate':
           this.handleRenameTemplate(msg.id, msg.newName, webviewPanel);
+          break;
+
+        case 'projectSearch':
+          this.handleProjectSearch(msg.query, msg.isRegex, webviewPanel);
+          break;
+
+        case 'openFile':
+          this.handleOpenFile(msg.filePath, msg.line, msg.column);
           break;
       }
     });
@@ -983,6 +1008,145 @@ export class HtmlyEditorProvider implements vscode.CustomTextEditorProvider {
         success: false,
         error: `Failed to rename template: ${error}`,
       });
+    }
+  }
+
+  /**
+   * Handle project-wide search request
+   */
+  private async handleProjectSearch(
+    query: string,
+    isRegex: boolean,
+    panel: vscode.WebviewPanel
+  ): Promise<void> {
+    try {
+      const results = await this.searchWorkspace(query, isRegex);
+      this.postMessage(panel, {
+        type: 'projectSearchResults',
+        results,
+      });
+    } catch (error) {
+      this.postMessage(panel, {
+        type: 'projectSearchError',
+        error: `Search failed: ${error}`,
+      });
+    }
+  }
+
+  /**
+   * Search across all HTML files in the workspace
+   */
+  private async searchWorkspace(query: string, isRegex: boolean): Promise<import('../shared/types').SearchResult[]> {
+    const results: import('../shared/types').SearchResult[] = [];
+    
+    // Find all HTML files in the workspace
+    const htmlFiles = await vscode.workspace.findFiles('**/*.html', '**/node_modules/**');
+    const htmlmFiles = await vscode.workspace.findFiles('**/*.htm', '**/node_modules/**');
+    const allFiles = [...htmlFiles, ...htmlmFiles];
+    
+    // Compile search regex
+    let searchRegex: RegExp;
+    try {
+      if (isRegex) {
+        searchRegex = new RegExp(query, 'gi');
+      } else {
+        // Escape special regex characters for literal search
+        const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        searchRegex = new RegExp(escaped, 'gi');
+      }
+    } catch (e) {
+      throw new Error('Invalid regex pattern');
+    }
+    
+    // Context characters around the match
+    const CONTEXT_LENGTH = 40;
+    
+    // Search each file
+    for (const fileUri of allFiles) {
+      try {
+        const contentBytes = await vscode.workspace.fs.readFile(fileUri);
+        const content = new TextDecoder().decode(contentBytes);
+        
+        // Search line by line for better context
+        const lines = content.split('\n');
+        
+        for (let lineNum = 0; lineNum < lines.length; lineNum++) {
+          const line = lines[lineNum];
+          let match: RegExpExecArray | null;
+          
+          // Reset lastIndex for global regex
+          searchRegex.lastIndex = 0;
+          
+          while ((match = searchRegex.exec(line)) !== null) {
+            const matchStart = match.index;
+            const matchEnd = matchStart + match[0].length;
+            
+            // Get context before and after
+            const contextBefore = line.substring(Math.max(0, matchStart - CONTEXT_LENGTH), matchStart);
+            const contextAfter = line.substring(matchEnd, Math.min(line.length, matchEnd + CONTEXT_LENGTH));
+            
+            // Calculate column position (1-based)
+            const column = matchStart + 1;
+            
+            results.push({
+              filePath: fileUri.fsPath,
+              fileName: fileUri.fsPath.split('/').pop() || fileUri.fsPath,
+              line: lineNum + 1, // 1-based line number
+              column,
+              matchText: match[0],
+              contextBefore: contextBefore ? '...' + contextBefore : '',
+              contextAfter: contextAfter ? contextAfter + '...' : '',
+            });
+            
+            // Prevent infinite loop for zero-length matches
+            if (match[0].length === 0) {
+              searchRegex.lastIndex++;
+            }
+          }
+        }
+      } catch (e) {
+        // Skip files that can't be read
+        console.error(`Failed to read file: ${fileUri.fsPath}`, e);
+      }
+    }
+    
+    return results;
+  }
+
+  /**
+   * Handle open file request - opens a file and positions cursor at specified location
+   */
+  private async handleOpenFile(filePath: string, line?: number, column?: number): Promise<void> {
+    try {
+      const uri = vscode.Uri.file(filePath);
+      
+      // Open the document
+      const document = await vscode.workspace.openTextDocument(uri);
+      await vscode.window.showTextDocument(document, {
+        viewColumn: vscode.ViewColumn.One,
+        preserveFocus: false,
+      });
+      
+      // Position cursor if line is specified
+      if (line !== undefined) {
+        const editor = vscode.window.activeTextEditor;
+        if (editor) {
+          const linePosition = Math.min(line - 1, document.lineCount - 1);
+          const lineText = document.lineAt(linePosition);
+          const colPosition = column !== undefined 
+            ? Math.min(column - 1, lineText.text.length)
+            : 0;
+          
+          const position = new vscode.Position(linePosition, colPosition);
+          editor.selection = new vscode.Selection(position, position);
+          editor.revealRange(
+            new vscode.Range(position, position),
+            vscode.TextEditorRevealType.InCenter
+          );
+        }
+      }
+    } catch (error) {
+      vscode.window.showErrorMessage(`Failed to open file: ${error}`);
     }
   }
 

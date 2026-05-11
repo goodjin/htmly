@@ -3,6 +3,7 @@ import { computed, ref, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import type { EditorMode, HtmlySettings, TemplateCategory, UserTemplateMetadata } from '../../src/shared/types';
 import { useVSCode } from './composables/useVSCode';
 import { useSharedHistory, onHistoryChange } from './composables/useSharedHistory';
+import { useProjectSearch } from './composables/useProjectSearch';
 import { extractBodyContent, replaceBodyContent } from './core/htmlUtils';
 import Toolbar from './components/Toolbar.vue';
 import TiptapEditor, { type CursorPosition } from './components/TiptapEditor.vue';
@@ -14,6 +15,7 @@ import SourceSearchBar from './components/SourceSearchBar.vue';
 import TOCPanel from './components/TOCPanel.vue';
 import HistoryPanel from './components/HistoryPanel.vue';
 import TemplateSelector from './components/TemplateSelector.vue';
+import ProjectSearchPanel from './components/ProjectSearchPanel.vue';
 import type { Template } from './core/types';
 import { TEMPLATE_CATEGORIES } from './core/template';
 
@@ -38,6 +40,23 @@ const {
   deleteTemplate,
   renameTemplate
 } = useVSCode();
+
+// Project search composable
+const {
+  isSearching: isProjectSearching,
+  query: projectQuery,
+  results: projectResults,
+  currentResultIndex: projectCurrentIndex,
+  isRegex: projectIsRegex,
+  error: projectError,
+  search: projectSearch,
+  nextResult: projectNextResult,
+  previousResult: projectPreviousResult,
+  goToResult: projectGoToResult,
+  openCurrentResult: projectOpenResult,
+  clearResults: projectClearResults,
+  toggleRegex: projectToggleRegex,
+} = useProjectSearch();
 
 // Shared history for cross-mode undo/redo
 const sharedHistory = useSharedHistory();
@@ -184,6 +203,7 @@ function onVisualContentChange(bodyHtml: string) {
 const tiptapRef = ref<InstanceType<typeof TiptapEditor> | null>(null);
 const showSearch = ref(false);
 const showSourceSearch = ref(false);
+const showProjectSearch = ref(false);
 const showTOC = ref(false);
 const showHistoryPanel = ref(false);
 const showTemplateSelector = ref(false);
@@ -441,6 +461,19 @@ function onGlobalKeydown(e: KeyboardEvent) {
     e.preventDefault();
     toggleTemplateSelector();
   }
+
+  // Ctrl+Shift+F / Cmd+Shift+F - Project-wide search
+  if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'F') {
+    e.preventDefault();
+    showProjectSearch.value = !showProjectSearch.value;
+  }
+
+  // Escape - Close project search panel
+  if (e.key === 'Escape' && showProjectSearch.value) {
+    e.preventDefault();
+    showProjectSearch.value = false;
+    projectClearResults();
+  }
 }
 
 // Register message handler
@@ -541,6 +574,11 @@ const unsubscribe = onMessage((msg) => {
         // Refresh user templates list
         loadUserTemplates();
       }
+      break;
+
+    case 'showProjectSearch':
+      // Show project search panel when command is triggered
+      showProjectSearch.value = true;
       break;
   }
 });
@@ -749,6 +787,23 @@ onBeforeUnmount(() => {
       <span>History exported to:</span>
       <code>{{ historyExportedPath }}</code>
     </div>
+
+    <!-- Project Search Panel -->
+    <ProjectSearchPanel
+      :visible="showProjectSearch"
+      :is-searching="isProjectSearching"
+      :results="projectResults"
+      :current-result-index="projectCurrentIndex"
+      :query="projectQuery"
+      :is-regex="projectIsRegex"
+      :error="projectError"
+      @close="showProjectSearch = false; projectClearResults()"
+      @search="projectSearch"
+      @next="projectNextResult"
+      @previous="projectPreviousResult"
+      @open-result="projectGoToResult"
+      @toggle-regex="projectToggleRegex"
+    />
   </div>
 </template>
 

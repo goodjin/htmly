@@ -92,6 +92,27 @@ export interface UserTemplateMetadata {
   modifiedAt: number;
 }
 
+// Project search result
+export interface SearchResult {
+  filePath: string;
+  fileName: string;
+  line: number;
+  column: number;
+  matchText: string;
+  contextBefore: string;
+  contextAfter: string;
+}
+
+// Project search state
+export interface ProjectSearchState {
+  isSearching: boolean;
+  query: string;
+  results: SearchResult[];
+  currentResultIndex: number;
+  isRegex: boolean;
+  error?: string;
+}
+
 // Messages from extension → webview
 export type ExtToWebMsg =
   | { type: 'init'; content: string; mode: EditorMode }
@@ -110,7 +131,11 @@ export type ExtToWebMsg =
   | { type: 'userTemplates'; templates: UserTemplateMetadata[] }
   | { type: 'saveTemplateResponse'; success: boolean; template?: UserTemplateMetadata; error?: string }
   | { type: 'deleteTemplateResponse'; success: boolean; error?: string }
-  | { type: 'renameTemplateResponse'; success: boolean; template?: UserTemplateMetadata; error?: string };
+  | { type: 'renameTemplateResponse'; success: boolean; template?: UserTemplateMetadata; error?: string }
+  | { type: 'projectSearchResults'; results: SearchResult[] }
+  | { type: 'projectSearchError'; error: string }
+  | { type: 'openFile'; filePath: string; line?: number; column?: number }
+  | { type: 'showProjectSearch' };
 
 // Messages from webview → extension
 export type WebToExtMsg =
@@ -125,4 +150,6 @@ export type WebToExtMsg =
   | { type: 'loadUserTemplates' }
   | { type: 'saveAsTemplate'; name: string; category: TemplateCategory; content: string; description?: string }
   | { type: 'deleteTemplate'; id: string }
-  | { type: 'renameTemplate'; id: string; newName: string };
+  | { type: 'renameTemplate'; id: string; newName: string }
+  | { type: 'projectSearch'; query: string; isRegex: boolean }
+  | { type: 'openFile'; filePath: string; line?: number; column?: number };

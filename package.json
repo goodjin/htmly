@@ -40,6 +40,10 @@
       {
         "command": "htmly.save",
         "title": "Htmly: Save File (Bypass Debounce)"
+      },
+      {
+        "command": "htmly.searchProject",
+        "title": "Htmly: Project-Wide Search"
       }
     ],
     "keybindings": [
@@ -47,6 +51,12 @@
         "command": "htmly.save",
         "key": "ctrl+s",
         "mac": "cmd+s",
+        "when": "activeCustomEditorId == htmly.editor"
+      },
+      {
+        "command": "htmly.searchProject",
+        "key": "ctrl+shift+f",
+        "mac": "cmd+shift+f",
         "when": "activeCustomEditorId == htmly.editor"
       }
     ],
