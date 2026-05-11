@@ -1706,7 +1706,7 @@ export class HtmlyEditorProvider implements vscode.CustomTextEditorProvider {
    * Handle set keybinding override request
    */
   private handleSetKeybindingOverride(command: string, key: string, mac?: string): void {
-    setKeybindingOverride(command, { command, key, mac });
+    setKeybindingOverride(command, key, mac);
     this.notifyKeybindingChange();
   }
 

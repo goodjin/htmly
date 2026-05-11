@@ -30,7 +30,8 @@ export interface KeybindingCommand {
   title: string;
   category: string;
   description?: string;
-  defaultKeybinding: Keybinding;
+  keybinding: Keybinding;
+  isOverridden: boolean;
 }
 
 // Default keybindings for all htmly commands
@@ -41,12 +42,13 @@ export const DEFAULT_KEYBINDINGS: KeybindingCommand[] = [
     title: 'Save File',
     category: 'File',
     description: 'Save the current file (bypasses debounce)',
-    defaultKeybinding: {
+    keybinding: {
       command: 'htmly.save',
       key: 'ctrl+s',
       mac: 'cmd+s',
       when: 'activeCustomEditorId == htmly.editor',
     },
+    isOverridden: false,
   },
   // Mode switching
   {
@@ -54,56 +56,61 @@ export const DEFAULT_KEYBINDINGS: KeybindingCommand[] = [
     title: 'Toggle Edit Mode',
     category: 'Mode',
     description: 'Cycle through WYSIWYG/Source/Preview/Split modes',
-    defaultKeybinding: {
+    keybinding: {
       command: 'htmly.toggleMode',
       key: 'ctrl+shift+m',
       mac: 'cmd+shift+m',
       when: 'activeCustomEditorId == htmly.editor',
     },
+    isOverridden: false,
   },
   {
     id: 'htmly.setMode.wysiwyg',
     title: 'Switch to WYSIWYG Mode',
     category: 'Mode',
     description: 'Open in visual WYSIWYG editing mode',
-    defaultKeybinding: {
+    keybinding: {
       command: 'htmly.setMode.wysiwyg',
       key: '',
       when: 'activeCustomEditorId == htmly.editor',
     },
+    isOverridden: false,
   },
   {
     id: 'htmly.setMode.source',
     title: 'Switch to Source Mode',
     category: 'Mode',
     description: 'Open in HTML source code mode',
-    defaultKeybinding: {
+    keybinding: {
       command: 'htmly.setMode.source',
       key: '',
       when: 'activeCustomEditorId == htmly.editor',
     },
+    isOverridden: false,
   },
   {
     id: 'htmly.setMode.preview',
     title: 'Switch to Preview Mode',
     category: 'Mode',
     description: 'Open in read-only preview mode',
-    defaultKeybinding: {
+    keybinding: {
       command: 'htmly.setMode.preview',
       key: '',
       when: 'activeCustomEditorId == htmly.editor',
     },
+    isOverridden: false,
   },
   {
     id: 'htmly.setMode.split',
     title: 'Switch to Split Mode',
     category: 'Mode',
     description: 'Open in side-by-side source and preview mode',
-    defaultKeybinding: {
+    keybinding: {
       command: 'htmly.setMode.split',
       key: '',
       when: 'activeCustomEditorId == htmly.editor',
     },
+    isOverridden: false,
   },
   // Search
   {
@@ -111,12 +118,13 @@ export const DEFAULT_KEYBINDINGS: KeybindingCommand[] = [
     title: 'Project-Wide Search',
     category: 'Search',
     description: 'Search across all HTML files in the project',
-    defaultKeybinding: {
+    keybinding: {
       command: 'htmly.searchProject',
       key: 'ctrl+shift+f',
       mac: 'cmd+shift+f',
       when: 'activeCustomEditorId == htmly.editor',
     },
+    isOverridden: false,
   },
   // Template operations
   {
@@ -124,12 +132,13 @@ export const DEFAULT_KEYBINDINGS: KeybindingCommand[] = [
     title: 'Insert Template',
     category: 'Templates',
     description: 'Open template selector (Ctrl+T)',
-    defaultKeybinding: {
+    keybinding: {
       command: 'htmly.insertTemplate',
       key: 'ctrl+t',
       mac: 'cmd+t',
       when: 'activeCustomEditorId == htmly.editor',
     },
+    isOverridden: false,
   },
   // Snippet operations
   {
@@ -137,11 +146,12 @@ export const DEFAULT_KEYBINDINGS: KeybindingCommand[] = [
     title: 'Insert Snippet',
     category: 'Snippets',
     description: 'Open snippet selector (/snippet)',
-    defaultKeybinding: {
+    keybinding: {
       command: 'htmly.insertSnippet',
       key: '',
       when: 'activeCustomEditorId == htmly.editor',
     },
+    isOverridden: false,
   },
 ];
 
@@ -167,7 +177,7 @@ export function getKeybinding(commandId: string): Keybinding | undefined {
   
   // Return default
   const defaultCmd = DEFAULT_KEYBINDINGS.find(cmd => cmd.id === commandId);
-  return defaultCmd?.defaultKeybinding;
+  return defaultCmd?.keybinding;
 }
 
 /**
@@ -177,19 +187,27 @@ export function getAllKeybindings(): KeybindingCommand[] {
   const overrides = getKeybindingOverrides();
   
   return DEFAULT_KEYBINDINGS.map(cmd => ({
-    ...cmd,
-    defaultKeybinding: overrides[cmd.id] || cmd.defaultKeybinding,
+    id: cmd.id,
+    title: cmd.title,
+    category: cmd.category,
+    description: cmd.description,
+    keybinding: overrides[cmd.id] || cmd.keybinding,
+    isOverridden: !!overrides[cmd.id],
   }));
 }
 
 /**
  * Set a keybinding override
  */
-export function setKeybindingOverride(commandId: string, keybinding: KeybindingOverride): void {
+export function setKeybindingOverride(commandId: string, key: string, mac?: string): void {
   const config = vscode.workspace.getConfiguration('htmly');
   const overrides = getKeybindingOverrides();
   
-  overrides[commandId] = keybinding;
+  overrides[commandId] = {
+    command: commandId,
+    key,
+    mac,
+  };
   
   config.update(
     'keybindings.overrides',
@@ -233,7 +251,8 @@ export async function exportKeybindings(): Promise<{ success: boolean; filePath?
         title: cmd.title,
         category: cmd.category,
         description: cmd.description,
-        keybinding: cmd.defaultKeybinding,
+        keybinding: cmd.keybinding,
+        isOverridden: cmd.isOverridden,
       })),
     };
 

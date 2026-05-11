@@ -12,18 +12,40 @@ import {
   resetKeybindings,
 } from './keybindingManager';
 
+// Shared state for mock
+interface MockState {
+  overrides: Record<string, { command: string; key: string; mac?: string }>;
+  config: {
+    get: ReturnType<typeof vi.fn>;
+    update: ReturnType<typeof vi.fn>;
+  };
+}
+
+const mockState: MockState = {
+  overrides: {},
+  config: {
+    get: vi.fn(),
+    update: vi.fn(),
+  },
+};
+
+// Configure the get mock after creation
+vi.mocked(mockState.config.get).mockImplementation((key: string, defaultValue: unknown) => {
+  if (key === 'htmly.keybindings.overrides') {
+    return mockState.overrides;
+  }
+  return defaultValue;
+});
+
 // Mock VS Code modules
 vi.mock('vscode', () => ({
+  ConfigurationTarget: {
+    Workspace: 'workspace',
+    Global: 'global',
+    Default: 'default',
+  },
   workspace: {
-    getConfiguration: vi.fn(() => ({
-      get: vi.fn((key: string, defaultValue: unknown) => {
-        if (key === 'htmly.keybindings.overrides') {
-          return mockOverrides;
-        }
-        return defaultValue;
-      }),
-      update: vi.fn(),
-    })),
+    getConfiguration: vi.fn(() => mockState.config),
     workspaceFolders: [{ uri: { fsPath: '/test/workspace' } }],
   },
   window: {
@@ -34,11 +56,9 @@ vi.mock('vscode', () => ({
   },
 }));
 
-let mockOverrides: Record<string, { command: string; key: string; mac?: string }> = {};
-
 describe('keybindingManager', () => {
   beforeEach(() => {
-    mockOverrides = {};
+    mockState.overrides = {};
     vi.clearAllMocks();
   });
 
@@ -54,8 +74,8 @@ describe('keybindingManager', () => {
         expect(kb.id).toBeDefined();
         expect(kb.title).toBeDefined();
         expect(kb.category).toBeDefined();
-        expect(kb.defaultKeybinding).toBeDefined();
-        expect(kb.defaultKeybinding.command).toBe(kb.id);
+        expect(kb.keybinding).toBeDefined();
+        expect(kb.keybinding.command).toBe(kb.id);
       }
     });
 
@@ -93,13 +113,13 @@ describe('keybindingManager', () => {
 
   describe('getKeybindingOverrides', () => {
     it('should return empty object when no overrides exist', () => {
-      mockOverrides = {};
+      mockState.overrides = {};
       const overrides = getKeybindingOverrides();
       expect(overrides).toEqual({});
     });
 
     it('should return overrides when they exist', () => {
-      mockOverrides = {
+      mockState.overrides = {
         'htmly.save': { command: 'htmly.save', key: 'ctrl+b', mac: 'cmd+b' },
       };
       const overrides = getKeybindingOverrides();
@@ -110,14 +130,14 @@ describe('keybindingManager', () => {
 
   describe('getKeybinding', () => {
     it('should return default keybinding when no override exists', () => {
-      mockOverrides = {};
+      mockState.overrides = {};
       const keybinding = getKeybinding('htmly.save');
       expect(keybinding).toBeDefined();
       expect(keybinding?.key).toBe('ctrl+s');
     });
 
     it('should return override when it exists', () => {
-      mockOverrides = {
+      mockState.overrides = {
         'htmly.save': { command: 'htmly.save', key: 'ctrl+b', mac: 'cmd+b' },
       };
       const keybinding = getKeybinding('htmly.save');
@@ -126,7 +146,7 @@ describe('keybindingManager', () => {
     });
 
     it('should return undefined for unknown command', () => {
-      mockOverrides = {};
+      mockState.overrides = {};
       const keybinding = getKeybinding('htmly.unknown');
       expect(keybinding).toBeUndefined();
     });
@@ -134,13 +154,13 @@ describe('keybindingManager', () => {
 
   describe('getAllKeybindings', () => {
     it('should return all default keybindings with no overrides', () => {
-      mockOverrides = {};
+      mockState.overrides = {};
       const keybindings = getAllKeybindings();
       expect(keybindings).toHaveLength(DEFAULT_KEYBINDINGS.length);
     });
 
     it('should mark overridden keybindings', () => {
-      mockOverrides = {
+      mockState.overrides = {
         'htmly.save': { command: 'htmly.save', key: 'ctrl+b', mac: 'cmd+b' },
       };
       const keybindings = getAllKeybindings();
@@ -149,7 +169,7 @@ describe('keybindingManager', () => {
     });
 
     it('should use override value for overridden keybindings', () => {
-      mockOverrides = {
+      mockState.overrides = {
         'htmly.save': { command: 'htmly.save', key: 'ctrl+b', mac: 'cmd+b' },
       };
       const keybindings = getAllKeybindings();
@@ -160,44 +180,44 @@ describe('keybindingManager', () => {
 
   describe('setKeybindingOverride', () => {
     it('should set a keybinding override', () => {
-      mockOverrides = {};
+      mockState.overrides = {};
       setKeybindingOverride('htmly.save', 'ctrl+b', 'cmd+b');
 
-      expect(mockOverrides['htmly.save']).toBeDefined();
-      expect(mockOverrides['htmly.save'].key).toBe('ctrl+b');
-      expect(mockOverrides['htmly.save'].mac).toBe('cmd+b');
+      expect(mockState.overrides['htmly.save']).toBeDefined();
+      expect(mockState.overrides['htmly.save'].key).toBe('ctrl+b');
+      expect(mockState.overrides['htmly.save'].mac).toBe('cmd+b');
     });
 
     it('should update existing override', () => {
-      mockOverrides = {
+      mockState.overrides = {
         'htmly.save': { command: 'htmly.save', key: 'ctrl+b', mac: 'cmd+b' },
       };
       setKeybindingOverride('htmly.save', 'ctrl+c', 'cmd+c');
 
-      expect(mockOverrides['htmly.save'].key).toBe('ctrl+c');
-      expect(mockOverrides['htmly.save'].mac).toBe('cmd+c');
+      expect(mockState.overrides['htmly.save'].key).toBe('ctrl+c');
+      expect(mockState.overrides['htmly.save'].mac).toBe('cmd+c');
     });
   });
 
   describe('removeKeybindingOverride', () => {
     it('should remove an existing override', () => {
-      mockOverrides = {
+      mockState.overrides = {
         'htmly.save': { command: 'htmly.save', key: 'ctrl+b', mac: 'cmd+b' },
       };
       removeKeybindingOverride('htmly.save');
 
-      expect(mockOverrides['htmly.save']).toBeUndefined();
+      expect(mockState.overrides['htmly.save']).toBeUndefined();
     });
 
     it('should not throw for non-existent override', () => {
-      mockOverrides = {};
+      mockState.overrides = {};
       expect(() => removeKeybindingOverride('htmly.unknown')).not.toThrow();
     });
   });
 
   describe('exportKeybindings', () => {
     it('should create export data with correct structure', async () => {
-      mockOverrides = {};
+      mockState.overrides = {};
       vi.mocked(vscode.window.showSaveDialog).mockResolvedValue({
         fsPath: '/test/workspace/.htmly/keybindings.json',
       } as vscode.Uri);
@@ -218,7 +238,7 @@ describe('keybindingManager', () => {
 
   describe('importKeybindings', () => {
     it('should handle cancelled import', async () => {
-      mockOverrides = {};
+      mockState.overrides = {};
       vi.mocked(vscode.window.showOpenDialog).mockResolvedValue([]);
 
       const result = await importKeybindings();
@@ -230,7 +250,7 @@ describe('keybindingManager', () => {
 
   describe('resetKeybindings', () => {
     it('should reset all overrides', async () => {
-      mockOverrides = {
+      mockState.overrides = {
         'htmly.save': { command: 'htmly.save', key: 'ctrl+b', mac: 'cmd+b' },
         'htmly.searchProject': { command: 'htmly.searchProject', key: 'ctrl+g', mac: 'cmd+g' },
       };
