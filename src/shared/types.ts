@@ -187,6 +187,14 @@ export interface WikiPage {
   path?: string;
 }
 
+// Backlink info for backlinks panel
+export interface BacklinkInfo {
+  pageName: string;
+  pagePath: string;
+  preview: string;
+  linkCount: number;
+}
+
 // Messages from extension → webview
 export type ExtToWebMsg =
   | { type: 'init'; content: string; mode: EditorMode }
@@ -225,7 +233,8 @@ export type ExtToWebMsg =
   | { type: 'keybindingsList'; commands: KeybindingCommand[] }
   | { type: 'keybindingExportResponse'; success: boolean; filePath?: string; error?: string }
   | { type: 'keybindingImportResponse'; success: boolean; count?: number; error?: string }
-  | { type: 'wikiPages'; pages: WikiPage[] };
+  | { type: 'wikiPages'; pages: WikiPage[] }
+  | { type: 'backlinks'; pageName: string; backlinks: BacklinkInfo[] };
 
 // Messages from webview → extension
 export type WebToExtMsg =
@@ -261,4 +270,5 @@ export type WebToExtMsg =
   | { type: 'importKeybindings' }
   | { type: 'setKeybindingOverride'; command: string; key: string; mac?: string }
   | { type: 'removeKeybindingOverride'; command: string }
-  | { type: 'resetKeybindings' };
+  | { type: 'resetKeybindings' }
+  | { type: 'requestBacklinks'; pageName: string };

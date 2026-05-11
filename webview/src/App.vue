@@ -24,6 +24,9 @@ import { TEMPLATE_CATEGORIES } from './core/template';
 import { SNIPPET_CATEGORIES } from './core/snippet';
 import { setSnippetSelectorOpener } from './extensions/slashCommands';
 import { setPageIndex } from './extensions/WikiLink';
+import BacklinksPanel from './components/BacklinksPanel.vue';
+import { useBacklinks } from './composables/useBacklinks';
+import type { BacklinkInfo } from './composables/useBacklinks';
 
 const { 
   onMessage, 
@@ -86,6 +89,10 @@ const {
 const showSpellCheckMenu = ref(false);
 const spellCheckMenuPosition = ref({ x: 0, y: 0 });
 const spellCheckWord = ref<string>('');
+
+// Backlinks panel state
+const showBacklinksPanel = ref(false);
+const { setBacklinks, setCurrentPage, totalBacklinks } = useBacklinks();
 
 // Shared history for cross-mode undo/redo
 const sharedHistory = useSharedHistory();
@@ -333,6 +340,31 @@ function onSourceCursorChange(position: CodeEditorCursorPosition) {
 
 function toggleTOC() {
   showTOC.value = !showTOC.value;
+}
+
+// Backlinks panel functions
+function toggleBacklinksPanel() {
+  showBacklinksPanel.value = !showBacklinksPanel.value;
+  // When opening the panel, we need to extract the current page name from the document
+  if (showBacklinksPanel.value) {
+    updateCurrentPageForBacklinks();
+  }
+}
+
+function updateCurrentPageForBacklinks() {
+  // Extract page name from document title or first heading
+  const bodyMatch = content.value.match(/<title>([^<]*)<\/title>/i);
+  const pageName = bodyMatch ? bodyMatch[1].trim() : '';
+  
+  if (pageName) {
+    setCurrentPage(pageName);
+  }
+}
+
+function handleOpenBacklink(pageName: string, pagePath?: string) {
+  // Send message to extension to open the page
+  postMessage({ type: 'openFile', filePath: pagePath || `${pageName}.html` });
+  showBacklinksPanel.value = false;
 }
 
 // Format painter state
@@ -865,6 +897,12 @@ const unsubscribe = onMessage((msg) => {
       // Update the wiki link page index for autocomplete
       setPageIndex(msg.pages);
       break;
+
+    case 'backlinks':
+      // Update backlinks for the current page
+      setCurrentPage(msg.pageName);
+      setBacklinks(msg.backlinks);
+      break;
   }
 });
 
@@ -929,11 +967,13 @@ onBeforeUnmount(() => {
       :format-painter-active="formatPainterActive"
       :show-toc="showTOC"
       :show-history="showHistoryPanel"
+      :show-backlinks="showBacklinksPanel"
       :save-status="saveStatus"
       @set-mode="setMode"
       @activate-format-painter="activateFormatPainter"
       @toggle-toc="toggleTOC"
       @toggle-history="toggleHistoryPanel"
+      @toggle-backlinks="toggleBacklinksPanel"
       @toggle-template="toggleTemplateSelector"
       @open-cover-dialog="tiptapRef?.openCoverImageDialog()"
       @export-request="handleExportRequest"
@@ -1015,6 +1055,13 @@ onBeforeUnmount(() => {
       @close="showHistoryPanel = false"
       @select="handleHistorySelect"
       @export="handleHistoryExport"
+    />
+
+    <!-- Backlinks Panel -->
+    <BacklinksPanel
+      :visible="showBacklinksPanel"
+      @close="showBacklinksPanel = false"
+      @open-page="handleOpenBacklink"
     />
 
     <!-- Template Selector -->

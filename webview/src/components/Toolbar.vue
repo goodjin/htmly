@@ -24,6 +24,7 @@ const props = defineProps<{
   formatPainterActive?: boolean;
   showTOC?: boolean;
   showHistory?: boolean;
+  showBacklinks?: boolean;
   saveStatus?: 'idle' | 'saving' | 'saved' | 'error';
 }>();
 
@@ -32,6 +33,7 @@ const emit = defineEmits<{
   activateFormatPainter: [multiUse: boolean];
   toggleTOC: [];
   toggleHistory: [];
+  toggleBacklinks: [];
   toggleTemplate: [];
   openCoverDialog: [];
   exportRequest: [format: ExportFormat, options?: PdfExportOptions];
@@ -583,6 +585,14 @@ function insertMathSymbol(symbol: string) {
         >
           <span class="btn-icon">📑</span>
           <span class="btn-label">TOC</span>
+        </button>
+        <button
+          title="Backlinks"
+          :class="{ active: showBacklinks }"
+          @mousedown="btn(() => emit('toggleBacklinks'))"
+        >
+          <span class="btn-icon">🔗</span>
+          <span class="btn-label">Links</span>
         </button>
         <button
           title="Templates (Ctrl+T)"

@@ -38,6 +38,7 @@ import {
   exportKeybindings,
   importKeybindings,
 } from './keybindingManager';
+import { backlinksIndex } from './backlinksIndex';
 
 const HISTORY_STATE_KEY = 'htmly.history';
 const CRASH_RECOVERY_KEY = 'htmly.crashRecovery';
@@ -273,6 +274,28 @@ export class HtmlyEditorProvider implements vscode.CustomTextEditorProvider {
             // Large file: enable readOnly mode
             this.postMessage(webviewPanel, { type: 'readOnly', enabled: true });
           }
+          
+          // Send wiki pages and backlinks
+          const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+          if (workspaceRoot) {
+            backlinksIndex.setContext(workspaceRoot, docKey);
+            
+            // Update the backlinks index
+            await backlinksIndex.updateIndex();
+            
+            // Send all wiki pages for autocomplete
+            const allPages = backlinksIndex.getAllPages();
+            this.postMessage(webviewPanel, { type: 'wikiPages', pages: allPages });
+            
+            // Send backlinks for the current page
+            const currentPageName = backlinksIndex.getCurrentPageName();
+            const backlinks = backlinksIndex.getBacklinks(currentPageName);
+            this.postMessage(webviewPanel, { 
+              type: 'backlinks', 
+              pageName: currentPageName,
+              backlinks 
+            });
+          }
           break;
 
         case 'contentUpdate':
@@ -404,6 +427,9 @@ export class HtmlyEditorProvider implements vscode.CustomTextEditorProvider {
 
         case 'resetKeybindings':
           await this.handleResetKeybindings(webviewPanel);
+          break;
+        case 'requestBacklinks':
+          await this.handleRequestBacklinks(msg.pageName, webviewPanel);
           break;
       }
     });
@@ -1726,6 +1752,28 @@ export class HtmlyEditorProvider implements vscode.CustomTextEditorProvider {
     this.notifyKeybindingChange();
     const keybindings = getAllKeybindings();
     this.postMessage(panel, { type: 'keybindingsList', commands: keybindings });
+  }
+
+  /**
+   * Handle request backlinks for a specific page
+   */
+  private async handleRequestBacklinks(pageName: string, panel: vscode.WebviewPanel): Promise<void> {
+    const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    if (!workspaceRoot) {
+      return;
+    }
+
+    // Update the backlinks index
+    backlinksIndex.setContext(workspaceRoot, panel.title);
+    await backlinksIndex.updateIndex();
+
+    // Get backlinks for the requested page
+    const backlinks = backlinksIndex.getBacklinks(pageName);
+    this.postMessage(panel, { 
+      type: 'backlinks', 
+      pageName,
+      backlinks 
+    });
   }
 
   private getWebviewHtml(webview: vscode.Webview): string {

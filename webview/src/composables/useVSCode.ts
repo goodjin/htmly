@@ -263,6 +263,13 @@ export function useVSCode() {
   }
 
   /**
+   * Request backlinks for a specific page
+   */
+  function requestBacklinks(pageName: string): void {
+    postMessage({ type: 'requestBacklinks', pageName });
+  }
+
+  /**
    * Clear keybinding export result
    */
   function clearKeybindingExportResult(): void {
@@ -319,6 +326,7 @@ export function useVSCode() {
     setKeybindingOverride,
     removeKeybindingOverride,
     resetKeybindings,
+    requestBacklinks,
     clearKeybindingExportResult,
     clearKeybindingImportResult,
   };
