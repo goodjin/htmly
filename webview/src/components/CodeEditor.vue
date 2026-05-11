@@ -172,12 +172,13 @@ function setContent(content: string, cursorPosition?: number): void {
   isUpdatingFromProp = false;
 }
 
-// Expose format function and content operations for external use
+// Expose format function, content operations, and editor view for external use
 defineExpose({
   format: handleFormat,
   getContent,
   setContent,
   getCursorPosition,
+  getEditorView: () => view,
 });
 
 onMounted(() => {

@@ -10,6 +10,7 @@ import CodeEditor, { type CodeEditorCursorPosition } from './components/CodeEdit
 import PreviewPane from './components/PreviewPane.vue';
 import SplitPane from './components/SplitPane.vue';
 import SearchBar from './components/SearchBar.vue';
+import SourceSearchBar from './components/SourceSearchBar.vue';
 import TOCPanel from './components/TOCPanel.vue';
 import HistoryPanel from './components/HistoryPanel.vue';
 import TemplateSelector from './components/TemplateSelector.vue';
@@ -182,6 +183,7 @@ function onVisualContentChange(bodyHtml: string) {
 
 const tiptapRef = ref<InstanceType<typeof TiptapEditor> | null>(null);
 const showSearch = ref(false);
+const showSourceSearch = ref(false);
 const showTOC = ref(false);
 const showHistoryPanel = ref(false);
 const showTemplateSelector = ref(false);
@@ -381,17 +383,22 @@ function handleDiscardDraft() {
 // Close search bar and format painter when mode changes
 watch(mode, () => { 
   showSearch.value = false;
+  showSourceSearch.value = false;
   deactivateFormatPainter();
 });
 
-// Ctrl+F / Cmd+F toggles search bar in WYSIWYG mode
+// Ctrl+F / Cmd+F toggles search bar in WYSIWYG and Source modes
 // Escape deactivates format painter
 // Ctrl+S / Cmd+S triggers immediate save
 // Ctrl+T toggles template selector
 function onGlobalKeydown(e: KeyboardEvent) {
-  if ((e.ctrlKey || e.metaKey) && e.key === 'f' && mode.value === 'wysiwyg') {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
     e.preventDefault();
-    showSearch.value = !showSearch.value;
+    if (mode.value === 'wysiwyg') {
+      showSearch.value = !showSearch.value;
+    } else if (mode.value === 'source') {
+      showSourceSearch.value = !showSourceSearch.value;
+    }
   }
   
   if (e.key === 'Escape' && formatPainterActive.value) {
@@ -596,6 +603,12 @@ onBeforeUnmount(() => {
         :editor="tiptapRef?.editor"
         :visible="showSearch"
         @close="showSearch = false"
+      />
+      <SourceSearchBar
+        v-if="mode === 'source'"
+        :editor-view="codeEditorRef?.getEditorView()"
+        :visible="showSourceSearch"
+        @close="showSourceSearch = false"
       />
       <TiptapEditor
         v-if="mode === 'wysiwyg'"
