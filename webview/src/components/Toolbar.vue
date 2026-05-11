@@ -36,7 +36,7 @@ const emit = defineEmits<{
   toggleBacklinks: [];
   toggleTemplate: [];
   openCoverDialog: [];
-  exportRequest: [format: ExportFormat, options?: PdfExportOptions];
+  exportRequest: [format: ExportFormat, options?: PdfExportOptions, seoSettings?: import('../../../src/shared/types').SeoSettings];
 }>();
 
 // Embed dialog state
@@ -49,8 +49,8 @@ function openExportDialog() {
   exportDialogVisible.value = true;
 }
 
-function onExport(format: ExportFormat, options?: PdfExportOptions) {
-  emit('exportRequest', format, options);
+function onExport(format: ExportFormat, options?: PdfExportOptions, seoSettings?: import('../../../src/shared/types').SeoSettings) {
+  emit('exportRequest', format, options, seoSettings);
   exportDialogVisible.value = false;
 }
 
@@ -125,6 +125,8 @@ const isTableRow = computed(() => {
 });
 const isTableHeader = computed(() => props.editor?.isActive('tableHeader') ?? false);
 const isTableCell = computed(() => props.editor?.isActive('tableCell') ?? false);
+const isDatePickerCell = computed(() => props.editor?.isActive('datePickerCell') ?? false);
+const isCheckboxCell = computed(() => props.editor?.isActive('checkboxCell') ?? false);
 const canMerge = computed(() => {
   if (!props.editor) return false;
   const { from, to } = props.editor.state.selection;
@@ -252,10 +254,197 @@ function toggleTableHeaderRow() {
   props.editor?.chain().focus().toggleHeaderRow().run();
 }
 
+// Insert a date picker column type in the current table
+function insertDatePickerColumn() {
+  if (!props.editor) return;
+  
+  const { selection } = props.editor.state;
+  const { $from } = selection;
+  
+  // Find the current cell position
+  for (let depth = $from.depth; depth >= 0; depth--) {
+    const node = $from.node(depth);
+    if (node.type.name === 'tableCell' || node.type.name === 'tableHeader') {
+      const cellPos = $from.before(depth);
+      const cellNode = node;
+      
+      // Create date picker cell node
+      const datePickerNode = props.editor.schema.nodes.datePickerCell.create({
+        date: '',
+        placeholder: 'Select date',
+      });
+      
+      // Replace the current cell with the date picker cell
+      props.editor.chain().command(({ tr }) => {
+        tr.replaceWith(cellPos, cellPos + cellNode.nodeSize, datePickerNode);
+        return true;
+      }).run();
+      return;
+    }
+  }
+}
+
+// Insert a checkbox column type in the current table
+function insertCheckboxColumn() {
+  if (!props.editor) return;
+  
+  const { selection } = props.editor.state;
+  const { $from } = selection;
+  
+  // Find the current cell position
+  for (let depth = $from.depth; depth >= 0; depth--) {
+    const node = $from.node(depth);
+    if (node.type.name === 'tableCell' || node.type.name === 'tableHeader') {
+      const cellPos = $from.before(depth);
+      const cellNode = node;
+      
+      // Create checkbox cell node
+      const checkboxNode = props.editor.schema.nodes.checkboxCell.create({
+        checked: false,
+        label: '',
+      });
+      
+      // Replace the current cell with the checkbox cell
+      props.editor.chain().command(({ tr }) => {
+        tr.replaceWith(cellPos, cellPos + cellNode.nodeSize, checkboxNode);
+        return true;
+      }).run();
+      return;
+    }
+  }
+}
+
+// Toggle the checkbox state
+function toggleCurrentCheckbox() {
+  if (!props.editor) return;
+  props.editor.chain().focus().toggleCellCheckbox().run();
+}
+
 function onCellBgColorChange(e: Event) {
   const value = (e.target as HTMLInputElement).value;
   props.editor?.chain().focus().setCellAttribute('backgroundColor', value).run();
 }
+
+// Table sorting operations
+const tableSortColumn = ref<number | null>(null);
+const tableSortDirection = ref<'asc' | 'desc' | null>(null);
+const multiSortColumns = ref<Array<{ columnIndex: number; direction: 'asc' | 'desc'; priority: number }>>([]);
+
+function sortTableAsc(event?: MouseEvent) {
+  if (!props.editor) return;
+  
+  // Get current column index
+  const colIndex = getCurrentTableColumn();
+  if (colIndex === null) return;
+  
+  // Check if Shift key is held for multi-sort
+  const addToMultiSort = event?.shiftKey ?? false;
+  
+  tableSortColumn.value = colIndex;
+  tableSortDirection.value = 'asc';
+  
+  props.editor.chain().focus().sortTableByColumn({
+    columnIndex: colIndex,
+    direction: 'asc',
+    excludeHeader: true,
+    addToMultiSort,
+  }).run();
+  
+  // Update multi-sort state
+  updateMultiSortState();
+}
+
+function sortTableDesc(event?: MouseEvent) {
+  if (!props.editor) return;
+  
+  // Get current column index
+  const colIndex = getCurrentTableColumn();
+  if (colIndex === null) return;
+  
+  // Check if Shift key is held for multi-sort
+  const addToMultiSort = event?.shiftKey ?? false;
+  
+  tableSortColumn.value = colIndex;
+  tableSortDirection.value = 'desc';
+  
+  props.editor.chain().focus().sortTableByColumn({
+    columnIndex: colIndex,
+    direction: 'desc',
+    excludeHeader: true,
+    addToMultiSort,
+  }).run();
+  
+  // Update multi-sort state
+  updateMultiSortState();
+}
+
+function clearTableSort() {
+  if (!props.editor) return;
+  
+  tableSortColumn.value = null;
+  tableSortDirection.value = null;
+  multiSortColumns.value = [];
+  
+  props.editor.chain().focus().clearTableSort().run();
+}
+
+/**
+ * Update multi-sort state from editor storage
+ */
+function updateMultiSortState() {
+  if (!props.editor) return;
+  
+  const tableSort = props.editor.extensionManager.extensions.find(
+    ext => ext.name === 'tableSort'
+  );
+  
+  if (tableSort?.storage?.sortStates) {
+    const states = Object.values(tableSort.storage.sortStates) as Array<Array<{ columnIndex: number; direction: 'asc' | 'desc'; priority?: number }>>;
+    if (states.length > 0) {
+      multiSortColumns.value = states[0].map((s, idx) => ({
+        columnIndex: s.columnIndex,
+        direction: s.direction,
+        priority: s.priority ?? idx + 1,
+      }));
+    }
+  }
+}
+
+/**
+ * Get the column index of the current cursor position inside a table
+ */
+function getCurrentTableColumn(): number | null {
+  if (!props.editor) return null;
+  
+  const { selection } = props.editor.state;
+  const { $from } = selection;
+  
+  // Walk up to find the table cell
+  for (let depth = $from.depth; depth >= 0; depth--) {
+    const node = $from.node(depth);
+    if (node.type.name === 'tableCell' || node.type.name === 'tableHeader') {
+      // Get the parent table row
+      const tableRow = $from.node(depth - 1);
+      if (tableRow && tableRow.type.name === 'tableRow') {
+        // Calculate which cell we're in
+        let pos = $from.before(depth);
+        for (let i = 0; i < tableRow.childCount; i++) {
+          const cell = tableRow.child(i);
+          if (pos <= $from.pos && $from.pos < pos + cell.nodeSize) {
+            return i;
+          }
+          pos += cell.nodeSize;
+        }
+      }
+      break;
+    }
+  }
+  
+  return null;
+}
+
+// Computed for whether sort is active
+const isSortActive = computed(() => tableSortColumn.value !== null);
 
 // Math operations
 function insertMathInline() {
@@ -676,6 +865,53 @@ function insertMathSymbol(symbol: string) {
           />
           <span class="btn-label">Cell BG</span>
         </label>
+        <button
+          title="Sort Ascending (Shift+click for multi-sort)"
+          :class="{ active: isSortActive && tableSortDirection === 'asc' }"
+          @mousedown="(e) => { e.preventDefault(); sortTableAsc(e); }"
+        >
+          <span class="btn-icon">▲</span>
+          <span class="btn-label">Sort ↑</span>
+        </button>
+        <button
+          title="Sort Descending (Shift+click for multi-sort)"
+          :class="{ active: isSortActive && tableSortDirection === 'desc' }"
+          @mousedown="(e) => { e.preventDefault(); sortTableDesc(e); }"
+        >
+          <span class="btn-icon">▼</span>
+          <span class="btn-label">Sort ↓</span>
+        </button>
+        <button
+          v-if="isSortActive"
+          title="Clear Sort"
+          @mousedown="btn(clearTableSort)"
+        >
+          <span class="btn-icon">✕</span>
+          <span class="btn-label">Clear</span>
+        </button>
+        <button
+          title="Insert Date Picker Column"
+          @mousedown="btn(insertDatePickerColumn)"
+        >
+          <span class="btn-icon">📅</span>
+          <span class="btn-label">Date</span>
+        </button>
+        <button
+          title="Insert Checkbox Column"
+          @mousedown="btn(insertCheckboxColumn)"
+        >
+          <span class="btn-icon">☑</span>
+          <span class="btn-label">Checkbox</span>
+        </button>
+        <button
+          v-if="isCheckboxCell"
+          title="Toggle Checkbox"
+          :class="{ active: isCheckboxCell }"
+          @mousedown="btn(toggleCurrentCheckbox)"
+        >
+          <span class="btn-icon">☑</span>
+          <span class="btn-label">Toggle</span>
+        </button>
       </div>
 
       <!-- Column operations - only shown when cursor is in a column -->
@@ -985,5 +1221,16 @@ button.active {
   font-weight: 600;
   color: var(--vscode-editor-foreground, #888);
   opacity: 0.7;
+}
+
+/* Table sort button styles */
+button .btn-icon {
+  position: relative;
+}
+
+button .btn-icon:has(.sort-indicator) {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
 }
 </style>
