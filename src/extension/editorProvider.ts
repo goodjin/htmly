@@ -124,6 +124,15 @@ export class HtmlyEditorProvider implements vscode.CustomTextEditorProvider {
     this.panels.set(docKey, webviewPanel);
     this.activePanel = webviewPanel;
 
+    // Check for large file BEFORE sending any messages
+    // Large files (>500KB) should open in Source mode with readOnly enabled
+    const isLargeFile = document.getText().length > HtmlyEditorProvider.LARGE_FILE_THRESHOLD;
+    const initialMode: EditorMode = isLargeFile ? 'source' : 'wysiwyg';
+    if (isLargeFile) {
+      this.modeMap.set(docKey, 'source');
+      this.ackModeMap.set(docKey, 'source');
+    }
+
     // Helper to read current settings
     const getSettings = (): HtmlySettings => {
       const config = vscode.workspace.getConfiguration('htmly');
@@ -150,7 +159,7 @@ export class HtmlyEditorProvider implements vscode.CustomTextEditorProvider {
           this.postMessage(webviewPanel, {
             type: 'init',
             content: document.getText(),
-            mode: this.modeMap.get(docKey) ?? 'wysiwyg',
+            mode: initialMode,
           });
           this.postMessage(webviewPanel, {
             type: 'theme',
@@ -170,7 +179,8 @@ export class HtmlyEditorProvider implements vscode.CustomTextEditorProvider {
             type: 'saveStatus',
             status: 'idle',
           });
-          if (document.getText().length > HtmlyEditorProvider.LARGE_FILE_THRESHOLD) {
+          if (isLargeFile) {
+            // Large file: enable readOnly mode
             this.postMessage(webviewPanel, { type: 'readOnly', enabled: true });
           }
           break;
