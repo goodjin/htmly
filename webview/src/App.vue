@@ -38,10 +38,14 @@ const {
   clearHistoryExportedPath,
   requestExport,
   userTemplates,
+  userSnippets,
   loadUserTemplates,
+  loadUserSnippets,
   saveAsTemplate,
   deleteTemplate,
-  renameTemplate
+  renameTemplate,
+  saveAsSnippet,
+  deleteSnippet
 } = useVSCode();
 
 // Project search composable
@@ -388,10 +392,20 @@ function handleSnippetSelect(snippet: Snippet) {
   showSnippetSelector.value = false;
 }
 
-function handleSaveAsSnippetRequest(options: { name: string; category: SnippetCategory; description?: string }) {
-  // TODO: Implement save as snippet functionality
-  // This will be handled in user-snippet-management feature
+function handleSaveAsSnippetRequest(options: { name: string; category: SnippetCategory; html: string; description?: string }) {
+  // Save the snippet
+  saveAsSnippet({
+    name: options.name,
+    category: options.category,
+    html: options.html,
+    description: options.description
+  });
   showSnippetSelector.value = false;
+}
+
+// Handle delete snippet
+function handleDeleteSnippet(id: string) {
+  deleteSnippet(id);
 }
 
 // Export handler
@@ -600,6 +614,25 @@ const unsubscribe = onMessage((msg) => {
       }
       break;
 
+    case 'userSnippets':
+      // Update user snippets list
+      userSnippets.value = msg.snippets;
+      break;
+
+    case 'saveSnippetResponse':
+      if (msg.success) {
+        // Refresh user snippets list
+        loadUserSnippets();
+      }
+      break;
+
+    case 'deleteSnippetResponse':
+      if (msg.success) {
+        // Refresh user snippets list
+        loadUserSnippets();
+      }
+      break;
+
     case 'showProjectSearch':
       // Show project search panel when command is triggered
       showProjectSearch.value = true;
@@ -613,8 +646,13 @@ onMounted(() => {
 
   // Set up snippet selector opener for slash commands
   setSnippetSelectorOpener(() => {
+    // Load user snippets when opening the selector
+    loadUserSnippets();
     showSnippetSelector.value = true;
   });
+
+  // Also load user snippets on init for potential use
+  loadUserSnippets();
 
   // Set up history sync with extension
   const unsubscribeHistory = onHistoryChange((state) => {
@@ -744,9 +782,11 @@ onBeforeUnmount(() => {
     <SnippetSelector
       :visible="showSnippetSelector"
       :current-content="content"
+      :user-snippets="userSnippets"
       @select="handleSnippetSelect"
       @cancel="showSnippetSelector = false"
       @save-as-snippet="handleSaveAsSnippetRequest"
+      @delete-snippet="handleDeleteSnippet"
     />
 
     <!-- Save Template Dialog -->

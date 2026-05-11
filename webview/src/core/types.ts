@@ -125,6 +125,27 @@ export interface Snippet extends SnippetMetadata {
 }
 
 /**
+ * User snippet metadata (from extension storage)
+ * Matches the UserSnippetMetadata interface in shared/types.ts
+ */
+export interface UserSnippetMetadata {
+  /** Unique identifier for the snippet */
+  id: string;
+  /** Display name */
+  name: string;
+  /** Snippet category */
+  category: SnippetCategory;
+  /** Optional description */
+  description?: string;
+  /** Optional preview/thumbnail */
+  preview?: string;
+  /** When this snippet was created */
+  createdAt: number;
+  /** When the snippet was last modified */
+  modifiedAt: number;
+}
+
+/**
  * User snippet storage entry
  */
 export interface UserSnippet {

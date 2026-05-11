@@ -1,5 +1,5 @@
 import { ref } from 'vue';
-import type { ExtToWebMsg, WebToExtMsg, EditorMode, HistoryState, CrashRecoveryData, ExportFormat, TemplateCategory, UserTemplateMetadata } from '../../../src/shared/types';
+import type { ExtToWebMsg, WebToExtMsg, EditorMode, HistoryState, CrashRecoveryData, ExportFormat, TemplateCategory, SnippetCategory, UserTemplateMetadata, UserSnippetMetadata } from '../../../src/shared/types';
 
 // VS Code API injected by the extension host
 declare function acquireVsCodeApi(): {
@@ -34,6 +34,9 @@ export function useVSCode() {
 
   // User templates state
   const userTemplates = ref<UserTemplateMetadata[]>([]);
+
+  // User snippets state
+  const userSnippets = ref<UserSnippetMetadata[]>([]);
 
   function postMessage(msg: WebToExtMsg) {
     getVsApi()?.postMessage(msg);
@@ -142,6 +145,40 @@ export function useVSCode() {
     postMessage({ type: 'renameTemplate', id, newName });
   }
 
+  /**
+   * Request list of user snippets from extension
+   */
+  function loadUserSnippets(): void {
+    postMessage({ type: 'loadUserSnippets' });
+  }
+
+  /**
+   * Save current selection as a new snippet
+   */
+  function saveAsSnippet(options: {
+    name: string;
+    category: SnippetCategory;
+    html: string;
+    description?: string;
+    preview?: string;
+  }): void {
+    postMessage({
+      type: 'saveAsSnippet',
+      name: options.name,
+      category: options.category,
+      html: options.html,
+      description: options.description,
+      preview: options.preview,
+    });
+  }
+
+  /**
+   * Delete a user snippet
+   */
+  function deleteSnippet(id: string): void {
+    postMessage({ type: 'deleteSnippet', id });
+  }
+
   return {
     initialContent,
     initialMode,
@@ -149,6 +186,7 @@ export function useVSCode() {
     crashRecoveryData,
     historyExportedPath,
     userTemplates,
+    userSnippets,
     postMessage,
     onMessage,
     notifyReady,
@@ -165,5 +203,8 @@ export function useVSCode() {
     saveAsTemplate,
     deleteTemplate,
     renameTemplate,
+    loadUserSnippets,
+    saveAsSnippet,
+    deleteSnippet,
   };
 }

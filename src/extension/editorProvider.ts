@@ -9,6 +9,7 @@ import {
   CrashRecoveryData,
   ExportFormat,
   TemplateCategory,
+  SnippetCategory,
   CloudStorageProvider
 } from '../shared/types';
 import {
@@ -23,6 +24,11 @@ import {
   deleteTemplate as deleteTemplateFromStorage,
   renameTemplate as renameTemplateInStorage,
 } from './templateStorage';
+import {
+  listSnippets,
+  saveSnippet,
+  deleteSnippet as deleteSnippetFromStorage,
+} from './snippetStorage';
 
 const HISTORY_STATE_KEY = 'htmly.history';
 const CRASH_RECOVERY_KEY = 'htmly.crashRecovery';
@@ -277,6 +283,25 @@ export class HtmlyEditorProvider implements vscode.CustomTextEditorProvider {
 
         case 'renameTemplate':
           this.handleRenameTemplate(msg.id, msg.newName, webviewPanel);
+          break;
+
+        case 'loadUserSnippets':
+          this.handleLoadUserSnippets(webviewPanel);
+          break;
+
+        case 'saveAsSnippet':
+          this.handleSaveAsSnippet(
+            msg.name,
+            msg.category,
+            msg.html,
+            msg.description,
+            msg.preview,
+            webviewPanel
+          );
+          break;
+
+        case 'deleteSnippet':
+          this.handleDeleteSnippet(msg.id, webviewPanel);
           break;
 
         case 'projectSearch':
@@ -1007,6 +1032,107 @@ export class HtmlyEditorProvider implements vscode.CustomTextEditorProvider {
         type: 'renameTemplateResponse',
         success: false,
         error: `Failed to rename template: ${error}`,
+      });
+    }
+  }
+
+  /**
+   * Handle load user snippets request
+   */
+  private async handleLoadUserSnippets(panel: vscode.WebviewPanel): Promise<void> {
+    try {
+      const snippets = await listSnippets();
+      // Send only metadata (without full content) for efficiency
+      const metadata = snippets.map(s => ({
+        id: s.id,
+        name: s.name,
+        category: s.category,
+        description: s.description,
+        preview: s.preview,
+        createdAt: s.createdAt,
+        modifiedAt: s.modifiedAt,
+      }));
+      this.postMessage(panel, { type: 'userSnippets', snippets: metadata });
+    } catch (error) {
+      console.error('Failed to load user snippets:', error);
+      this.postMessage(panel, { type: 'userSnippets', snippets: [] });
+    }
+  }
+
+  /**
+   * Handle save as snippet request
+   */
+  private async handleSaveAsSnippet(
+    name: string,
+    category: SnippetCategory,
+    html: string,
+    description: string | undefined,
+    preview: string | undefined,
+    panel: vscode.WebviewPanel
+  ): Promise<void> {
+    try {
+      const result = await saveSnippet({
+        name,
+        category,
+        html,
+        description,
+        preview,
+      });
+
+      if (result.success && result.snippet) {
+        this.postMessage(panel, {
+          type: 'saveSnippetResponse',
+          success: true,
+          snippet: {
+            id: result.snippet.id,
+            name: result.snippet.name,
+            category: result.snippet.category,
+            description: result.snippet.description,
+            preview: result.snippet.preview,
+            createdAt: result.snippet.createdAt,
+            modifiedAt: result.snippet.modifiedAt,
+          },
+        });
+      } else {
+        this.postMessage(panel, {
+          type: 'saveSnippetResponse',
+          success: false,
+          error: result.error,
+        });
+      }
+    } catch (error) {
+      this.postMessage(panel, {
+        type: 'saveSnippetResponse',
+        success: false,
+        error: `Failed to save snippet: ${error}`,
+      });
+    }
+  }
+
+  /**
+   * Handle delete snippet request
+   */
+  private async handleDeleteSnippet(id: string, panel: vscode.WebviewPanel): Promise<void> {
+    try {
+      const result = await deleteSnippetFromStorage(id);
+
+      if (result.success) {
+        this.postMessage(panel, {
+          type: 'deleteSnippetResponse',
+          success: true,
+        });
+      } else {
+        this.postMessage(panel, {
+          type: 'deleteSnippetResponse',
+          success: false,
+          error: result.error,
+        });
+      }
+    } catch (error) {
+      this.postMessage(panel, {
+        type: 'deleteSnippetResponse',
+        success: false,
+        error: `Failed to delete snippet: ${error}`,
       });
     }
   }

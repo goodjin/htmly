@@ -92,6 +92,20 @@ export interface UserTemplateMetadata {
   modifiedAt: number;
 }
 
+// Snippet types
+export type SnippetCategory = 'cards' | 'buttons' | 'navbars' | 'tables' | 'forms';
+
+// User snippet metadata
+export interface UserSnippetMetadata {
+  id: string;
+  name: string;
+  category: SnippetCategory;
+  description?: string;
+  preview?: string;
+  createdAt: number;
+  modifiedAt: number;
+}
+
 // Project search result
 export interface SearchResult {
   filePath: string;
@@ -132,6 +146,9 @@ export type ExtToWebMsg =
   | { type: 'saveTemplateResponse'; success: boolean; template?: UserTemplateMetadata; error?: string }
   | { type: 'deleteTemplateResponse'; success: boolean; error?: string }
   | { type: 'renameTemplateResponse'; success: boolean; template?: UserTemplateMetadata; error?: string }
+  | { type: 'userSnippets'; snippets: UserSnippetMetadata[] }
+  | { type: 'saveSnippetResponse'; success: boolean; snippet?: UserSnippetMetadata; error?: string }
+  | { type: 'deleteSnippetResponse'; success: boolean; error?: string }
   | { type: 'projectSearchResults'; results: SearchResult[] }
   | { type: 'projectSearchError'; error: string }
   | { type: 'openFile'; filePath: string; line?: number; column?: number }
@@ -151,5 +168,8 @@ export type WebToExtMsg =
   | { type: 'saveAsTemplate'; name: string; category: TemplateCategory; content: string; description?: string }
   | { type: 'deleteTemplate'; id: string }
   | { type: 'renameTemplate'; id: string; newName: string }
+  | { type: 'loadUserSnippets' }
+  | { type: 'saveAsSnippet'; name: string; category: SnippetCategory; html: string; description?: string; preview?: string }
+  | { type: 'deleteSnippet'; id: string }
   | { type: 'projectSearch'; query: string; isRegex: boolean }
   | { type: 'openFile'; filePath: string; line?: number; column?: number };
