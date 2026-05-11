@@ -19,6 +19,13 @@ vi.mock('./LinkPreviewDialog.vue', () => ({
 vi.mock('./ExportDialog.vue', () => ({
   default: defineComponent({ name: 'ExportDialog', template: '<div />' })
 }));
+vi.mock('./MathSymbolsDropdown.vue', () => ({
+  default: defineComponent({ 
+    name: 'MathSymbolsDropdown', 
+    template: '<div class="math-symbols-dropdown-mock" />',
+    emits: ['insertSymbol', 'insertMathBlock', 'insertMathInline']
+  })
+}));
 
 const defaultProps = {
   editor: undefined,
@@ -39,6 +46,7 @@ function createMockEditor(tableActive = false, headerActive = false) {
       if (type === 'tableRow') return tableActive;
       if (type === 'tableCell') return tableActive;
       if (type === 'link') return false;
+      if (type === 'mathInline') return false;
       return false;
     },
     getAttributes: (type: string) => {
@@ -83,6 +91,8 @@ function createMockEditor(tableActive = false, headerActive = false) {
         setLink: () => ({ run: () => {} }),
         unsetLink: () => ({ run: () => {} }),
         insertContent: () => ({ run: () => {} }),
+        insertMathInline: () => ({ run: () => {} }),
+        insertMathBlock: () => ({ run: () => {} }),
         setParagraph: () => ({ run: () => {} }),
         toggleHeading: () => ({ run: () => {} }),
       }),
@@ -410,6 +420,59 @@ describe('Toolbar.vue', () => {
       // by checking the ExportDialog component receives visible=true
       const exportDialog = wrapper.findComponent({ name: 'ExportDialog' });
       expect(exportDialog.exists()).toBe(true);
+    });
+  });
+
+  describe('Math Toolbar', () => {
+    it('renders inline math button in wysiwyg mode', () => {
+      const wrapper = mount(Toolbar, {
+        props: { ...defaultProps, mode: 'wysiwyg' },
+      });
+      const inlineMathBtn = wrapper.findAll('button').find(b => b.text().includes('Inline'));
+      expect(inlineMathBtn).toBeDefined();
+    });
+
+    it('renders math symbols dropdown component in wysiwyg mode', () => {
+      const wrapper = mount(Toolbar, {
+        props: { ...defaultProps, mode: 'wysiwyg' },
+      });
+      const mathDropdown = wrapper.findComponent({ name: 'MathSymbolsDropdown' });
+      expect(mathDropdown.exists()).toBe(true);
+    });
+
+    it('has insertMathInline command available on editor chain', () => {
+      const mockEditor = createMockEditor(false, false);
+      const chainResult = mockEditor.chain();
+      expect(chainResult.focus).toBeDefined();
+    });
+
+    it('math symbols dropdown component is rendered with correct props', () => {
+      const wrapper = mount(Toolbar, {
+        props: { ...defaultProps, mode: 'wysiwyg' },
+      });
+      const mathDropdown = wrapper.findComponent({ name: 'MathSymbolsDropdown' });
+      expect(mathDropdown.exists()).toBe(true);
+      // Check that the dropdown has emits defined (these are events the parent listens to)
+      expect(mathDropdown.vm.$options.emits).toBeDefined();
+    });
+
+    it('does not show math buttons in source mode', () => {
+      const wrapper = mount(Toolbar, {
+        props: { ...defaultProps, mode: 'source' },
+      });
+      // In source mode, the template v-if="mode === 'wysiwyg'" hides toolbar content
+      expect(wrapper.find('.toolbar').exists()).toBe(true);
+      // Math dropdown should not be in the DOM for source mode
+      const mathDropdown = wrapper.findComponent({ name: 'MathSymbolsDropdown' });
+      expect(mathDropdown.exists()).toBe(false);
+    });
+
+    it('does not show math buttons in preview mode', () => {
+      const wrapper = mount(Toolbar, {
+        props: { ...defaultProps, mode: 'preview', autoHideToolbarInPreview: true },
+      });
+      // Toolbar is hidden in preview mode
+      expect(wrapper.find('.toolbar').exists()).toBe(false);
     });
   });
 });

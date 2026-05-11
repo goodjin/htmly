@@ -6,6 +6,7 @@ import { escapeHtml } from '../core/htmlUtils';
 import LinkDialog from './LinkDialog.vue';
 import ImageDialog from './ImageDialog.vue';
 import ExportDialog from './ExportDialog.vue';
+import MathSymbolsDropdown from './MathSymbolsDropdown.vue';
 
 // Lazy load EmbedDialog - not needed at initial load
 const EmbedDialog = defineAsyncComponent(() => import('./EmbedDialog.vue'));
@@ -252,6 +253,17 @@ function toggleTableHeaderRow() {
 function onCellBgColorChange(e: Event) {
   const value = (e.target as HTMLInputElement).value;
   props.editor?.chain().focus().setCellAttribute('backgroundColor', value).run();
+}
+
+// Math operations
+function insertMathInline() {
+  props.editor?.chain().focus().insertMathInline('').run();
+}
+
+function insertMathSymbol(symbol: string) {
+  if (!props.editor) return;
+  // Insert the symbol at current cursor position
+  props.editor.chain().focus().insertContent(symbol).run();
 }
 </script>
 
@@ -544,12 +556,18 @@ function onCellBgColorChange(e: Event) {
           <span class="btn-label">Footnote</span>
         </button>
         <button
-          title="Math Block ($$...$$)"
-          @mousedown="btn(() => editor?.chain().focus().insertMathBlock().run())"
+          title="Inline Math ($...$)"
+          :class="{ active: editor?.isActive('mathInline') }"
+          @mousedown="btn(insertMathInline)"
         >
-          <span class="btn-icon">∑</span>
-          <span class="btn-label">Math</span>
+          <span class="btn-icon">$x$</span>
+          <span class="btn-label">Inline</span>
         </button>
+        <MathSymbolsDropdown
+          @insert-math-block="btn(() => editor?.chain().focus().insertMathBlock().run())"
+          @insert-math-inline="insertMathInline"
+          @insert-symbol="insertMathSymbol"
+        />
         <button
           title="Format Painter (click once or double-click to keep active)"
           :class="{ active: formatPainterActive }"
