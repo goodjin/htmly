@@ -605,6 +605,7 @@ onBeforeUnmount(() => {
         :format-painter-active="formatPainterActive"
         :format-painter-state="formatPainterState"
         :cursor-position="cursorPosition"
+        :cloud-storage-config="settings.cloudStorage"
         @update:model-value="onVisualContentChange"
         @format-painter-applied="onFormatPainterApplied"
         @cursor-position-update="onCursorPositionUpdate"

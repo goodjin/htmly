@@ -60,6 +60,8 @@ import { setLinkPreviewDialogOpener } from '../extensions/dialogOpeners';
 import { VirtualScroll, isVirtualScrollActive, getDocumentStats } from '../extensions/virtualScroll';
 import { useVirtualScroll } from '../composables/useVirtualScroll';
 import { useLazyExtensionLoader } from '../composables/useLazyExtensionLoader';
+import { useCloudUpload } from '../composables/useCloudUpload';
+import type { CloudStorageConfig } from '../../../src/shared/types';
 
 const props = withDefaults(defineProps<{
   modelValue: string;   // HTML string
@@ -68,10 +70,18 @@ const props = withDefaults(defineProps<{
   formatPainterState?: FormatPainterState | null;
   /** Cursor position to restore when switching from Source to Visual mode */
   cursorPosition?: CursorPosition | null;
+  /** Cloud storage configuration for image uploads */
+  cloudStorageConfig?: CloudStorageConfig;
 }>(), {
   formatPainterActive: false,
   formatPainterState: null,
   cursorPosition: null,
+  cloudStorageConfig: () => ({
+    provider: 'none',
+    s3: { accessKeyId: '', secretAccessKey: '', bucket: '', region: 'us-east-1' },
+    cloudinary: { apiKey: '', apiSecret: '', cloudName: '' },
+    imgbb: { apiKey: '' },
+  }),
 });
 
 const emit = defineEmits<{
@@ -217,16 +227,8 @@ const editor = useEditor({
             const file = item.getAsFile();
             if (!file) return false;
             
-            const reader = new FileReader();
-            reader.onload = (e) => {
-              const src = e.target?.result as string;
-              if (src && editor.value) {
-                // Get the current selection position
-                const { from } = view.state.selection;
-                editor.value.chain().focus().setImage({ src, alt: '' }).run();
-              }
-            };
-            reader.readAsDataURL(file);
+            // Use cloud upload service for images
+            uploadImageAndInsert(file);
             return true;
           }
         }
@@ -551,6 +553,55 @@ const {
   preloadAll,
   detectExtensionUse,
 } = useLazyExtensionLoader(() => editor.value);
+
+// Cloud upload composable
+const {
+  uploadState: cloudUploadState,
+  isUploading,
+  uploadImage,
+  resetUploadState,
+  getProviderDisplayName,
+} = useCloudUpload();
+
+// Upload overlay visibility
+const showUploadOverlay = ref(false);
+
+// Watch for upload state changes to show/hide overlay
+watch(cloudUploadState, (state) => {
+  showUploadOverlay.value = state.status === 'uploading';
+});
+
+// Upload image helper function that handles cloud upload
+async function uploadImageAndInsert(
+  file: File,
+  insertPosition?: { pos: number }
+): Promise<void> {
+  if (!editor.value) return;
+  
+  try {
+    const result = await uploadImage(file, props.cloudStorageConfig);
+    
+    if (result.success && result.url) {
+      // Insert the image with the uploaded/cloud URL
+      if (insertPosition) {
+        editor.value.chain().focus().setImage({ src: result.url, alt: '' }).run();
+      } else {
+        editor.value.chain().focus().setImage({ src: result.url, alt: '' }).run();
+      }
+    } else {
+      // Show error notification
+      console.error('Image upload failed:', result.error);
+      // Fall back to base64 if upload failed but we got a local URL
+      if (result.url && result.url.startsWith('data:')) {
+        editor.value.chain().focus().setImage({ src: result.url, alt: '' }).run();
+      }
+    }
+  } catch (error) {
+    console.error('Image upload error:', error);
+  } finally {
+    resetUploadState();
+  }
+}
 
 // Preload lazy extensions on idle (after initial render)
 onMounted(() => {
@@ -1015,24 +1066,8 @@ function onEditorDrop(e: DragEvent) {
     if (file.type.startsWith('image/')) {
       e.preventDefault();
       
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const src = event.target?.result as string;
-        if (src) {
-          // Get drop position
-          const coords = { left: e.clientX, top: e.clientY };
-          const pos = editor.value!.view.posAtCoords(coords);
-          
-          if (pos) {
-            // Set the position and insert the image
-            editor.value!.chain().focus().setImage({ src, alt: '' }).run();
-          } else {
-            // Just insert at current position
-            editor.value!.chain().focus().setImage({ src, alt: '' }).run();
-          }
-        }
-      };
-      reader.readAsDataURL(file);
+      // Use cloud upload service for images
+      uploadImageAndInsert(file);
       return; // Only handle first image
     }
   }
@@ -1053,6 +1088,18 @@ function onEditorDrop(e: DragEvent) {
 
   <!-- Drag handle overlay - outside ProseMirror DOM to prevent getHTML() from capturing handles -->
   <div ref="dragOverlay" class="drag-overlay" :style="{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, pointerEvents: 'none', overflow: 'hidden' }"></div>
+
+  <!-- Cloud upload progress overlay -->
+  <div v-if="showUploadOverlay" class="upload-overlay">
+    <div class="upload-indicator">
+      <div class="upload-spinner"></div>
+      <div class="upload-text">{{ cloudUploadState.message || 'Uploading image...' }}</div>
+      <div class="upload-progress-bar">
+        <div class="upload-progress-fill" :style="{ width: cloudUploadState.progress + '%' }"></div>
+      </div>
+      <div class="upload-percentage">{{ cloudUploadState.progress }}%</div>
+    </div>
+  </div>
 
   <BubbleMenu
     v-if="editor"
@@ -1463,5 +1510,66 @@ function onEditorDrop(e: DragEvent) {
 :deep(.ProseMirror-selectednode) {
   outline: 2px solid #0e639c;
   outline-offset: 2px;
+}
+
+/* Cloud upload overlay */
+.upload-overlay {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 1000;
+  background: var(--vscode-editorWidget-background, #252526);
+  border: 1px solid var(--vscode-editorWidget-border, #454545);
+  border-radius: 8px;
+  padding: 20px 30px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  min-width: 200px;
+  text-align: center;
+}
+
+.upload-indicator {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.upload-spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid var(--vscode-progressBar-background, #3c3c3c);
+  border-top-color: var(--vscode-button-background, #0e639c);
+  border-radius: 50%;
+  animation: upload-spin 1s linear infinite;
+}
+
+@keyframes upload-spin {
+  to { transform: rotate(360deg); }
+}
+
+.upload-text {
+  font-size: 13px;
+  color: var(--vscode-editor-foreground, #cccccc);
+}
+
+.upload-progress-bar {
+  width: 100%;
+  height: 6px;
+  background: var(--vscode-progressBar-background, #3c3c3c);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.upload-progress-fill {
+  height: 100%;
+  background: var(--vscode-button-background, #0e639c);
+  transition: width 0.2s ease-out;
+}
+
+.upload-percentage {
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground, #858585);
+  font-family: var(--vscode-editor-font-family, monospace);
 }
 </style>
