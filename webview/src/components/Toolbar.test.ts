@@ -3,18 +3,22 @@ import { mount } from '@vue/test-utils';
 import { h, defineComponent } from 'vue';
 import Toolbar from './Toolbar.vue';
 
-// Mock child components - need to define as actual components for defineAsyncComponent to work
-const MockLinkDialog = defineComponent({ name: 'LinkDialog', template: '<div />' });
-const MockImageDialog = defineComponent({ name: 'ImageDialog', template: '<div />' });
-const MockEmbedDialog = defineComponent({ name: 'EmbedDialog', template: '<div />' });
-const MockLinkPreviewDialog = defineComponent({ name: 'LinkPreviewDialog', template: '<div />' });
-const MockExportDialog = defineComponent({ name: 'ExportDialog', template: '<div />' });
-
-vi.mock('./LinkDialog.vue', () => ({ default: MockLinkDialog }));
-vi.mock('./ImageDialog.vue', () => ({ default: MockImageDialog }));
-vi.mock('./EmbedDialog.vue', () => ({ default: MockEmbedDialog }));
-vi.mock('./LinkPreviewDialog.vue', () => ({ default: MockLinkPreviewDialog }));
-vi.mock('./ExportDialog.vue', () => ({ default: MockExportDialog }));
+// Mock child components - use vi.mock factory to avoid hoisting issues
+vi.mock('./LinkDialog.vue', () => ({
+  default: defineComponent({ name: 'LinkDialog', template: '<div />' })
+}));
+vi.mock('./ImageDialog.vue', () => ({
+  default: defineComponent({ name: 'ImageDialog', template: '<div />' })
+}));
+vi.mock('./EmbedDialog.vue', () => ({
+  default: defineComponent({ name: 'EmbedDialog', template: '<div />' })
+}));
+vi.mock('./LinkPreviewDialog.vue', () => ({
+  default: defineComponent({ name: 'LinkPreviewDialog', template: '<div />' })
+}));
+vi.mock('./ExportDialog.vue', () => ({
+  default: defineComponent({ name: 'ExportDialog', template: '<div />' })
+}));
 
 const defaultProps = {
   editor: undefined,

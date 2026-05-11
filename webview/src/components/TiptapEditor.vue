@@ -53,6 +53,8 @@ import { ColumnResizeExtension } from '../extensions/columnResize';
 import { Toggle } from '../extensions/Toggle';
 import { BlockBackground } from '../extensions/BlockBackground';
 import { CoverImage, hasCoverImage, getCoverImagePos } from '../extensions/CoverImage';
+import { LinkPreview } from '../extensions/LinkPreview';
+import { FootnotePlugin } from '../extensions/Footnote';
 import { setCoverImageDialogOpener } from '../extensions/dialogOpeners';
 import { setLinkPreviewDialogOpener } from '../extensions/dialogOpeners';
 import { VirtualScroll, isVirtualScrollActive, getDocumentStats } from '../extensions/virtualScroll';

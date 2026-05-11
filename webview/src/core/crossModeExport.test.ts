@@ -10,19 +10,29 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { mount } from '@vue/test-utils';
-import { h } from 'vue';
+import { h, defineComponent } from 'vue';
 import Toolbar from '../components/Toolbar.vue';
 import { useExport } from '../composables/useExport';
 import { __resetVsApiForTest } from '../composables/useVSCode';
 
 // ─── Toolbar Export Button Visibility Tests ────────────────────────────────────
 
-// Mock child components
-vi.mock('../components/LinkDialog.vue', () => ({ default: { name: 'LinkDialog', template: '<div />' } }));
-vi.mock('../components/ImageDialog.vue', () => ({ default: { name: 'ImageDialog', template: '<div />' } }));
-vi.mock('../components/EmbedDialog.vue', () => ({ default: { name: 'EmbedDialog', template: '<div />' } }));
-vi.mock('../components/LinkPreviewDialog.vue', () => ({ default: { name: 'LinkPreviewDialog', template: '<div />' } }));
-vi.mock('../components/ExportDialog.vue', () => ({ default: { name: 'ExportDialog', template: '<div />' } }));
+// Mock child components - use vi.mock factory to avoid hoisting issues
+vi.mock('../components/LinkDialog.vue', () => ({
+  default: defineComponent({ name: 'LinkDialog', template: '<div />' })
+}));
+vi.mock('../components/ImageDialog.vue', () => ({
+  default: defineComponent({ name: 'ImageDialog', template: '<div />' })
+}));
+vi.mock('../components/EmbedDialog.vue', () => ({
+  default: defineComponent({ name: 'EmbedDialog', template: '<div />' })
+}));
+vi.mock('../components/LinkPreviewDialog.vue', () => ({
+  default: defineComponent({ name: 'LinkPreviewDialog', template: '<div />' })
+}));
+vi.mock('../components/ExportDialog.vue', () => ({
+  default: defineComponent({ name: 'ExportDialog', template: '<div />' })
+}));
 
 const defaultToolbarProps = {
   editor: undefined,
