@@ -33,6 +33,7 @@ import {
   convertToMarkdown,
   convertToPlainText,
   convertToEmbeddedHtml,
+  convertToEmbeddedHtmlWithImages,
   preparePdfExport,
   convertContent,
 } from './exportUtils';
@@ -339,6 +340,263 @@ describe('exportUtils', () => {
       const html = '<p>Content</p>';
       const result = convertToEmbeddedHtml(html);
       expect(result).toContain('viewport');
+    });
+
+    it('handles empty string', () => {
+      const result = convertToEmbeddedHtml('');
+      expect(result).toContain('<!DOCTYPE html>');
+      expect(result).toContain('<html');
+      expect(result).toContain('<body>');
+    });
+
+    it('extracts body content from full document', () => {
+      const html = '<!DOCTYPE html><html><head><title>Test</title></head><body><p>Body Content</p></body></html>';
+      const result = convertToEmbeddedHtml(html);
+      expect(result).toContain('<p>Body Content</p>');
+      expect(result).not.toContain('<title>Test</title>');
+    });
+
+    describe('CSS Inlining', () => {
+      it('inlines class selector styles', () => {
+        const html = '<style>.highlight { background: yellow; }</style><p class="highlight">Highlighted</p>';
+        const result = convertToEmbeddedHtml(html);
+        expect(result).toContain('background');
+        expect(result).toContain('Highlighted');
+      });
+
+      it('inlines tag selector styles', () => {
+        const html = '<style>p { color: blue; }</style><p>Blue text</p>';
+        const result = convertToEmbeddedHtml(html);
+        expect(result).toContain('color');
+        expect(result).toContain('Blue text');
+      });
+
+      it('removes style tags after inlining', () => {
+        const html = '<style>.test { color: red; }</style><p class="test">Content</p>';
+        const result = convertToEmbeddedHtml(html);
+        expect(result).not.toContain('.test');
+        expect(result).toContain('Content');
+      });
+
+      it('preserves style tag content in embedded styles section', () => {
+        const html = '<style>.custom { font-weight: bold; }</style><p class="custom">Bold</p>';
+        const result = convertToEmbeddedHtml(html);
+        expect(result).toContain('.custom');
+        expect(result).toContain('font-weight');
+      });
+
+      it('handles inline styles with existing style attributes', () => {
+        const html = '<p style="color: red;">Text</p>';
+        const result = convertToEmbeddedHtml(html);
+        expect(result).toContain('style=');
+        expect(result).toContain('color');
+        expect(result).toContain('Text');
+      });
+    });
+
+    describe('Font Handling', () => {
+      it('replaces custom fonts with web-safe fallbacks', () => {
+        const html = '<p style="font-family: CustomFont;">Custom font text</p>';
+        const result = convertToEmbeddedHtml(html);
+        expect(result).toContain('sans-serif');
+      });
+
+      it('preserves web-safe fonts', () => {
+        const html = '<p style="font-family: Arial, sans-serif;">Arial text</p>';
+        const result = convertToEmbeddedHtml(html);
+        expect(result).toContain('Arial');
+        expect(result).toContain('sans-serif');
+      });
+
+      it('adds fallback to custom fonts', () => {
+        const html = '<p style="font-family: Roboto;">Roboto text</p>';
+        const result = convertToEmbeddedHtml(html);
+        expect(result).toContain('sans-serif');
+      });
+
+      it('preserves Times New Roman', () => {
+        const html = '<p style="font-family: Times New Roman, serif;">Serif text</p>';
+        const result = convertToEmbeddedHtml(html);
+        expect(result).toContain('Times New Roman');
+        expect(result).toContain('serif');
+      });
+
+      it('preserves Courier New', () => {
+        const html = '<p style="font-family: Courier New, monospace;">Code text</p>';
+        const result = convertToEmbeddedHtml(html);
+        expect(result).toContain('Courier New');
+        expect(result).toContain('monospace');
+      });
+    });
+
+    describe('Security Sanitization', () => {
+      it('removes script tags', () => {
+        const html = '<script>alert("xss");</script><p>Safe content</p>';
+        const result = convertToEmbeddedHtml(html);
+        expect(result).not.toContain('alert');
+        expect(result).not.toContain('script');
+        expect(result).toContain('Safe content');
+      });
+
+      it('removes onclick event handlers', () => {
+        const html = '<p onclick="alert(1)">Click me</p>';
+        const result = convertToEmbeddedHtml(html);
+        expect(result).not.toContain('onclick');
+        expect(result).toContain('Click me');
+      });
+
+      it('removes onerror event handlers', () => {
+        const html = '<img src="x" onerror="alert(1)">';
+        const result = convertToEmbeddedHtml(html);
+        expect(result).not.toContain('onerror');
+      });
+
+      it('removes iframes', () => {
+        const html = '<iframe src="https://evil.com"></iframe><p>Safe</p>';
+        const result = convertToEmbeddedHtml(html);
+        expect(result).not.toContain('iframe');
+        expect(result).toContain('Safe');
+      });
+
+      it('removes object elements', () => {
+        const html = '<object data="evil.swf"></object><p>Safe</p>';
+        const result = convertToEmbeddedHtml(html);
+        expect(result).not.toContain('object');
+        expect(result).toContain('Safe');
+      });
+
+      it('removes noscript tags', () => {
+        const html = '<noscript><p>Hidden</p></noscript><p>Visible</p>';
+        const result = convertToEmbeddedHtml(html);
+        expect(result).not.toContain('noscript');
+        expect(result).toContain('Visible');
+      });
+    });
+
+    describe('Image Handling', () => {
+      it('preserves image elements', () => {
+        const html = '<img src="image.png" alt="Test Image">';
+        const result = convertToEmbeddedHtml(html);
+        expect(result).toContain('src="image.png"');
+        expect(result).toContain('alt="Test Image"');
+      });
+
+      it('handles images with various attributes', () => {
+        const html = '<img src="photo.jpg" alt="Photo" width="200" height="100" class="photo">';
+        const result = convertToEmbeddedHtml(html);
+        expect(result).toContain('src="photo.jpg"');
+        expect(result).toContain('width="200"');
+        expect(result).toContain('height="100"');
+      });
+
+      it('handles data URI images', () => {
+        const dataUri = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAUA';
+        const html = `<img src="${dataUri}" alt="Embedded">`;
+        const result = convertToEmbeddedHtml(html);
+        expect(result).toContain(dataUri);
+      });
+
+      it('handles external URLs', () => {
+        const html = '<img src="https://example.com/image.png" alt="External">';
+        const result = convertToEmbeddedHtml(html);
+        expect(result).toContain('https://example.com/image.png');
+      });
+    });
+
+    describe('Edge Cases', () => {
+      it('handles nested elements', () => {
+        const html = '<div><div><p>Nested</p></div></div>';
+        const result = convertToEmbeddedHtml(html);
+        expect(result).toContain('Nested');
+      });
+
+      it('handles special HTML entities', () => {
+        const html = '<p>&lt;script&gt; &amp; &quot;test&quot;</p>';
+        const result = convertToEmbeddedHtml(html);
+        expect(result).toContain('test');
+      });
+
+      it('handles SVG elements', () => {
+        const html = '<svg><rect width="100" height="100"/></svg>';
+        const result = convertToEmbeddedHtml(html);
+        expect(result).toContain('<svg');
+        expect(result).toContain('</svg>');
+      });
+
+      it('handles table elements', () => {
+        const html = '<table><tr><td>Cell 1</td><td>Cell 2</td></tr></table>';
+        const result = convertToEmbeddedHtml(html);
+        expect(result).toContain('<table');
+        expect(result).toContain('Cell 1');
+        expect(result).toContain('Cell 2');
+      });
+
+      it('handles list elements', () => {
+        const html = '<ul><li>Item 1</li><li>Item 2</li></ul>';
+        const result = convertToEmbeddedHtml(html);
+        expect(result).toContain('<ul');
+        expect(result).toContain('Item 1');
+        expect(result).toContain('Item 2');
+      });
+    });
+  });
+
+  describe('convertToEmbeddedHtmlWithImages', () => {
+    it('returns Promise for async operation', async () => {
+      const html = '<p>Test</p>';
+      const result = await convertToEmbeddedHtmlWithImages(html);
+      expect(result).toContain('Test');
+    });
+
+    it('handles empty input', async () => {
+      const result = await convertToEmbeddedHtmlWithImages('');
+      expect(result).toContain('<!DOCTYPE html>');
+    });
+
+    it('preserves images without readFile function', async () => {
+      const html = '<img src="image.png" alt="Test">';
+      const result = await convertToEmbeddedHtmlWithImages(html);
+      expect(result).toContain('src="image.png"');
+    });
+
+    it('converts local images to base64 when readFile is provided', async () => {
+      const html = '<img src="test.png" alt="Test">';
+      const pngData = new Uint8Array([0x89, 0x50, 0x4E, 0x47]); // PNG header
+      const readFile = async (uri: string): Promise<Uint8Array | null> => {
+        if (uri.includes('test.png')) {
+          return pngData;
+        }
+        return null;
+      };
+      const result = await convertToEmbeddedHtmlWithImages(html, 'file:///test/doc.html', readFile);
+      expect(result).toContain('data:image/png;base64');
+      expect(result).toContain('iVBORw0KGgoAAAANSUhEUgAAAA');
+    });
+
+    it('keeps external URLs unchanged', async () => {
+      const html = '<img src="https://example.com/image.png" alt="External">';
+      const result = await convertToEmbeddedHtmlWithImages(html, 'file:///test/doc.html');
+      expect(result).toContain('https://example.com/image.png');
+    });
+
+    it('keeps data URIs unchanged', async () => {
+      const dataUri = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAUA';
+      const html = `<img src="${dataUri}" alt="Embedded">`;
+      const result = await convertToEmbeddedHtmlWithImages(html);
+      expect(result).toContain(dataUri);
+    });
+
+    it('applies same CSS inlining as sync version', async () => {
+      const html = '<style>.highlight { background: yellow; }</style><p class="highlight">Test</p>';
+      const result = await convertToEmbeddedHtmlWithImages(html);
+      expect(result).toContain('background');
+      expect(result).toContain('Test');
+    });
+
+    it('applies same font replacement as sync version', async () => {
+      const html = '<p style="font-family: CustomFont;">Custom</p>';
+      const result = await convertToEmbeddedHtmlWithImages(html);
+      expect(result).toContain('sans-serif');
     });
   });
 
