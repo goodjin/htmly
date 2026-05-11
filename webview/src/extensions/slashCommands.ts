@@ -7,6 +7,25 @@ import { setEmbedDialogOpener, openEmbedDialog, setCoverImageDialogOpener, openC
 
 export { setEmbedDialogOpener, openEmbedDialog, setCoverImageDialogOpener, openCoverImageDialog };
 
+// Snippet selector state management
+let snippetSelectorOpener: (() => void) | null = null;
+
+/**
+ * Set the function to open the snippet selector
+ */
+export function setSnippetSelectorOpener(opener: () => void) {
+  snippetSelectorOpener = opener;
+}
+
+/**
+ * Open the snippet selector (called when /snippet command is selected)
+ */
+export function openSnippetSelector() {
+  if (snippetSelectorOpener) {
+    snippetSelectorOpener();
+  }
+}
+
 export interface SlashCommandItem {
   title: string;
   description: string;
@@ -138,6 +157,12 @@ export const slashCommandItems: SlashCommandItem[] = [
     description: 'Apply background color to block',
     icon: '🎨',
     command: (editor) => editor.chain().focus().setBlockBackground('#fef3c7').run(),
+  },
+  {
+    title: 'Snippet',
+    description: 'Insert a code snippet',
+    icon: '📦',
+    command: () => openSnippetSelector(),
   },
 ];
 

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch, onMounted, onBeforeUnmount, nextTick } from 'vue';
-import type { EditorMode, HtmlySettings, TemplateCategory, UserTemplateMetadata } from '../../src/shared/types';
+import type { EditorMode, HtmlySettings, TemplateCategory, UserTemplateMetadata, SnippetCategory } from '../../src/shared/types';
 import { useVSCode } from './composables/useVSCode';
 import { useSharedHistory, onHistoryChange } from './composables/useSharedHistory';
 import { useProjectSearch } from './composables/useProjectSearch';
@@ -15,9 +15,12 @@ import SourceSearchBar from './components/SourceSearchBar.vue';
 import TOCPanel from './components/TOCPanel.vue';
 import HistoryPanel from './components/HistoryPanel.vue';
 import TemplateSelector from './components/TemplateSelector.vue';
+import SnippetSelector from './components/SnippetSelector.vue';
 import ProjectSearchPanel from './components/ProjectSearchPanel.vue';
-import type { Template } from './core/types';
+import type { Template, Snippet } from './core/types';
 import { TEMPLATE_CATEGORIES } from './core/template';
+import { SNIPPET_CATEGORIES } from './core/snippet';
+import { setSnippetSelectorOpener } from './extensions/slashCommands';
 
 const { 
   onMessage, 
@@ -207,6 +210,7 @@ const showProjectSearch = ref(false);
 const showTOC = ref(false);
 const showHistoryPanel = ref(false);
 const showTemplateSelector = ref(false);
+const showSnippetSelector = ref(false);
 const showCrashRecoveryDialog = ref(false);
 
 // Save template dialog state
@@ -368,6 +372,26 @@ function cancelSaveTemplate() {
   showSaveTemplateDialog.value = false;
   saveTemplateName.value = '';
   saveTemplateDescription.value = '';
+}
+
+// Snippet selector functions
+function toggleSnippetSelector() {
+  showSnippetSelector.value = !showSnippetSelector.value;
+}
+
+function handleSnippetSelect(snippet: Snippet) {
+  // Insert the snippet HTML at the current cursor position
+  if (tiptapRef.value?.editor) {
+    const editor = tiptapRef.value.editor;
+    editor.chain().focus().insertContent(snippet.html).run();
+  }
+  showSnippetSelector.value = false;
+}
+
+function handleSaveAsSnippetRequest(options: { name: string; category: SnippetCategory; description?: string }) {
+  // TODO: Implement save as snippet functionality
+  // This will be handled in user-snippet-management feature
+  showSnippetSelector.value = false;
 }
 
 // Export handler
@@ -587,6 +611,11 @@ onMounted(() => {
   notifyReady();
   document.addEventListener('keydown', onGlobalKeydown);
 
+  // Set up snippet selector opener for slash commands
+  setSnippetSelectorOpener(() => {
+    showSnippetSelector.value = true;
+  });
+
   // Set up history sync with extension
   const unsubscribeHistory = onHistoryChange((state) => {
     syncHistory(state);
@@ -709,6 +738,15 @@ onBeforeUnmount(() => {
       @select="handleTemplateSelect"
       @cancel="showTemplateSelector = false"
       @save-as-template="handleSaveAsTemplateRequest"
+    />
+
+    <!-- Snippet Selector -->
+    <SnippetSelector
+      :visible="showSnippetSelector"
+      :current-content="content"
+      @select="handleSnippetSelect"
+      @cancel="showSnippetSelector = false"
+      @save-as-snippet="handleSaveAsSnippetRequest"
     />
 
     <!-- Save Template Dialog -->
