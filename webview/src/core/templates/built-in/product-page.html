@@ -1,0 +1,287 @@
+<!-- template: {"name": "Product Page", "category": "product", "description": "A conversion-focused product landing page with hero, features, and CTA sections"} -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Product Name - Feature-rich Solution</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      color: #333;
+      line-height: 1.6;
+    }
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 20px;
+    }
+    /* Hero Section */
+    .hero {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 100px 0;
+      text-align: center;
+    }
+    .hero h1 {
+      font-size: 3em;
+      margin-bottom: 20px;
+      font-weight: 700;
+    }
+    .hero .subtitle {
+      font-size: 1.4em;
+      opacity: 0.9;
+      margin-bottom: 30px;
+    }
+    .cta-button {
+      display: inline-block;
+      background: white;
+      color: #667eea;
+      padding: 15px 40px;
+      font-size: 1.2em;
+      font-weight: 600;
+      border-radius: 50px;
+      text-decoration: none;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .cta-button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+    }
+    /* Features Section */
+    .features {
+      padding: 80px 0;
+      background: #f8f9fa;
+    }
+    .features h2 {
+      text-align: center;
+      font-size: 2.5em;
+      margin-bottom: 60px;
+      color: #1a1a1a;
+    }
+    .feature-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 40px;
+    }
+    .feature-card {
+      background: white;
+      padding: 40px;
+      border-radius: 16px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+      transition: transform 0.2s;
+    }
+    .feature-card:hover {
+      transform: translateY(-5px);
+    }
+    .feature-icon {
+      width: 60px;
+      height: 60px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      border-radius: 12px;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.5em;
+    }
+    .feature-card h3 {
+      font-size: 1.4em;
+      margin-bottom: 15px;
+      color: #1a1a1a;
+    }
+    .feature-card p {
+      color: #666;
+      line-height: 1.7;
+    }
+    /* Pricing Section */
+    .pricing {
+      padding: 80px 0;
+      text-align: center;
+    }
+    .pricing h2 {
+      font-size: 2.5em;
+      margin-bottom: 20px;
+    }
+    .pricing-subtitle {
+      color: #666;
+      font-size: 1.2em;
+      margin-bottom: 50px;
+    }
+    .pricing-cards {
+      display: flex;
+      justify-content: center;
+      gap: 30px;
+      flex-wrap: wrap;
+    }
+    .pricing-card {
+      background: white;
+      border: 2px solid #eee;
+      border-radius: 20px;
+      padding: 40px;
+      width: 320px;
+      transition: border-color 0.2s;
+    }
+    .pricing-card.featured {
+      border-color: #667eea;
+      box-shadow: 0 10px 40px rgba(102, 126, 234, 0.2);
+    }
+    .pricing-card h3 {
+      font-size: 1.5em;
+      margin-bottom: 10px;
+    }
+    .price {
+      font-size: 3em;
+      font-weight: 700;
+      color: #1a1a1a;
+      margin: 20px 0;
+    }
+    .price span {
+      font-size: 0.3em;
+      font-weight: 400;
+      color: #666;
+    }
+    .pricing-card ul {
+      list-style: none;
+      text-align: left;
+      margin: 30px 0;
+    }
+    .pricing-card li {
+      padding: 10px 0;
+      border-bottom: 1px solid #eee;
+    }
+    .pricing-card li::before {
+      content: "✓ ";
+      color: #667eea;
+      font-weight: bold;
+    }
+    /* Footer */
+    .footer {
+      background: #1a1a1a;
+      color: white;
+      padding: 60px 0;
+      text-align: center;
+    }
+    .footer p {
+      opacity: 0.7;
+      margin-top: 20px;
+    }
+    img {
+      max-width: 100%;
+      height: auto;
+    }
+    @media (max-width: 768px) {
+      .hero h1 { font-size: 2em; }
+      .hero .subtitle { font-size: 1.1em; }
+    }
+  </style>
+</head>
+<body>
+  <!-- Hero Section -->
+  <section class="hero">
+    <div class="container">
+      <h1>Product Name</h1>
+      <p class="subtitle">The complete solution for [primary benefit]. Transform your workflow today.</p>
+      <a href="#pricing" class="cta-button">Get Started Free</a>
+    </div>
+  </section>
+
+  <!-- Features Section -->
+  <section class="features">
+    <div class="container">
+      <h2>Powerful Features</h2>
+      <div class="feature-grid">
+        <div class="feature-card">
+          <div class="feature-icon">⚡</div>
+          <h3>Lightning Fast</h3>
+          <p>Experience blazing fast performance with our optimized codebase and intelligent caching.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">🔒</div>
+          <h3>Secure by Default</h3>
+          <p>Enterprise-grade security with end-to-end encryption and compliance with industry standards.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">📱</div>
+          <h3>Mobile Ready</h3>
+          <p>Fully responsive design that looks great on any device, from desktop to mobile.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">🔄</div>
+          <h3>Easy Integration</h3>
+          <p>Connect with your favorite tools through our comprehensive API and pre-built integrations.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">📊</div>
+          <h3>Analytics Built-in</h3>
+          <p>Gain valuable insights with detailed analytics and real-time reporting dashboards.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">💬</div>
+          <h3>24/7 Support</h3>
+          <p>Our dedicated support team is always ready to help you succeed.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Pricing Section -->
+  <section class="pricing" id="pricing">
+    <div class="container">
+      <h2>Simple, Transparent Pricing</h2>
+      <p class="pricing-subtitle">Choose the plan that's right for you. All plans include a 14-day free trial.</p>
+      <div class="pricing-cards">
+        <div class="pricing-card">
+          <h3>Starter</h3>
+          <div class="price">$9<span>/month</span></div>
+          <ul>
+            <li>5 Projects</li>
+            <li>10GB Storage</li>
+            <li>Email Support</li>
+            <li>Basic Analytics</li>
+          </ul>
+          <a href="#" class="cta-button" style="background: #f4f4f4; color: #333;">Start Free Trial</a>
+        </div>
+        <div class="pricing-card featured">
+          <h3>Pro</h3>
+          <div class="price">$29<span>/month</span></div>
+          <ul>
+            <li>Unlimited Projects</li>
+            <li>100GB Storage</li>
+            <li>Priority Support</li>
+            <li>Advanced Analytics</li>
+            <li>API Access</li>
+          </ul>
+          <a href="#" class="cta-button">Start Free Trial</a>
+        </div>
+        <div class="pricing-card">
+          <h3>Enterprise</h3>
+          <div class="price">$99<span>/month</span></div>
+          <ul>
+            <li>Everything in Pro</li>
+            <li>Unlimited Storage</li>
+            <li>Dedicated Support</li>
+            <li>Custom Integrations</li>
+            <li>SLA Guarantee</li>
+          </ul>
+          <a href="#" class="cta-button" style="background: #f4f4f4; color: #333;">Contact Sales</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="container">
+      <h3>Product Name</h3>
+      <p>© 2025 Product Company. All rights reserved.</p>
+      <p>Made with ❤️ for teams everywhere</p>
+    </div>
+  </footer>
+</body>
+</html>

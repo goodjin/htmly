@@ -1,0 +1,336 @@
+<!-- template: {"name": "Resume", "category": "resume", "description": "A professional resume/CV template with contact info, experience, and skills sections"} -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Resume - Your Name</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: "Segoe UI", Arial, sans-serif;
+      font-size: 11pt;
+      line-height: 1.5;
+      color: #333;
+      max-width: 850px;
+      margin: 0 auto;
+      padding: 40px;
+      background: white;
+    }
+    /* Header */
+    header {
+      text-align: center;
+      margin-bottom: 30px;
+      padding-bottom: 20px;
+      border-bottom: 2px solid #2c3e50;
+    }
+    h1 {
+      font-size: 28pt;
+      font-weight: 700;
+      color: #2c3e50;
+      margin-bottom: 8px;
+      letter-spacing: 1px;
+    }
+    .contact-info {
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 20px;
+      color: #555;
+      font-size: 10pt;
+    }
+    .contact-info span {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    /* Sections */
+    section {
+      margin-bottom: 25px;
+    }
+    h2 {
+      font-size: 14pt;
+      font-weight: 600;
+      color: #2c3e50;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 15px;
+      padding-bottom: 5px;
+      border-bottom: 1px solid #ddd;
+    }
+    /* Experience Entry */
+    .entry {
+      margin-bottom: 18px;
+    }
+    .entry-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 5px;
+    }
+    .entry-title {
+      font-weight: 600;
+      font-size: 12pt;
+      color: #1a1a1a;
+    }
+    .entry-company {
+      font-style: italic;
+      color: #555;
+    }
+    .entry-date {
+      font-size: 10pt;
+      color: #666;
+      white-space: nowrap;
+    }
+    .entry-location {
+      font-size: 10pt;
+      color: #888;
+      font-style: italic;
+    }
+    .entry ul {
+      list-style-type: none;
+      margin-top: 8px;
+      padding-left: 0;
+    }
+    .entry li {
+      position: relative;
+      padding-left: 18px;
+      margin-bottom: 5px;
+    }
+    .entry li::before {
+      content: "•";
+      position: absolute;
+      left: 5px;
+      color: #2c3e50;
+    }
+    /* Skills */
+    .skills-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 15px;
+    }
+    .skill-category {
+      margin-bottom: 10px;
+    }
+    .skill-category h3 {
+      font-size: 10pt;
+      font-weight: 600;
+      color: #333;
+      margin-bottom: 5px;
+    }
+    .skill-category p {
+      color: #555;
+      font-size: 10pt;
+    }
+    /* Education */
+    .education-entry {
+      margin-bottom: 15px;
+    }
+    .education-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+    }
+    .degree {
+      font-weight: 600;
+      font-size: 12pt;
+    }
+    .school {
+      color: #555;
+      font-style: italic;
+    }
+    .gpa {
+      font-size: 10pt;
+      color: #666;
+    }
+    /* Languages */
+    .languages {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+    }
+    .language {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .language-name {
+      font-weight: 600;
+    }
+    .language-level {
+      font-size: 10pt;
+      color: #666;
+      padding: 2px 10px;
+      background: #f0f0f0;
+      border-radius: 10px;
+    }
+    /* Print styles */
+    @media print {
+      body {
+        padding: 0;
+        font-size: 10pt;
+      }
+      .page-break {
+        page-break-before: always;
+      }
+    }
+    /* Two-column layout for final section */
+    .final-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 30px;
+    }
+    @media (max-width: 600px) {
+      .skills-grid, .final-grid {
+        grid-template-columns: 1fr;
+      }
+      .entry-header {
+        flex-direction: column;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>YOUR NAME</h1>
+    <div class="contact-info">
+      <span>📧 email@example.com</span>
+      <span>📱 (123) 456-7890</span>
+      <span>🔗 linkedin.com/in/yourname</span>
+      <span>📍 City, State</span>
+    </div>
+  </header>
+
+  <!-- Professional Summary -->
+  <section>
+    <h2>Professional Summary</h2>
+    <p>Results-driven professional with [X] years of experience in [industry/field]. Demonstrated expertise in [key skills]. Proven track record of [achievement]. Strong communicator with ability to [relevant soft skill].</p>
+  </section>
+
+  <!-- Experience -->
+  <section>
+    <h2>Work Experience</h2>
+    
+    <div class="entry">
+      <div class="entry-header">
+        <div>
+          <span class="entry-title">Senior Job Title</span>
+          <span class="entry-company"> — Company Name Inc.</span>
+        </div>
+        <div>
+          <span class="entry-date">Jan 2022 - Present</span>
+        </div>
+      </div>
+      <div class="entry-location">San Francisco, CA</div>
+      <ul>
+        <li>Spearheaded [major initiative] resulting in [quantifiable outcome]</li>
+        <li>Led cross-functional team of [X] members to deliver [project] on time and under budget</li>
+        <li>Implemented [improvement] that increased efficiency by [percentage]</li>
+        <li>Collaborated with stakeholders to [business objective]</li>
+      </ul>
+    </div>
+
+    <div class="entry">
+      <div class="entry-header">
+        <div>
+          <span class="entry-title">Job Title</span>
+          <span class="entry-company"> — Previous Company LLC</span>
+        </div>
+        <div>
+          <span class="entry-date">Jun 2019 - Dec 2021</span>
+        </div>
+      </div>
+      <div class="entry-location">New York, NY</div>
+      <ul>
+        <li>Achieved [metric] through [approach]</li>
+        <li>Reduced [problem area] by [percentage] through strategic improvements</li>
+        <li>Mentored team of [X] junior staff members</li>
+      </ul>
+    </div>
+
+    <div class="entry">
+      <div class="entry-header">
+        <div>
+          <span class="entry-title">Entry Level Position</span>
+          <span class="entry-company"> — Startup Corp</span>
+        </div>
+        <div>
+          <span class="entry-date">May 2017 - May 2019</span>
+        </div>
+      </div>
+      <div class="entry-location">Austin, TX</div>
+      <ul>
+        <li>Contributed to [project] that [outcome]</li>
+        <li>Developed [skill/tool] proficiency</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- Skills & Languages (Two columns) -->
+  <div class="final-grid">
+    <section>
+      <h2>Skills</h2>
+      <div class="skills-grid">
+        <div class="skill-category">
+          <h3>Technical Skills</h3>
+          <p>JavaScript, TypeScript, Python, SQL, Git, Docker, AWS, React, Node.js</p>
+        </div>
+        <div class="skill-category">
+          <h3>Tools & Platforms</h3>
+          <p>VS Code, Jira, Confluence, Figma, Slack, Zoom, Jenkins</p>
+        </div>
+        <div class="skill-category">
+          <h3>Methodologies</h3>
+          <p>Agile/Scrum, SDLC, CI/CD, TDD, DevOps</p>
+        </div>
+        <div class="skill-category">
+          <h3>Soft Skills</h3>
+          <p>Leadership, Communication, Problem-solving, Team Collaboration</p>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Education & Certifications</h2>
+      <div class="education-entry">
+        <div class="education-header">
+          <span class="degree">Bachelor of Science in Computer Science</span>
+        </div>
+        <div class="school">University Name, City, State</div>
+        <div class="gpa">Graduated: May 2017 | GPA: 3.7/4.0</div>
+      </div>
+      <div class="education-entry">
+        <span class="degree">AWS Solutions Architect Associate</span>
+        <div class="school">Amazon Web Services, 2023</div>
+      </div>
+      <div class="education-entry">
+        <span class="degree">PMP Certification</span>
+        <div class="school">Project Management Institute, 2022</div>
+      </div>
+    </section>
+  </div>
+
+  <!-- Languages -->
+  <section>
+    <h2>Languages</h2>
+    <div class="languages">
+      <div class="language">
+        <span class="language-name">English</span>
+        <span class="language-level">Native</span>
+      </div>
+      <div class="language">
+        <span class="language-name">Spanish</span>
+        <span class="language-level">Professional</span>
+      </div>
+      <div class="language">
+        <span class="language-name">French</span>
+        <span class="language-level">Basic</span>
+      </div>
+    </div>
+  </section>
+</body>
+</html>
