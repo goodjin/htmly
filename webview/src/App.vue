@@ -549,6 +549,10 @@ function handleExportRequest(format: 'pdf' | 'markdown' | 'plaintext' | 'embedde
   requestExport(format, content.value);
 }
 
+// Store print media query and cleanup handler for proper cleanup
+const printMediaQuery = ref<MediaQueryList | null>(null);
+const printCleanupHandler = ref<(() => void) | null>(null);
+
 // Apply PDF export options to the document for printing
 function applyPdfExportOptions(options: import('../../src/shared/types').PdfExportOptions): void {
   const body = document.body;
@@ -593,6 +597,11 @@ function applyPdfExportOptions(options: import('../../src/shared/types').PdfExpo
   }
   
   // Clean up after print is done (when printing dialog closes)
+  // First, remove any existing listener to prevent memory leaks
+  if (printMediaQuery.value && printCleanupHandler.value) {
+    printMediaQuery.value.removeEventListener('change', printCleanupHandler.value);
+  }
+  
   const mediaQuery = window.matchMedia('print');
   const cleanupHandler = () => {
     // Remove print elements
@@ -600,7 +609,15 @@ function applyPdfExportOptions(options: import('../../src/shared/types').PdfExpo
     elements.forEach(el => el.remove());
     document.body.classList.remove('show-page-numbers', 'print-has-header', 'print-has-footer');
     mediaQuery.removeEventListener('change', cleanupHandler);
+    // Clear stored references after cleanup
+    printMediaQuery.value = null;
+    printCleanupHandler.value = null;
   };
+  
+  // Store references for cleanup in onBeforeUnmount
+  printMediaQuery.value = mediaQuery;
+  printCleanupHandler.value = cleanupHandler;
+  
   mediaQuery.addEventListener('change', cleanupHandler);
 }
 
@@ -882,6 +899,12 @@ onBeforeUnmount(() => {
   if (debounceTimer) clearTimeout(debounceTimer);
   if (historyUnsubscribe.value) {
     historyUnsubscribe.value();
+  }
+  // Clean up print event listener to prevent memory leaks
+  if (printMediaQuery.value && printCleanupHandler.value) {
+    printMediaQuery.value.removeEventListener('change', printCleanupHandler.value);
+    printMediaQuery.value = null;
+    printCleanupHandler.value = null;
   }
 });
 
