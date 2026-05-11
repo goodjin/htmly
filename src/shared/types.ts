@@ -30,6 +30,8 @@ export interface StaticSiteOptions {
   customDescription?: string;
   /** Open Graph image URL for social sharing */
   ogImage?: string;
+  /** Custom domain for GitHub Pages deployment */
+  customDomain?: string;
   /** Base URL for the site (optional, for absolute links) */
   baseUrl?: string;
   /** Include search functionality */
@@ -48,6 +50,8 @@ export interface SeoSettings {
   seoDescription: string;
   /** Open Graph image URL */
   ogImage: string;
+  /** Custom domain for GitHub Pages deployment */
+  customDomain: string;
 }
 
 // Export preset type (print/screen/ebook)

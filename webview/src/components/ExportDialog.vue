@@ -47,6 +47,8 @@ const showSeoOptions = ref(false);
 const seoTitle = ref('');
 const seoDescription = ref('');
 const ogImage = ref('');
+const customDomain = ref('');
+const domainValidationError = ref('');
 
 // Track hover state for keyboard navigation
 const hoveredIndex = ref(-1);
@@ -64,7 +66,75 @@ const currentSeoSettings = computed<SeoSettings>(() => ({
   seoTitle: seoTitle.value,
   seoDescription: seoDescription.value,
   ogImage: ogImage.value,
+  customDomain: customDomain.value,
 }));
+
+// Domain validation function (mirrors extension-side validation)
+function validateDomain(domain: string): boolean {
+  if (!domain || typeof domain !== 'string') {
+    domainValidationError.value = 'Domain is required';
+    return false;
+  }
+
+  const trimmedDomain = domain.trim().toLowerCase();
+
+  if (trimmedDomain.length === 0) {
+    domainValidationError.value = 'Domain cannot be empty';
+    return false;
+  }
+
+  if (trimmedDomain.startsWith('http://') || trimmedDomain.startsWith('https://')) {
+    domainValidationError.value = 'Do not include protocol (http:// or https://)';
+    return false;
+  }
+
+  if (trimmedDomain.includes('/')) {
+    domainValidationError.value = 'Domain should not include a path';
+    return false;
+  }
+
+  if (trimmedDomain.includes(':')) {
+    domainValidationError.value = 'Domain should not include a port number';
+    return false;
+  }
+
+  const ipPattern = /^(\d{1,3}\.){3}\d{1,3}$/;
+  if (ipPattern.test(trimmedDomain)) {
+    domainValidationError.value = 'IP addresses are not supported';
+    return false;
+  }
+
+  const domainPattern = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/;
+  if (!domainPattern.test(trimmedDomain)) {
+    domainValidationError.value = 'Invalid domain format (e.g., example.com)';
+    return false;
+  }
+
+  if (trimmedDomain !== 'localhost' && !trimmedDomain.includes('.')) {
+    domainValidationError.value = 'Domain must include a top-level domain';
+    return false;
+  }
+
+  const labels = trimmedDomain.split('.');
+  for (const label of labels) {
+    if (label.length > 63) {
+      domainValidationError.value = 'Domain label exceeds 63 characters';
+      return false;
+    }
+    if (label.length === 0) {
+      domainValidationError.value = 'Domain contains empty label';
+      return false;
+    }
+  }
+
+  if (trimmedDomain.length > 253) {
+    domainValidationError.value = 'Domain exceeds 253 characters';
+    return false;
+  }
+
+  domainValidationError.value = '';
+  return true;
+}
 
 // Watch for preset changes and update local options
 watch(selectedPresetId, (id) => {
@@ -106,6 +176,11 @@ function onExport(format: ExportFormat) {
   if (format === 'pdf') {
     emit('export', format, currentOptions.value);
   } else if (format === 'site') {
+    // Validate custom domain before export
+    if (customDomain.value && !validateDomain(customDomain.value)) {
+      // Don't proceed with export if domain is invalid
+      return;
+    }
     emit('export', format, undefined, currentSeoSettings.value);
   } else {
     emit('export', format);
@@ -337,6 +412,24 @@ function toggleSeoOptions() {
           </div>
           
           <p class="seo-help-hint">The OG image is used when sharing on social media like Facebook, Twitter, and LinkedIn.</p>
+          
+          <!-- Custom Domain for GitHub Pages -->
+          <div class="option-row domain-row">
+            <label class="option-label" for="custom-domain">Domain:</label>
+            <input 
+              id="custom-domain"
+              type="text"
+              class="option-input"
+              :class="{ 'input-error': domainValidationError }"
+              v-model="customDomain"
+              placeholder="example.com"
+              @blur="validateDomain(customDomain)"
+              @input="domainValidationError = ''"
+            />
+          </div>
+          
+          <p v-if="domainValidationError" class="domain-error">{{ domainValidationError }}</p>
+          <p class="seo-help-hint domain-help">Custom domain for GitHub Pages. A CNAME file will be generated for your deployment.</p>
         </div>
       </div>
 
@@ -723,5 +816,27 @@ function toggleSeoOptions() {
 
 .btn-secondary:hover {
   background: var(--vscode-toolbar-hoverBackground, #3d3d3d);
+}
+
+/* Custom Domain Input Styles */
+.domain-row {
+  margin-top: 8px;
+}
+
+.option-input.input-error {
+  border-color: var(--vscode-errorForeground, #f48771);
+}
+
+.domain-error {
+  font-size: 11px;
+  color: var(--vscode-errorForeground, #f48771);
+  margin: 4px 0 0 70px;
+  padding: 4px 8px;
+  background: rgba(244, 135, 113, 0.1);
+  border-radius: 4px;
+}
+
+.domain-help {
+  margin-left: 70px;
 }
 </style>

@@ -1518,6 +1518,14 @@ export function exportStaticSite(
     result.set(page.path, htmlContent);
   }
   
+  // Generate CNAME file for custom domain if specified
+  if (options.customDomain) {
+    const validation = validateCustomDomain(options.customDomain);
+    if (validation.valid) {
+      result.set('CNAME', generateCnameFile(options.customDomain));
+    }
+  }
+  
   return result;
 }
 
@@ -1529,4 +1537,108 @@ export function getStaticSiteContent(
   options: StaticSiteOptions
 ): Map<string, string> {
   return exportStaticSite(pages, options);
+}
+
+// ─── Domain Validation ────────────────────────────────────────────────────────
+
+/**
+ * Domain validation result
+ */
+export interface DomainValidationResult {
+  valid: boolean;
+  error?: string;
+}
+
+/**
+ * Validate a custom domain for GitHub Pages
+ * 
+ * Rules:
+ * - Domain must not be empty if provided
+ * - Must be a valid domain format (e.g., example.com, blog.example.com)
+ * - Cannot be an IP address
+ * - Cannot contain protocol (http://, https://)
+ * - Cannot contain path (e.g., example.com/path)
+ * - Cannot contain port (e.g., example.com:8080)
+ * - Must have at least one dot for TLD (except localhost)
+ * 
+ * @param domain - The domain to validate
+ * @returns Validation result with success status and optional error message
+ */
+export function validateCustomDomain(domain: string): DomainValidationResult {
+  // Handle empty or whitespace-only input
+  if (!domain || typeof domain !== 'string') {
+    return { valid: false, error: 'Domain is required' };
+  }
+
+  const trimmedDomain = domain.trim().toLowerCase();
+
+  if (trimmedDomain.length === 0) {
+    return { valid: false, error: 'Domain cannot be empty' };
+  }
+
+  // Allow localhost without further validation
+  if (trimmedDomain === 'localhost') {
+    return { valid: true };
+  }
+
+  // Check for protocol
+  if (trimmedDomain.startsWith('http://') || trimmedDomain.startsWith('https://')) {
+    return { valid: false, error: 'Domain should not include protocol (http:// or https://)' };
+  }
+
+  // Check for path
+  if (trimmedDomain.includes('/')) {
+    return { valid: false, error: 'Domain should not include a path' };
+  }
+
+  // Check for port
+  if (trimmedDomain.includes(':')) {
+    return { valid: false, error: 'Domain should not include a port number' };
+  }
+
+  // Check for IP address pattern
+  const ipPattern = /^(\d{1,3}\.){3}\d{1,3}$/;
+  if (ipPattern.test(trimmedDomain)) {
+    return { valid: false, error: 'IP addresses are not supported for custom domains' };
+  }
+
+  // Check for valid domain format
+  // Domain format: label.label (e.g., example.com, blog.example.co.uk)
+  // Labels: alphanumeric and hyphens, cannot start/end with hyphen
+  const domainPattern = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/;
+  if (!domainPattern.test(trimmedDomain)) {
+    return { valid: false, error: 'Invalid domain format. Example: example.com or blog.example.com' };
+  }
+
+  // Check for at least one dot (TLD requirement)
+  if (!trimmedDomain.includes('.')) {
+    return { valid: false, error: 'Domain must include a top-level domain (e.g., .com, .org)' };
+  }
+
+  // Check label lengths (each label must be 1-63 characters)
+  const labels = trimmedDomain.split('.');
+  for (const label of labels) {
+    if (label.length > 63) {
+      return { valid: false, error: 'Domain label exceeds maximum length of 63 characters' };
+    }
+    if (label.length === 0) {
+      return { valid: false, error: 'Domain contains empty label' };
+    }
+  }
+
+  // Check total domain length (max 253 characters)
+  if (trimmedDomain.length > 253) {
+    return { valid: false, error: 'Domain exceeds maximum length of 253 characters' };
+  }
+
+  return { valid: true };
+}
+
+/**
+ * Generate CNAME file content from a domain
+ * @param domain - The custom domain
+ * @returns The CNAME file content (domain followed by newline)
+ */
+export function generateCnameFile(domain: string): string {
+  return `${domain.trim()}\n`;
 }

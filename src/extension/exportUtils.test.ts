@@ -38,6 +38,8 @@ import {
   convertContent,
   exportStaticSite,
   getStaticSiteContent,
+  validateCustomDomain,
+  generateCnameFile,
 } from './exportUtils';
 
 describe('exportUtils', () => {
@@ -1107,6 +1109,257 @@ describe('exportUtils', () => {
       
       expect(content.size).toBe(exported.size);
       expect(content.get('index.html')).toBe(exported.get('index.html'));
+    });
+  });
+
+  describe('Custom Domain Support', () => {
+    describe('validateCustomDomain', () => {
+      it('returns valid for simple domain', () => {
+        const result = validateCustomDomain('example.com');
+        expect(result.valid).toBe(true);
+        expect(result.error).toBeUndefined();
+      });
+
+      it('returns valid for subdomain', () => {
+        const result = validateCustomDomain('blog.example.com');
+        expect(result.valid).toBe(true);
+        expect(result.error).toBeUndefined();
+      });
+
+      it('returns valid for nested subdomain', () => {
+        const result = validateCustomDomain('api.v2.example.co.uk');
+        expect(result.valid).toBe(true);
+        expect(result.error).toBeUndefined();
+      });
+
+      it('returns valid for localhost', () => {
+        const result = validateCustomDomain('localhost');
+        expect(result.valid).toBe(true);
+        expect(result.error).toBeUndefined();
+      });
+
+      it('returns invalid for empty string', () => {
+        const result = validateCustomDomain('');
+        expect(result.valid).toBe(false);
+        expect(result.error).toBe('Domain is required');
+      });
+
+      it('returns invalid for whitespace-only string', () => {
+        const result = validateCustomDomain('   ');
+        expect(result.valid).toBe(false);
+        expect(result.error).toBe('Domain cannot be empty');
+      });
+
+      it('returns invalid for null/undefined', () => {
+        // @ts-expect-error - Testing edge cases with null
+        expect(validateCustomDomain(null).valid).toBe(false);
+        // @ts-expect-error - Testing edge cases with undefined
+        expect(validateCustomDomain(undefined).valid).toBe(false);
+      });
+
+      it('returns invalid for domain with protocol', () => {
+        const result = validateCustomDomain('https://example.com');
+        expect(result.valid).toBe(false);
+        expect(result.error).toBe('Domain should not include protocol (http:// or https://)');
+      });
+
+      it('returns invalid for domain with http protocol', () => {
+        const result = validateCustomDomain('http://example.com');
+        expect(result.valid).toBe(false);
+        expect(result.error).toBe('Domain should not include protocol (http:// or https://)');
+      });
+
+      it('returns invalid for domain with path', () => {
+        const result = validateCustomDomain('example.com/path');
+        expect(result.valid).toBe(false);
+        expect(result.error).toBe('Domain should not include a path');
+      });
+
+      it('returns invalid for domain with port', () => {
+        const result = validateCustomDomain('example.com:8080');
+        expect(result.valid).toBe(false);
+        expect(result.error).toBe('Domain should not include a port number');
+      });
+
+      it('returns invalid for IP address', () => {
+        const result = validateCustomDomain('192.168.1.1');
+        expect(result.valid).toBe(false);
+        expect(result.error).toBe('IP addresses are not supported for custom domains');
+      });
+
+      it('returns invalid for domain without TLD (except localhost)', () => {
+        const result = validateCustomDomain('example');
+        expect(result.valid).toBe(false);
+        expect(result.error).toBe('Invalid domain format. Example: example.com or blog.example.com');
+      });
+
+      it('returns invalid for label exceeding 63 characters', () => {
+        const longLabel = 'a'.repeat(64);
+        const result = validateCustomDomain(`${longLabel}.com`);
+        expect(result.valid).toBe(false);
+        expect(result.error).toBe('Domain label exceeds maximum length of 63 characters');
+      });
+
+      it('returns invalid for domain exceeding 253 characters', () => {
+        // Create a domain that exceeds 253 characters but doesn't exceed 63 per label
+        // Format: aaaaa.aaaaa.aaaaa... (each label under 63 chars)
+        const label = 'a'.repeat(50);
+        const numLabels = Math.ceil(254 / 51); // Need enough labels to exceed 253
+        const longDomain = Array(numLabels).fill(label).join('.');
+        const result = validateCustomDomain(longDomain);
+        expect(result.valid).toBe(false);
+        expect(result.error).toBe('Domain exceeds maximum length of 253 characters');
+      });
+
+      it('returns invalid for domain starting with hyphen', () => {
+        const result = validateCustomDomain('-example.com');
+        expect(result.valid).toBe(false);
+        expect(result.error).toBe('Invalid domain format. Example: example.com or blog.example.com');
+      });
+
+      it('returns invalid for domain ending with hyphen', () => {
+        const result = validateCustomDomain('example-.com');
+        expect(result.valid).toBe(false);
+        expect(result.error).toBe('Invalid domain format. Example: example.com or blog.example.com');
+      });
+
+      it('handles case-insensitive domain names', () => {
+        const result1 = validateCustomDomain('EXAMPLE.COM');
+        const result2 = validateCustomDomain('Example.Com');
+        expect(result1.valid).toBe(true);
+        expect(result2.valid).toBe(true);
+      });
+
+      it('handles domains with hyphens in labels', () => {
+        const result = validateCustomDomain('my-blog.example.com');
+        expect(result.valid).toBe(true);
+      });
+
+      it('handles domains with numbers', () => {
+        const result = validateCustomDomain('blog2.example.com');
+        expect(result.valid).toBe(true);
+      });
+    });
+
+    describe('generateCnameFile', () => {
+      it('generates CNAME file content with newline', () => {
+        const result = generateCnameFile('example.com');
+        expect(result).toBe('example.com\n');
+      });
+
+      it('trims whitespace from domain', () => {
+        const result = generateCnameFile('  example.com  ');
+        expect(result).toBe('example.com\n');
+      });
+    });
+
+    describe('exportStaticSite with custom domain', () => {
+      it('generates CNAME file when customDomain is provided', () => {
+        const pages = [
+          { name: 'Home', path: 'index.html', content: '<h1>Home</h1>' },
+        ];
+        const options = {
+          siteTitle: 'My Site',
+          siteDescription: 'A test site',
+          includeSearch: false,
+          includeToc: false,
+          customDomain: 'example.com',
+        };
+        
+        const result = exportStaticSite(pages, options);
+        
+        expect(result.has('CNAME')).toBe(true);
+        expect(result.get('CNAME')).toBe('example.com\n');
+      });
+
+      it('does not generate CNAME file when customDomain is not provided', () => {
+        const pages = [
+          { name: 'Home', path: 'index.html', content: '<h1>Home</h1>' },
+        ];
+        const options = {
+          siteTitle: 'My Site',
+          siteDescription: 'A test site',
+          includeSearch: false,
+          includeToc: false,
+        };
+        
+        const result = exportStaticSite(pages, options);
+        
+        expect(result.has('CNAME')).toBe(false);
+      });
+
+      it('does not generate CNAME file when customDomain is empty string', () => {
+        const pages = [
+          { name: 'Home', path: 'index.html', content: '<h1>Home</h1>' },
+        ];
+        const options = {
+          siteTitle: 'My Site',
+          siteDescription: 'A test site',
+          includeSearch: false,
+          includeToc: false,
+          customDomain: '',
+        };
+        
+        const result = exportStaticSite(pages, options);
+        
+        expect(result.has('CNAME')).toBe(false);
+      });
+
+      it('does not generate CNAME file when customDomain is invalid', () => {
+        const pages = [
+          { name: 'Home', path: 'index.html', content: '<h1>Home</h1>' },
+        ];
+        const options = {
+          siteTitle: 'My Site',
+          siteDescription: 'A test site',
+          includeSearch: false,
+          includeToc: false,
+          customDomain: 'invalid domain with spaces',
+        };
+        
+        const result = exportStaticSite(pages, options);
+        
+        expect(result.has('CNAME')).toBe(false);
+      });
+
+      it('generates CNAME file with subdomain', () => {
+        const pages = [
+          { name: 'Home', path: 'index.html', content: '<h1>Home</h1>' },
+        ];
+        const options = {
+          siteTitle: 'My Blog',
+          siteDescription: 'A blog site',
+          includeSearch: false,
+          includeToc: false,
+          customDomain: 'blog.example.com',
+        };
+        
+        const result = exportStaticSite(pages, options);
+        
+        expect(result.has('CNAME')).toBe(true);
+        expect(result.get('CNAME')).toBe('blog.example.com\n');
+      });
+
+      it('includes HTML pages along with CNAME file', () => {
+        const pages = [
+          { name: 'Home', path: 'index.html', content: '<h1>Home</h1>' },
+          { name: 'About', path: 'about.html', content: '<h1>About</h1>' },
+        ];
+        const options = {
+          siteTitle: 'My Site',
+          siteDescription: 'A test site',
+          includeSearch: false,
+          includeToc: false,
+          customDomain: 'example.com',
+        };
+        
+        const result = exportStaticSite(pages, options);
+        
+        expect(result.has('index.html')).toBe(true);
+        expect(result.has('about.html')).toBe(true);
+        expect(result.has('CNAME')).toBe(true);
+        expect(result.size).toBe(3);
+      });
     });
   });
 });
