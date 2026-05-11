@@ -1,5 +1,5 @@
 import { ref } from 'vue';
-import type { ExtToWebMsg, WebToExtMsg, EditorMode, HistoryState, CrashRecoveryData } from '../../../src/shared/types';
+import type { ExtToWebMsg, WebToExtMsg, EditorMode, HistoryState, CrashRecoveryData, ExportFormat } from '../../../src/shared/types';
 
 // VS Code API injected by the extension host
 declare function acquireVsCodeApi(): {
@@ -93,6 +93,13 @@ export function useVSCode() {
     historyExportedPath.value = null;
   }
 
+  /**
+   * Request export of document in specified format
+   */
+  function requestExport(format: ExportFormat, content: string): void {
+    postMessage({ type: 'exportRequest', format, content });
+  }
+
   return {
     initialContent,
     initialMode,
@@ -110,5 +117,6 @@ export function useVSCode() {
     requestExportHistory,
     clearCrashRecoveryData,
     clearHistoryExportedPath,
+    requestExport,
   };
 }

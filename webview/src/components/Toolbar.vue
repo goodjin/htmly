@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import type { Editor } from '@tiptap/core';
-import type { EditorMode } from '../../../src/shared/types';
+import type { EditorMode, ExportFormat } from '../../../src/shared/types';
 import { escapeHtml } from '../core/htmlUtils';
 import LinkDialog from './LinkDialog.vue';
 import ImageDialog from './ImageDialog.vue';
 import EmbedDialog from './EmbedDialog.vue';
 import LinkPreviewDialog from './LinkPreviewDialog.vue';
+import ExportDialog from './ExportDialog.vue';
 import { toEmbedUrl } from '../extensions/Embed';
 import { openLinkPreviewDialog } from '../extensions/LinkPreview';
 
@@ -29,10 +30,23 @@ const emit = defineEmits<{
   toggleTOC: [];
   toggleHistory: [];
   openCoverDialog: [];
+  exportRequest: [format: ExportFormat];
 }>();
 
 // Embed dialog state
 const embedDialogVisible = ref(false);
+
+// Export dialog state
+const exportDialogVisible = ref(false);
+
+function openExportDialog() {
+  exportDialogVisible.value = true;
+}
+
+function onExport(format: ExportFormat) {
+  emit('exportRequest', format);
+  exportDialogVisible.value = false;
+}
 
 function openEmbedDialog() {
   embedDialogVisible.value = true;
@@ -638,6 +652,17 @@ function onCellBgColorChange(e: Event) {
       </div>
     </template>
 
+    <!-- Export button -->
+    <div class="toolbar-group export-group">
+      <button
+        title="Export Document"
+        @mousedown.prevent="openExportDialog"
+      >
+        <span class="btn-icon">📤</span>
+        <span class="btn-label">Export</span>
+      </button>
+    </div>
+
     <div class="toolbar-spacer" />
 
     <!-- Save status indicator -->
@@ -665,6 +690,11 @@ function onCellBgColorChange(e: Event) {
     @cancel="embedDialogVisible = false"
   />
   <LinkPreviewDialog />
+  <ExportDialog
+    :visible="exportDialogVisible"
+    @export="onExport"
+    @cancel="exportDialogVisible = false"
+  />
 </template>
 
 <style scoped>
@@ -700,6 +730,11 @@ function onCellBgColorChange(e: Event) {
 
 .mode-switcher button {
   min-width: 36px;
+}
+
+.export-group {
+  border-right: none;
+  padding-right: 0;
 }
 
 .toolbar-spacer {

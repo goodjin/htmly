@@ -26,7 +26,8 @@ const {
   requestSelectiveUndo,
   requestExportHistory,
   clearCrashRecoveryData,
-  clearHistoryExportedPath
+  clearHistoryExportedPath,
+  requestExport
 } = useVSCode();
 
 // Shared history for cross-mode undo/redo
@@ -275,6 +276,12 @@ function handleHistoryExport() {
   requestExportHistory();
 }
 
+// Export handler
+function handleExportRequest(format: 'pdf' | 'markdown' | 'plaintext' | 'embedded') {
+  // Get the full HTML content for export
+  requestExport(format, content.value);
+}
+
 // Crash recovery functions
 function handleRecoverDraft() {
   if (crashRecoveryData.value) {
@@ -465,6 +472,7 @@ onBeforeUnmount(() => {
       @toggle-toc="toggleTOC"
       @toggle-history="toggleHistoryPanel"
       @open-cover-dialog="tiptapRef?.openCoverImageDialog()"
+      @export-request="handleExportRequest"
     />
 
     <div v-if="initialized" :key="mode" class="editor-area">
