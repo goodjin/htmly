@@ -12,6 +12,8 @@ import SplitPane from './components/SplitPane.vue';
 import SearchBar from './components/SearchBar.vue';
 import TOCPanel from './components/TOCPanel.vue';
 import HistoryPanel from './components/HistoryPanel.vue';
+import TemplateSelector from './components/TemplateSelector.vue';
+import type { Template } from './core/types';
 
 const { 
   onMessage, 
@@ -176,6 +178,7 @@ const tiptapRef = ref<InstanceType<typeof TiptapEditor> | null>(null);
 const showSearch = ref(false);
 const showTOC = ref(false);
 const showHistoryPanel = ref(false);
+const showTemplateSelector = ref(false);
 const showCrashRecoveryDialog = ref(false);
 
 // Cursor position for scroll sync
@@ -276,6 +279,28 @@ function handleHistoryExport() {
   requestExportHistory();
 }
 
+// Template selector functions
+function toggleTemplateSelector() {
+  showTemplateSelector.value = !showTemplateSelector.value;
+}
+
+function handleTemplateSelect(template: Template) {
+  // Extract body content from the template HTML
+  const bodyMatch = template.content.match(/<body[^>]*>([\s\S]*)<\/body>/i);
+  const bodyContent = bodyMatch ? bodyMatch[1] : template.content;
+  
+  // Replace the current document content with the template
+  const newContent = replaceBodyContent(content.value, bodyContent);
+  onContentChange(newContent);
+  
+  // Switch to WYSIWYG mode to show the template
+  if (mode.value !== 'wysiwyg') {
+    setMode('wysiwyg');
+  }
+  
+  showTemplateSelector.value = false;
+}
+
 // Export handler
 function handleExportRequest(format: 'pdf' | 'markdown' | 'plaintext' | 'embedded') {
   if (format === 'pdf') {
@@ -315,6 +340,7 @@ watch(mode, () => {
 // Ctrl+F / Cmd+F toggles search bar in WYSIWYG mode
 // Escape deactivates format painter
 // Ctrl+S / Cmd+S triggers immediate save
+// Ctrl+T toggles template selector
 function onGlobalKeydown(e: KeyboardEvent) {
   if ((e.ctrlKey || e.metaKey) && e.key === 'f' && mode.value === 'wysiwyg') {
     e.preventDefault();
@@ -354,6 +380,12 @@ function onGlobalKeydown(e: KeyboardEvent) {
     sendImmediateSave(content.value);
     // Update status to show saving
     saveStatus.value = 'saving';
+  }
+
+  // Ctrl+T / Cmd+T - Toggle template selector
+  if ((e.ctrlKey || e.metaKey) && e.key === 't') {
+    e.preventDefault();
+    toggleTemplateSelector();
   }
 }
 
@@ -477,6 +509,7 @@ onBeforeUnmount(() => {
       @activate-format-painter="activateFormatPainter"
       @toggle-toc="toggleTOC"
       @toggle-history="toggleHistoryPanel"
+      @toggle-template="toggleTemplateSelector"
       @open-cover-dialog="tiptapRef?.openCoverImageDialog()"
       @export-request="handleExportRequest"
     />
@@ -542,6 +575,13 @@ onBeforeUnmount(() => {
       @close="showHistoryPanel = false"
       @select="handleHistorySelect"
       @export="handleHistoryExport"
+    />
+
+    <!-- Template Selector -->
+    <TemplateSelector
+      :visible="showTemplateSelector"
+      @select="handleTemplateSelect"
+      @cancel="showTemplateSelector = false"
     />
 
     <!-- Crash Recovery Dialog -->

@@ -31,6 +31,7 @@ const emit = defineEmits<{
   activateFormatPainter: [multiUse: boolean];
   toggleTOC: [];
   toggleHistory: [];
+  toggleTemplate: [];
   openCoverDialog: [];
   exportRequest: [format: ExportFormat];
 }>();
@@ -557,6 +558,13 @@ function onCellBgColorChange(e: Event) {
         >
           <span class="btn-icon">📑</span>
           <span class="btn-label">TOC</span>
+        </button>
+        <button
+          title="Templates (Ctrl+T)"
+          @mousedown="btn(() => emit('toggleTemplate'))"
+        >
+          <span class="btn-icon">📋</span>
+          <span class="btn-label">Templates</span>
         </button>
         <button
           title="Undo History"
