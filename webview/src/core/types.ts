@@ -86,3 +86,90 @@ export interface SaveTemplateOptions {
   /** Optional thumbnail */
   thumbnail?: string;
 }
+
+// ============================================================
+// Snippet System Types
+// ============================================================
+
+/**
+ * Snippet categories
+ */
+export type SnippetCategory = 'cards' | 'buttons' | 'navbars' | 'tables' | 'forms';
+
+/**
+ * Snippet metadata (without full content)
+ * Used for snippet listing and selection
+ */
+export interface SnippetMetadata {
+  /** Unique identifier for the snippet */
+  id: string;
+  /** Display name */
+  name: string;
+  /** Snippet category */
+  category: SnippetCategory;
+  /** Optional preview/thumbnail (base64 or URL) */
+  preview?: string;
+  /** Optional description */
+  description?: string;
+  /** When this snippet was created */
+  createdAt?: number;
+}
+
+/**
+ * Full snippet with HTML content
+ * The complete snippet including HTML
+ */
+export interface Snippet extends SnippetMetadata {
+  /** HTML content of the snippet */
+  html: string;
+}
+
+/**
+ * User snippet storage entry
+ */
+export interface UserSnippet {
+  /** Snippet ID (filename without extension) */
+  id: string;
+  /** File path relative to workspace */
+  path: string;
+  /** When the snippet was last modified */
+  modifiedAt: number;
+}
+
+/**
+ * Snippet storage configuration
+ */
+export interface SnippetStorageConfig {
+  /** Directory for user snippets */
+  userSnippetsDir: string;
+  /** Directory for built-in snippets (relative to extension) */
+  builtInSnippetsDir: string;
+}
+
+/**
+ * Snippet selector state
+ */
+export interface SnippetSelectorState {
+  /** Currently selected category filter */
+  selectedCategory: SnippetCategory | null;
+  /** Search query */
+  searchQuery: string;
+  /** Currently selected snippet */
+  selectedSnippet: Snippet | null;
+  /** Whether the selector is open */
+  isOpen: boolean;
+}
+
+/**
+ * Create a new user snippet from current content
+ */
+export interface SaveSnippetOptions {
+  /** Snippet name (will be used as filename) */
+  name: string;
+  /** Snippet category */
+  category: SnippetCategory;
+  /** Optional description */
+  description?: string;
+  /** Optional preview */
+  preview?: string;
+}

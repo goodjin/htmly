@@ -1,0 +1,36 @@
+<!-- snippet: {"name": "Survey Form", "category": "forms", "description": "A survey form with various input types"} -->
+<form style="max-width: 500px; padding: 24px; background: white; border: 1px solid #e0e0e0; border-radius: 8px; font-family: system-ui, sans-serif;">
+  <h2 style="margin: 0 0 24px 0; font-size: 24px; color: #333;">Feedback Survey</h2>
+  
+  <div style="margin-bottom: 20px;">
+    <label style="display: block; margin-bottom: 8px; font-size: 14px; color: #333; font-weight: 500;">How satisfied are you with our service?</label>
+    <div style="display: flex; gap: 16px;">
+      <label style="display: flex; align-items: center; gap: 6px; font-size: 14px;"><input type="radio" name="satisfaction" value="1"> Very Satisfied</label>
+      <label style="display: flex; align-items: center; gap: 6px; font-size: 14px;"><input type="radio" name="satisfaction" value="2"> Satisfied</label>
+      <label style="display: flex; align-items: center; gap: 6px; font-size: 14px;"><input type="radio" name="satisfaction" value="3"> Neutral</label>
+      <label style="display: flex; align-items: center; gap: 6px; font-size: 14px;"><input type="radio" name="satisfaction" value="4"> Unsatisfied</label>
+    </div>
+  </div>
+  
+  <div style="margin-bottom: 20px;">
+    <label style="display: block; margin-bottom: 8px; font-size: 14px; color: #333; font-weight: 500;">Which features do you use? (select all that apply)</label>
+    <div style="display: flex; flex-wrap: wrap; gap: 12px;">
+      <label style="display: flex; align-items: center; gap: 6px; font-size: 14px;"><input type="checkbox"> Dashboard</label>
+      <label style="display: flex; align-items: center; gap: 6px; font-size: 14px;"><input type="checkbox"> Reports</label>
+      <label style="display: flex; align-items: center; gap: 6px; font-size: 14px;"><input type="checkbox"> Analytics</label>
+      <label style="display: flex; align-items: center; gap: 6px; font-size: 14px;"><input type="checkbox"> Export</label>
+    </div>
+  </div>
+  
+  <div style="margin-bottom: 20px;">
+    <label style="display: block; margin-bottom: 8px; font-size: 14px; color: #333; font-weight: 500;">Rate your experience (1-10)</label>
+    <input type="range" min="1" max="10" style="width: 100%;">
+  </div>
+  
+  <div style="margin-bottom: 20px;">
+    <label style="display: block; margin-bottom: 8px; font-size: 14px; color: #333; font-weight: 500;">Additional Comments</label>
+    <textarea rows="3" placeholder="Tell us more..." style="width: 100%; padding: 10px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; box-sizing: border-box; resize: vertical;"></textarea>
+  </div>
+  
+  <button type="submit" style="background: #0066cc; color: white; border: none; padding: 12px 24px; border-radius: 4px; font-size: 16px; font-weight: 500; cursor: pointer;">Submit Feedback</button>
+</form>
