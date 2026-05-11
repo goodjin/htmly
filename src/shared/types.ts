@@ -4,7 +4,33 @@ export type EditorMode = 'wysiwyg' | 'source' | 'preview' | 'split';
 export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 
 // Export format options
-export type ExportFormat = 'pdf' | 'markdown' | 'plaintext' | 'embedded';
+export type ExportFormat = 'pdf' | 'markdown' | 'plaintext' | 'embedded' | 'site';
+
+// Static site export page
+export interface StaticSitePage {
+  /** The page name/title */
+  name: string;
+  /** Relative path for the HTML file (e.g., 'page.html', 'subfolder/page.html') */
+  path: string;
+  /** The HTML content for the page */
+  content: string;
+}
+
+// Static site export options
+export interface StaticSiteOptions {
+  /** Site title for index page */
+  siteTitle: string;
+  /** Site description for meta tags */
+  siteDescription: string;
+  /** Base URL for the site (optional, for absolute links) */
+  baseUrl?: string;
+  /** Include search functionality */
+  includeSearch: boolean;
+  /** Include table of contents sidebar */
+  includeToc: boolean;
+  /** CSS to include in all pages */
+  customCss?: string;
+}
 
 // Export preset type (print/screen/ebook)
 export type ExportPresetType = 'print' | 'screen' | 'ebook' | 'custom';

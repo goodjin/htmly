@@ -36,6 +36,8 @@ import {
   convertToEmbeddedHtmlWithImages,
   preparePdfExport,
   convertContent,
+  exportStaticSite,
+  getStaticSiteContent,
 } from './exportUtils';
 
 describe('exportUtils', () => {
@@ -640,6 +642,280 @@ describe('exportUtils', () => {
       const html = '<p>Text</p>';
       const result = convertContent('pdf', html);
       expect(result).toBe(html);
+    });
+  });
+
+  describe('exportStaticSite', () => {
+    it('exports single page as self-contained HTML', () => {
+      const pages = [
+        { name: 'Home', path: 'index.html', content: '<h1>Welcome</h1><p>Hello world</p>' },
+      ];
+      const options = {
+        siteTitle: 'My Site',
+        siteDescription: 'A test site',
+        includeSearch: false,
+        includeToc: false,
+      };
+      
+      const result = exportStaticSite(pages, options);
+      
+      expect(result.size).toBe(1);
+      const html = result.get('index.html');
+      expect(html).toBeDefined();
+      expect(html).toContain('<!DOCTYPE html>');
+      expect(html).toContain('<html lang="en">');
+      expect(html).toContain('<head>');
+      expect(html).toContain('<body>');
+      expect(html).toContain('<title>Welcome - My Site</title>');
+      expect(html).toContain('<meta name="description"');
+      expect(html).toContain('Welcome');
+      expect(html).toContain('Hello world');
+    });
+
+    it('exports multiple pages with navigation', () => {
+      const pages = [
+        { name: 'Page 1', path: 'index.html', content: '<h1>Home Page</h1>' },
+        { name: 'Page 2', path: 'about.html', content: '<h1>About Us</h1>' },
+      ];
+      const options = {
+        siteTitle: 'Test Site',
+        siteDescription: 'Test description',
+        includeSearch: false,
+        includeToc: false,
+      };
+      
+      const result = exportStaticSite(pages, options);
+      
+      expect(result.size).toBe(2);
+      
+      const indexHtml = result.get('index.html');
+      expect(indexHtml).toContain('Home Page');
+      expect(indexHtml).toContain('href="about.html"');
+      
+      const aboutHtml = result.get('about.html');
+      expect(aboutHtml).toContain('About Us');
+      expect(aboutHtml).toContain('href="index.html"');
+    });
+
+    it('handles nested page paths correctly', () => {
+      const pages = [
+        { name: 'Home', path: 'index.html', content: '<h1>Home</h1>' },
+        { name: 'Blog Post', path: 'blog/post.html', content: '<h1>Blog Post</h1>' },
+      ];
+      const options = {
+        siteTitle: 'Blog',
+        siteDescription: 'A blog',
+        includeSearch: false,
+        includeToc: false,
+      };
+      
+      const result = exportStaticSite(pages, options);
+      
+      // Index page should link to blog/post.html correctly
+      const indexHtml = result.get('index.html');
+      expect(indexHtml).toContain('href="blog/post.html"');
+      
+      // Blog post should have relative link back to index
+      const blogHtml = result.get('blog/post.html');
+      expect(blogHtml).toContain('href="../index.html"');
+    });
+
+    it('inlines CSS styles in all pages', () => {
+      const pages = [
+        { name: 'Test', path: 'test.html', content: '<p style="color: red;">Styled</p>' },
+      ];
+      const options = {
+        siteTitle: 'Test',
+        siteDescription: 'Test',
+        includeSearch: false,
+        includeToc: false,
+        customCss: '.custom { color: blue; }',
+      };
+      
+      const result = exportStaticSite(pages, options);
+      const html = result.get('test.html');
+      
+      expect(html).toContain('body {');
+      expect(html).toContain('font-family');
+      expect(html).toContain('.custom { color: blue; }');
+      expect(html).toContain('Styled');
+    });
+
+    it('removes script tags for security', () => {
+      const pages = [
+        { name: 'Unsafe', path: 'unsafe.html', content: '<script>alert("xss")</script><p>Safe content</p>' },
+      ];
+      const options = {
+        siteTitle: 'Test',
+        siteDescription: 'Test',
+        includeSearch: false,
+        includeToc: false,
+      };
+      
+      const result = exportStaticSite(pages, options);
+      const html = result.get('unsafe.html');
+      
+      expect(html).not.toContain('<script>');
+      expect(html).not.toContain('alert');
+      expect(html).toContain('Safe content');
+    });
+
+    it('handles internal links correctly', () => {
+      const pages = [
+        { name: 'Home', path: 'index.html', content: '<a href="about.html">About</a>' },
+        { name: 'About', path: 'about.html', content: '<a href="./contact.html">Contact</a>' },
+        { name: 'Contact', path: 'contact.html', content: '<h1>Contact</h1>' },
+      ];
+      const options = {
+        siteTitle: 'Test',
+        siteDescription: 'Test',
+        includeSearch: false,
+        includeToc: false,
+      };
+      
+      const result = exportStaticSite(pages, options);
+      
+      const indexHtml = result.get('index.html');
+      expect(indexHtml).toContain('href="about.html"');
+      
+      const aboutHtml = result.get('about.html');
+      expect(aboutHtml).toContain('href="contact.html"');
+    });
+
+    it('preserves external links unchanged', () => {
+      const pages = [
+        { name: 'External', path: 'external.html', content: '<a href="https://example.com">External Link</a>' },
+      ];
+      const options = {
+        siteTitle: 'Test',
+        siteDescription: 'Test',
+        includeSearch: false,
+        includeToc: false,
+      };
+      
+      const result = exportStaticSite(pages, options);
+      const html = result.get('external.html');
+      
+      expect(html).toContain('href="https://example.com"');
+    });
+
+    it('handles empty pages array', () => {
+      const options = {
+        siteTitle: 'Test',
+        siteDescription: 'Test',
+        includeSearch: false,
+        includeToc: false,
+      };
+      
+      const result = exportStaticSite([], options);
+      
+      expect(result.size).toBe(0);
+    });
+
+    it('includes navigation links between pages', () => {
+      const pages = [
+        { name: 'Page 1', path: 'page1.html', content: '<h1>Page 1</h1>' },
+        { name: 'Page 2', path: 'page2.html', content: '<h1>Page 2</h1>' },
+        { name: 'Page 3', path: 'page3.html', content: '<h1>Page 3</h1>' },
+      ];
+      const options = {
+        siteTitle: 'Test',
+        siteDescription: 'Test',
+        includeSearch: false,
+        includeToc: false,
+      };
+      
+      const result = exportStaticSite(pages, options);
+      
+      // Page 1 should have link to page 2 (next)
+      const page1 = result.get('page1.html');
+      expect(page1).toContain('href="page2.html"');
+      expect(page1).toContain('Page 2 →');
+      
+      // Page 2 should have prev (page1) and next (page3)
+      const page2 = result.get('page2.html');
+      expect(page2).toContain('href="page1.html"');
+      expect(page2).toContain('← Page 1');
+      expect(page2).toContain('href="page3.html"');
+      expect(page2).toContain('Page 3 →');
+      
+      // Page 3 should have link to page 2 (prev)
+      const page3 = result.get('page3.html');
+      expect(page3).toContain('href="page2.html"');
+      expect(page3).toContain('← Page 2');
+    });
+
+    it('includes footer with attribution', () => {
+      const pages = [
+        { name: 'Test', path: 'test.html', content: '<p>Content</p>' },
+      ];
+      const options = {
+        siteTitle: 'My Site',
+        siteDescription: 'Test',
+        includeSearch: false,
+        includeToc: false,
+      };
+      
+      const result = exportStaticSite(pages, options);
+      const html = result.get('test.html');
+      
+      expect(html).toContain('Generated by');
+      expect(html).toContain('htmly');
+      expect(html).toContain('class="footer"');
+    });
+
+    it('extracts title from page content', () => {
+      const pages = [
+        { name: 'Custom', path: 'custom.html', content: '<h1>My Custom Title</h1><p>Content</p>' },
+      ];
+      const options = {
+        siteTitle: 'Site Title',
+        siteDescription: 'Test',
+        includeSearch: false,
+        includeToc: false,
+      };
+      
+      const result = exportStaticSite(pages, options);
+      const html = result.get('custom.html');
+      
+      expect(html).toContain('<title>My Custom Title - Site Title</title>');
+    });
+
+    it('handles pages without explicit title', () => {
+      const pages = [
+        { name: 'Untitled', path: 'untitled.html', content: '<p>Just a paragraph</p>' },
+      ];
+      const options = {
+        siteTitle: 'Site',
+        siteDescription: 'Test',
+        includeSearch: false,
+        includeToc: false,
+      };
+      
+      const result = exportStaticSite(pages, options);
+      const html = result.get('untitled.html');
+      
+      expect(html).toContain('<title>Untitled - Site</title>');
+    });
+  });
+
+  describe('getStaticSiteContent', () => {
+    it('returns same result as exportStaticSite', () => {
+      const pages = [
+        { name: 'Home', path: 'index.html', content: '<h1>Home</h1>' },
+      ];
+      const options = {
+        siteTitle: 'Test',
+        siteDescription: 'Test',
+        includeSearch: false,
+        includeToc: false,
+      };
+      
+      const exported = exportStaticSite(pages, options);
+      const content = getStaticSiteContent(pages, options);
+      
+      expect(content.size).toBe(exported.size);
+      expect(content.get('index.html')).toBe(exported.get('index.html'));
     });
   });
 });

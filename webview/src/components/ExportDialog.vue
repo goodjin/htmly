@@ -31,6 +31,7 @@ const exportOptions: { format: ExportFormat; label: string; icon: string; descri
   { format: 'markdown', label: 'Export as Markdown', icon: '📝', description: 'Convert to .md file with formatting' },
   { format: 'plaintext', label: 'Export as Plain Text', icon: '📃', description: 'Export as plain text file' },
   { format: 'embedded', label: 'Export as Embedded HTML', icon: '🔗', description: 'Single HTML file with inlined styles' },
+  { format: 'site', label: 'Export as Static Site', icon: '🌐', description: 'Export all pages as a self-contained static website' },
 ];
 
 // PDF-specific options (for when PDF format is selected)

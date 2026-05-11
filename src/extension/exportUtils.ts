@@ -1064,3 +1064,430 @@ export async function saveContentToFile(uri: vscode.Uri, content: string): Promi
   const encoder = new TextEncoder();
   await vscode.workspace.fs.writeFile(uri, encoder.encode(content));
 }
+
+// ─── Static Site Export ────────────────────────────────────────────────────────
+
+import type { StaticSitePage, StaticSiteOptions } from '../shared/types';
+
+// Default static site styles (inlined CSS for all pages)
+const STATIC_SITE_BASE_CSS = `
+  * {
+    box-sizing: border-box;
+  }
+  body {
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, sans-serif;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 20px;
+    color: #333;
+    background-color: #fafafa;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    line-height: 1.2;
+    margin-top: 1.5em;
+    margin-bottom: 0.5em;
+  }
+  h1 { font-size: 2em; border-bottom: 2px solid #eee; padding-bottom: 0.3em; }
+  h2 { font-size: 1.5em; }
+  h3 { font-size: 1.25em; }
+  a {
+    color: #0066cc;
+    text-decoration: none;
+  }
+  a:hover {
+    text-decoration: underline;
+  }
+  img {
+    max-width: 100%;
+    height: auto;
+  }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 1em 0;
+  }
+  td, th {
+    border: 1px solid #ddd;
+    padding: 8px;
+  }
+  th {
+    background-color: #f5f5f5;
+  }
+  pre, code {
+    background-color: #f4f4f4;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-family: "Courier New", Courier, monospace;
+  }
+  pre {
+    padding: 12px;
+    overflow-x: auto;
+  }
+  pre code {
+    padding: 0;
+    background: none;
+  }
+  blockquote {
+    border-left: 4px solid #ddd;
+    margin: 1em 0;
+    padding-left: 1em;
+    color: #666;
+  }
+  ul, ol {
+    padding-left: 1.5em;
+  }
+  li {
+    margin: 0.3em 0;
+  }
+  hr {
+    border: none;
+    border-top: 1px solid #ddd;
+    margin: 2em 0;
+  }
+  .site-nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 0;
+    margin-bottom: 20px;
+    border-bottom: 1px solid #eee;
+  }
+  .site-nav a {
+    padding: 5px 10px;
+    border-radius: 4px;
+  }
+  .site-nav a:hover {
+    background-color: #f0f0f0;
+  }
+  .breadcrumb {
+    font-size: 0.9em;
+    color: #666;
+    margin-bottom: 10px;
+  }
+  .footer {
+    margin-top: 40px;
+    padding-top: 20px;
+    border-top: 1px solid #eee;
+    color: #666;
+    font-size: 0.9em;
+    text-align: center;
+  }
+`;
+
+// Navigation CSS
+const NAVIGATION_CSS = `
+  .nav-home { font-weight: bold; }
+  .nav-prev, .nav-next { font-size: 0.9em; }
+`;
+
+/**
+ * Calculate the relative path from one file to another
+ */
+function getRelativePath(from: string, to: string): string {
+  // Normalize paths
+  const fromParts = from.replace(/\\/g, '/').split('/');
+  const toParts = to.replace(/\\/g, '/').split('/');
+  
+  // Remove filenames, keep directories
+  fromParts.pop();
+  
+  // Find common prefix
+  let commonLength = 0;
+  const minLength = Math.min(fromParts.length, toParts.length);
+  for (let i = 0; i < minLength; i++) {
+    if (fromParts[i] === toParts[i]) {
+      commonLength++;
+    } else {
+      break;
+    }
+  }
+  
+  // Build relative path
+  const upCount = fromParts.length - commonLength;
+  const ups = upCount > 0 ? '../'.repeat(upCount) : '';
+  const downs = toParts.slice(commonLength).join('/');
+  
+  return ups + downs;
+}
+
+/**
+ * Convert relative paths to absolute paths based on page location
+ */
+function convertRelativeLinks(html: string, currentPagePath: string): string {
+  // Convert internal links to relative paths
+  // Match links like href="page.html", href="./page.html", href="folder/page.html"
+  return html.replace(
+    /href=["']([^"']+)["']/gi,
+    (match, href) => {
+      // Skip external URLs, mailto, anchors-only, and data URIs
+      if (
+        href.startsWith('http://') ||
+        href.startsWith('https://') ||
+        href.startsWith('mailto:') ||
+        href.startsWith('#') ||
+        href.startsWith('data:') ||
+        href.startsWith('//')
+      ) {
+        return match;
+      }
+      
+      // Skip JavaScript links
+      if (href.startsWith('javascript:')) {
+        return match;
+      }
+      
+      // Remove leading ./ if present
+      const normalizedHref = href.startsWith('./') ? href.slice(2) : href;
+      
+      // Calculate relative path from current page to target
+      const relativePath = getRelativePath(currentPagePath, normalizedHref);
+      return `href="${relativePath}"`;
+    }
+  );
+}
+
+/**
+ * Convert image sources to relative paths
+ */
+function convertImageLinks(html: string, currentPagePath: string): string {
+  return html.replace(
+    /src=["']([^"']+)["']/gi,
+    (match, src) => {
+      // Skip external URLs, data URIs, and absolute paths
+      if (
+        src.startsWith('http://') ||
+        src.startsWith('https://') ||
+        src.startsWith('data:') ||
+        src.startsWith('/')
+      ) {
+        return match;
+      }
+      
+      // Remove leading ./ if present
+      const normalizedSrc = src.startsWith('./') ? src.slice(2) : src;
+      
+      // Calculate relative path
+      const relativePath = getRelativePath(currentPagePath, normalizedSrc);
+      return `src="${relativePath}"`;
+    }
+  );
+}
+
+/**
+ * Build navigation links for a page
+ */
+function buildNavigation(
+  currentPage: StaticSitePage,
+  allPages: StaticSitePage[],
+  indexPath: string
+): string {
+  // Sort pages by path for consistent navigation
+  const sortedPages = [...allPages].sort((a, b) => a.path.localeCompare(b.path));
+  const currentIndex = sortedPages.findIndex(p => p.path === currentPage.path);
+  
+  const prevPage = currentIndex > 0 ? sortedPages[currentIndex - 1] : null;
+  const nextPage = currentIndex < sortedPages.length - 1 ? sortedPages[currentIndex + 1] : null;
+  
+  // Build relative paths from current page
+  const currentDir = currentPage.path.includes('/') 
+    ? currentPage.path.substring(0, currentPage.path.lastIndexOf('/') + 1)
+    : '';
+  
+  const indexRelPath = currentDir 
+    ? getRelativePath(currentPage.path, indexPath)
+    : indexPath;
+  
+  let nav = `<div class="site-nav">`;
+  
+  // Home link
+  nav += `<a href="${indexRelPath}" class="nav-home">Home</a>`;
+  
+  // Previous link
+  if (prevPage) {
+    const prevRelPath = getRelativePath(currentPage.path, prevPage.path);
+    nav += `<a href="${prevRelPath}" class="nav-prev">← ${prevPage.name}</a>`;
+  } else {
+    nav += `<span class="nav-prev" style="color: #ccc;">← Previous</span>`;
+  }
+  
+  // Next link
+  if (nextPage) {
+    const nextRelPath = getRelativePath(currentPage.path, nextPage.path);
+    nav += `<a href="${nextRelPath}" class="nav-next">${nextPage.name} →</a>`;
+  } else {
+    nav += `<span class="nav-next" style="color: #ccc;">Next →</span>`;
+  }
+  
+  nav += `</div>`;
+  
+  return nav;
+}
+
+/**
+ * Build the header for a static site page
+ */
+function buildPageHeader(page: StaticSitePage, _siteTitle: string, allPages: StaticSitePage[], indexPath: string): string {
+  void _siteTitle; // Reserved for future use
+  return buildNavigation(page, allPages, indexPath);
+}
+
+/**
+ * Build the footer for a static site page
+ */
+function buildPageFooter(_siteTitle: string): string {
+  void _siteTitle; // Reserved for future use
+  return `<div class="footer">
+    <p>Generated by <a href="https://github.com/jinweijie/htmly">Htmly</a></p>
+  </div>`;
+}
+
+/**
+ * Wrap page content in a complete HTML document
+ */
+function wrapInHtmlDocument(
+  content: string,
+  title: string,
+  siteTitle: string,
+  siteDescription: string,
+  customCss?: string
+): string {
+  const allCss = STATIC_SITE_BASE_CSS + NAVIGATION_CSS + (customCss || '');
+  
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="${escapeHtml(siteDescription)}">
+  <title>${escapeHtml(title)} - ${escapeHtml(siteTitle)}</title>
+  <style>
+${allCss}
+  </style>
+</head>
+<body>
+${content}
+</body>
+</html>`;
+}
+
+/**
+ * Escape HTML special characters
+ */
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+/**
+ * Extract title from HTML content
+ */
+function extractTitle(html: string): string {
+  // Try to find <title> tag first
+  const titleMatch = html.match(/<title[^>]*>([^<]*)<\/title>/i);
+  if (titleMatch) {
+    return stripHtmlTags(titleMatch[1]).trim();
+  }
+  
+  // Try to find first <h1>
+  const h1Match = html.match(/<h1[^>]*>([^<]*)<\/h1>/i);
+  if (h1Match) {
+    return stripHtmlTags(h1Match[1]).trim();
+  }
+  
+  return 'Untitled';
+}
+
+/**
+ * Convert a single page to static site format
+ */
+function convertPageToStaticSite(
+  page: StaticSitePage,
+  allPages: StaticSitePage[],
+  indexPath: string,
+  siteTitle: string,
+  siteDescription: string,
+  customCss?: string
+): string {
+  // Extract title
+  const pageTitle = extractTitle(page.content) || page.name;
+  
+  // Convert relative links and images
+  let processedContent = page.content;
+  processedContent = convertRelativeLinks(processedContent, page.path);
+  processedContent = convertImageLinks(processedContent, page.path);
+  
+  // Sanitize content
+  processedContent = sanitizeContent(processedContent);
+  
+  // Extract and inline styles
+  processedContent = inlineStylesFromStyleTags(processedContent);
+  
+  // Process fonts
+  processedContent = processFonts(processedContent);
+  
+  // Extract body content
+  const bodyContent = extractContent(processedContent);
+  
+  // Build page sections
+  const header = buildPageHeader(page, siteTitle, allPages, indexPath);
+  const footer = buildPageFooter(siteTitle);
+  
+  // Combine content
+  const fullContent = header + bodyContent + footer;
+  
+  // Wrap in HTML document
+  return wrapInHtmlDocument(fullContent, pageTitle, siteTitle, siteDescription, customCss);
+}
+
+/**
+ * Export pages as a static website
+ * Creates self-contained HTML files with inlined CSS and relative links
+ * 
+ * @param pages - Array of pages to export
+ * @param options - Export options including site title and description
+ * @returns Map of file paths to their content
+ */
+export function exportStaticSite(
+  pages: StaticSitePage[],
+  options: StaticSiteOptions
+): Map<string, string> {
+  const result = new Map<string, string>();
+  
+  if (!pages || pages.length === 0) {
+    return result;
+  }
+  
+  // Determine index page (first page or index.html if exists)
+  const indexPage = pages.find(p => p.path === 'index.html') || pages[0];
+  const indexPath = indexPage.path;
+  
+  // Convert each page
+  for (const page of pages) {
+    const htmlContent = convertPageToStaticSite(
+      page,
+      pages,
+      indexPath,
+      options.siteTitle,
+      options.siteDescription,
+      options.customCss
+    );
+    result.set(page.path, htmlContent);
+  }
+  
+  return result;
+}
+
+/**
+ * Get the content for a given format (including static site)
+ */
+export function getStaticSiteContent(
+  pages: StaticSitePage[],
+  options: StaticSiteOptions
+): Map<string, string> {
+  return exportStaticSite(pages, options);
+}
