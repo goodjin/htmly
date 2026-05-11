@@ -46,6 +46,7 @@
     "@tiptap/vue-3": "^2.4.0",
     "highlight.js": "^11.11.1",
     "lowlight": "^3.3.0",
+    "turndown": "^7.2.4",
     "vue": "^3.4.0"
   },
   "devDependencies": {
