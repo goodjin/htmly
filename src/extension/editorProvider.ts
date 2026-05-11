@@ -7,7 +7,8 @@ import {
   SaveStatus, 
   HistoryState,
   CrashRecoveryData,
-  ExportFormat 
+  ExportFormat,
+  TemplateCategory 
 } from '../shared/types';
 import {
   showExportSaveDialog,
@@ -15,6 +16,12 @@ import {
   convertToEmbeddedHtmlWithImages,
   saveContentToFile,
 } from './exportUtils';
+import {
+  listTemplates,
+  saveTemplate,
+  deleteTemplate as deleteTemplateFromStorage,
+  renameTemplate as renameTemplateInStorage,
+} from './templateStorage';
 
 const HISTORY_STATE_KEY = 'htmly.history';
 const CRASH_RECOVERY_KEY = 'htmly.crashRecovery';
@@ -213,6 +220,28 @@ export class HtmlyEditorProvider implements vscode.CustomTextEditorProvider {
 
         case 'exportRequest':
           this.handleExportRequest(msg.format, msg.content, docKey, webviewPanel);
+          break;
+
+        case 'loadUserTemplates':
+          this.handleLoadUserTemplates(webviewPanel);
+          break;
+
+        case 'saveAsTemplate':
+          this.handleSaveAsTemplate(
+            msg.name,
+            msg.category,
+            msg.content,
+            msg.description,
+            webviewPanel
+          );
+          break;
+
+        case 'deleteTemplate':
+          this.handleDeleteTemplate(msg.id, webviewPanel);
+          break;
+
+        case 'renameTemplate':
+          this.handleRenameTemplate(msg.id, msg.newName, webviewPanel);
           break;
       }
     });
@@ -788,6 +817,146 @@ export class HtmlyEditorProvider implements vscode.CustomTextEditorProvider {
 
   private getActivePanelEntry(): [string, vscode.WebviewPanel] | undefined {
     return [...this.panels.entries()].find(([, panel]) => panel === this.activePanel);
+  }
+
+  /**
+   * Handle load user templates request
+   */
+  private async handleLoadUserTemplates(panel: vscode.WebviewPanel): Promise<void> {
+    try {
+      const templates = await listTemplates();
+      // Send only metadata (without full content) for efficiency
+      const metadata = templates.map(t => ({
+        id: t.id,
+        name: t.name,
+        category: t.category,
+        description: t.description,
+        thumbnail: t.thumbnail,
+        createdAt: t.createdAt,
+        modifiedAt: t.modifiedAt,
+      }));
+      this.postMessage(panel, { type: 'userTemplates', templates: metadata });
+    } catch (error) {
+      console.error('Failed to load user templates:', error);
+      this.postMessage(panel, { type: 'userTemplates', templates: [] });
+    }
+  }
+
+  /**
+   * Handle save as template request
+   */
+  private async handleSaveAsTemplate(
+    name: string,
+    category: TemplateCategory,
+    content: string,
+    description: string | undefined,
+    panel: vscode.WebviewPanel
+  ): Promise<void> {
+    try {
+      const result = await saveTemplate({
+        name,
+        category,
+        content,
+        description,
+      });
+
+      if (result.success && result.template) {
+        this.postMessage(panel, {
+          type: 'saveTemplateResponse',
+          success: true,
+          template: {
+            id: result.template.id,
+            name: result.template.name,
+            category: result.template.category,
+            description: result.template.description,
+            thumbnail: result.template.thumbnail,
+            createdAt: result.template.createdAt,
+            modifiedAt: result.template.modifiedAt,
+          },
+        });
+      } else {
+        this.postMessage(panel, {
+          type: 'saveTemplateResponse',
+          success: false,
+          error: result.error,
+        });
+      }
+    } catch (error) {
+      this.postMessage(panel, {
+        type: 'saveTemplateResponse',
+        success: false,
+        error: `Failed to save template: ${error}`,
+      });
+    }
+  }
+
+  /**
+   * Handle delete template request
+   */
+  private async handleDeleteTemplate(id: string, panel: vscode.WebviewPanel): Promise<void> {
+    try {
+      const result = await deleteTemplateFromStorage(id);
+
+      if (result.success) {
+        this.postMessage(panel, {
+          type: 'deleteTemplateResponse',
+          success: true,
+        });
+      } else {
+        this.postMessage(panel, {
+          type: 'deleteTemplateResponse',
+          success: false,
+          error: result.error,
+        });
+      }
+    } catch (error) {
+      this.postMessage(panel, {
+        type: 'deleteTemplateResponse',
+        success: false,
+        error: `Failed to delete template: ${error}`,
+      });
+    }
+  }
+
+  /**
+   * Handle rename template request
+   */
+  private async handleRenameTemplate(
+    id: string,
+    newName: string,
+    panel: vscode.WebviewPanel
+  ): Promise<void> {
+    try {
+      const result = await renameTemplateInStorage(id, newName);
+
+      if (result.success && result.template) {
+        this.postMessage(panel, {
+          type: 'renameTemplateResponse',
+          success: true,
+          template: {
+            id: result.template.id,
+            name: result.template.name,
+            category: result.template.category,
+            description: result.template.description,
+            thumbnail: result.template.thumbnail,
+            createdAt: result.template.createdAt,
+            modifiedAt: result.template.modifiedAt,
+          },
+        });
+      } else {
+        this.postMessage(panel, {
+          type: 'renameTemplateResponse',
+          success: false,
+          error: result.error,
+        });
+      }
+    } catch (error) {
+      this.postMessage(panel, {
+        type: 'renameTemplateResponse',
+        success: false,
+        error: `Failed to rename template: ${error}`,
+      });
+    }
   }
 
   private getWebviewHtml(webview: vscode.Webview): string {

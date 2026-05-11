@@ -46,6 +46,20 @@ export interface HtmlySettings {
   };
 }
 
+// Template types
+export type TemplateCategory = 'blog' | 'product' | 'resume' | 'docs' | 'email';
+
+// User template metadata
+export interface UserTemplateMetadata {
+  id: string;
+  name: string;
+  category: TemplateCategory;
+  description?: string;
+  thumbnail?: string;
+  createdAt: number;
+  modifiedAt: number;
+}
+
 // Messages from extension → webview
 export type ExtToWebMsg =
   | { type: 'init'; content: string; mode: EditorMode }
@@ -60,7 +74,11 @@ export type ExtToWebMsg =
   | { type: 'historyUpdate'; history: HistoryState }
   | { type: 'crashRecovery'; data: CrashRecoveryData }
   | { type: 'historyExported'; path: string }
-  | { type: 'exportResponse'; success: boolean; filePath?: string; error?: string };
+  | { type: 'exportResponse'; success: boolean; filePath?: string; error?: string }
+  | { type: 'userTemplates'; templates: UserTemplateMetadata[] }
+  | { type: 'saveTemplateResponse'; success: boolean; template?: UserTemplateMetadata; error?: string }
+  | { type: 'deleteTemplateResponse'; success: boolean; error?: string }
+  | { type: 'renameTemplateResponse'; success: boolean; template?: UserTemplateMetadata; error?: string };
 
 // Messages from webview → extension
 export type WebToExtMsg =
@@ -71,4 +89,8 @@ export type WebToExtMsg =
   | { type: 'syncHistory'; history: HistoryState }
   | { type: 'selectiveUndo'; targetIndex: number }
   | { type: 'exportHistory' }
-  | { type: 'exportRequest'; format: ExportFormat; content: string };
+  | { type: 'exportRequest'; format: ExportFormat; content: string }
+  | { type: 'loadUserTemplates' }
+  | { type: 'saveAsTemplate'; name: string; category: TemplateCategory; content: string; description?: string }
+  | { type: 'deleteTemplate'; id: string }
+  | { type: 'renameTemplate'; id: string; newName: string };

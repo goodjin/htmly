@@ -1,5 +1,5 @@
 import { ref } from 'vue';
-import type { ExtToWebMsg, WebToExtMsg, EditorMode, HistoryState, CrashRecoveryData, ExportFormat } from '../../../src/shared/types';
+import type { ExtToWebMsg, WebToExtMsg, EditorMode, HistoryState, CrashRecoveryData, ExportFormat, TemplateCategory, UserTemplateMetadata } from '../../../src/shared/types';
 
 // VS Code API injected by the extension host
 declare function acquireVsCodeApi(): {
@@ -31,6 +31,9 @@ export function useVSCode() {
   // History-related state
   const crashRecoveryData = ref<CrashRecoveryData | null>(null);
   const historyExportedPath = ref<string | null>(null);
+
+  // User templates state
+  const userTemplates = ref<UserTemplateMetadata[]>([]);
 
   function postMessage(msg: WebToExtMsg) {
     getVsApi()?.postMessage(msg);
@@ -100,12 +103,52 @@ export function useVSCode() {
     postMessage({ type: 'exportRequest', format, content });
   }
 
+  /**
+   * Request list of user templates from extension
+   */
+  function loadUserTemplates(): void {
+    postMessage({ type: 'loadUserTemplates' });
+  }
+
+  /**
+   * Save current content as a new template
+   */
+  function saveAsTemplate(options: {
+    name: string;
+    category: TemplateCategory;
+    content: string;
+    description?: string;
+  }): void {
+    postMessage({
+      type: 'saveAsTemplate',
+      name: options.name,
+      category: options.category,
+      content: options.content,
+      description: options.description,
+    });
+  }
+
+  /**
+   * Delete a user template
+   */
+  function deleteTemplate(id: string): void {
+    postMessage({ type: 'deleteTemplate', id });
+  }
+
+  /**
+   * Rename a user template
+   */
+  function renameTemplate(id: string, newName: string): void {
+    postMessage({ type: 'renameTemplate', id, newName });
+  }
+
   return {
     initialContent,
     initialMode,
     isDark,
     crashRecoveryData,
     historyExportedPath,
+    userTemplates,
     postMessage,
     onMessage,
     notifyReady,
@@ -118,5 +161,9 @@ export function useVSCode() {
     clearCrashRecoveryData,
     clearHistoryExportedPath,
     requestExport,
+    loadUserTemplates,
+    saveAsTemplate,
+    deleteTemplate,
+    renameTemplate,
   };
 }

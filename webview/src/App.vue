@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch, onMounted, onBeforeUnmount, nextTick } from 'vue';
-import type { EditorMode, HtmlySettings } from '../../src/shared/types';
+import type { EditorMode, HtmlySettings, TemplateCategory, UserTemplateMetadata } from '../../src/shared/types';
 import { useVSCode } from './composables/useVSCode';
 import { useSharedHistory, onHistoryChange } from './composables/useSharedHistory';
 import { extractBodyContent, replaceBodyContent } from './core/htmlUtils';
@@ -14,6 +14,7 @@ import TOCPanel from './components/TOCPanel.vue';
 import HistoryPanel from './components/HistoryPanel.vue';
 import TemplateSelector from './components/TemplateSelector.vue';
 import type { Template } from './core/types';
+import { TEMPLATE_CATEGORIES } from './core/template';
 
 const { 
   onMessage, 
@@ -29,7 +30,12 @@ const {
   requestExportHistory,
   clearCrashRecoveryData,
   clearHistoryExportedPath,
-  requestExport
+  requestExport,
+  userTemplates,
+  loadUserTemplates,
+  saveAsTemplate,
+  deleteTemplate,
+  renameTemplate
 } = useVSCode();
 
 // Shared history for cross-mode undo/redo
@@ -181,6 +187,12 @@ const showHistoryPanel = ref(false);
 const showTemplateSelector = ref(false);
 const showCrashRecoveryDialog = ref(false);
 
+// Save template dialog state
+const showSaveTemplateDialog = ref(false);
+const saveTemplateName = ref('');
+const saveTemplateCategory = ref<TemplateCategory>('docs');
+const saveTemplateDescription = ref('');
+
 // Cursor position for scroll sync
 const cursorPosition = ref<CursorPosition | null>(null);
 
@@ -299,6 +311,41 @@ function handleTemplateSelect(template: Template) {
   }
   
   showTemplateSelector.value = false;
+}
+
+// Handle save as template request from template selector
+function handleSaveAsTemplateRequest(options: { name: string; category: TemplateCategory; description?: string }) {
+  saveTemplateName.value = options.name;
+  saveTemplateCategory.value = options.category;
+  saveTemplateDescription.value = options.description || '';
+  showSaveTemplateDialog.value = true;
+  showTemplateSelector.value = false;
+}
+
+// Confirm save template
+function confirmSaveTemplate() {
+  if (saveTemplateName.value.trim()) {
+    // Get body content from the document
+    const bodyContent = extractBodyContent(content.value);
+    
+    saveAsTemplate({
+      name: saveTemplateName.value.trim(),
+      category: saveTemplateCategory.value,
+      content: bodyContent,
+      description: saveTemplateDescription.value.trim() || undefined,
+    });
+    
+    showSaveTemplateDialog.value = false;
+    saveTemplateName.value = '';
+    saveTemplateDescription.value = '';
+  }
+}
+
+// Cancel save template
+function cancelSaveTemplate() {
+  showSaveTemplateDialog.value = false;
+  saveTemplateName.value = '';
+  saveTemplateDescription.value = '';
 }
 
 // Export handler
@@ -462,6 +509,32 @@ const unsubscribe = onMessage((msg) => {
         clearHistoryExportedPath();
       }, 5000);
       break;
+
+    case 'userTemplates':
+      // Update user templates list
+      userTemplates.value = msg.templates;
+      break;
+
+    case 'saveTemplateResponse':
+      if (msg.success) {
+        // Refresh user templates list
+        loadUserTemplates();
+      }
+      break;
+
+    case 'deleteTemplateResponse':
+      if (msg.success) {
+        // Refresh user templates list
+        loadUserTemplates();
+      }
+      break;
+
+    case 'renameTemplateResponse':
+      if (msg.success) {
+        // Refresh user templates list
+        loadUserTemplates();
+      }
+      break;
   }
 });
 
@@ -580,9 +653,58 @@ onBeforeUnmount(() => {
     <!-- Template Selector -->
     <TemplateSelector
       :visible="showTemplateSelector"
+      :current-content="content"
       @select="handleTemplateSelect"
       @cancel="showTemplateSelector = false"
+      @save-as-template="handleSaveAsTemplateRequest"
     />
+
+    <!-- Save Template Dialog -->
+    <div v-if="showSaveTemplateDialog" class="save-template-overlay" @click.self="cancelSaveTemplate">
+      <div class="save-template-dialog">
+        <div class="dialog-header">
+          <span class="dialog-icon">📄</span>
+          <span class="dialog-title">Save as Template</span>
+        </div>
+        <div class="dialog-body">
+          <label class="input-label">
+            Template Name
+            <input
+              type="text"
+              class="input-field"
+              v-model="saveTemplateName"
+              @keydown.enter="confirmSaveTemplate"
+              @keydown.escape="cancelSaveTemplate"
+              autofocus
+              placeholder="My Template"
+            />
+          </label>
+          <label class="input-label">
+            Category
+            <select class="input-field" v-model="saveTemplateCategory">
+              <option v-for="(label, key) in TEMPLATE_CATEGORIES" :key="key" :value="key">
+                {{ label }}
+              </option>
+            </select>
+          </label>
+          <label class="input-label">
+            Description (optional)
+            <textarea
+              class="input-field textarea"
+              v-model="saveTemplateDescription"
+              rows="3"
+              placeholder="Describe your template..."
+            ></textarea>
+          </label>
+        </div>
+        <div class="dialog-actions">
+          <button class="btn btn-secondary" @click="cancelSaveTemplate">Cancel</button>
+          <button class="btn btn-primary" @click="confirmSaveTemplate" :disabled="!saveTemplateName.trim()">
+            Save Template
+          </button>
+        </div>
+      </div>
+    </div>
 
     <!-- Crash Recovery Dialog -->
     <div v-if="showCrashRecoveryDialog" class="crash-recovery-overlay" @click.self="handleDiscardDraft">
@@ -765,5 +887,67 @@ onBeforeUnmount(() => {
   font-family: var(--vscode-editor-font-family, monospace);
   font-size: 11px;
   word-break: break-all;
+}
+
+/* Save Template Dialog */
+.save-template-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1100;
+}
+
+.save-template-dialog {
+  background: var(--vscode-editor-background, #1e1e1e);
+  border: 1px solid var(--vscode-widget-border, #3c3c3c);
+  border-radius: 8px;
+  padding: 20px;
+  width: 400px;
+  max-width: 90vw;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+.input-label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--vscode-editor-foreground, #cccccc);
+  margin-bottom: 12px;
+}
+
+.input-field {
+  background: var(--vscode-input-background, #3c3c3c);
+  border: 1px solid var(--vscode-input-border, #3c3c3c);
+  border-radius: 4px;
+  padding: 8px 10px;
+  color: var(--vscode-input-foreground, #cccccc);
+  font-size: 14px;
+  font-family: inherit;
+  outline: none;
+}
+
+.input-field:focus {
+  border-color: var(--vscode-focusBorder, #007acc);
+}
+
+.input-field.textarea {
+  resize: vertical;
+  min-height: 60px;
+}
+
+select.input-field {
+  cursor: pointer;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 </style>
