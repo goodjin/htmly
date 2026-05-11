@@ -23,7 +23,7 @@ import type { Template, Snippet } from './core/types';
 import { TEMPLATE_CATEGORIES } from './core/template';
 import { SNIPPET_CATEGORIES } from './core/snippet';
 import { setSnippetSelectorOpener } from './extensions/slashCommands';
-import { setPageIndex, setWikiLinkClickCallback } from './extensions/WikiLink';
+import { setPageIndex, setWikiLinkClickCallback, addPage } from './extensions/WikiLink';
 import BacklinksPanel from './components/BacklinksPanel.vue';
 import { useBacklinks } from './composables/useBacklinks';
 import type { BacklinkInfo } from './composables/useBacklinks';
@@ -903,6 +903,14 @@ const unsubscribe = onMessage((msg) => {
       // Update backlinks for the current page
       setCurrentPage(msg.pageName);
       setBacklinks(msg.backlinks);
+      break;
+
+    case 'pageCreated':
+      // A new page was created - add it to the page index
+      addPage({ name: msg.pageName, path: msg.pagePath });
+      // Update the wiki link in the document to reflect the new page path
+      // The wiki link already exists in the document with data-page attribute,
+      // and the href will now work since the page exists
       break;
   }
 });

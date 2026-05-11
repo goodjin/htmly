@@ -141,16 +141,6 @@ export interface SearchResult {
   contextAfter: string;
 }
 
-// Project search state
-export interface ProjectSearchState {
-  isSearching: boolean;
-  query: string;
-  results: SearchResult[];
-  currentResultIndex: number;
-  isRegex: boolean;
-  error?: string;
-}
-
 // Spell check suggestion
 export interface SpellSuggestion {
   word: string;

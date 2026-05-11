@@ -1,0 +1,54 @@
+{
+  "featureId": "link-autocomplete",
+  "reviewedAt": "2026-05-11T14:22:35.000Z",
+  "commitId": null,
+  "repoPath": "/Users/jin/github/htmly",
+  "transcriptSkeletonReviewed": false,
+  "diffReviewed": false,
+  "status": "pass",
+  "assertionFulfilled": "VAL-BACKLINKS-002",
+  "codeQuality": "good",
+  "codeReview": {
+    "summary": "The link-autocomplete feature implementation is solid with proper TypeScript types, Vue 3 composition API, and Tiptap extension patterns. All 19 unit tests pass. The feature correctly fulfills VAL-BACKLINKS-002 by showing page suggestions when typing [[.",
+    "issues": [
+      {
+        "file": "webview/src/extensions/WikiLink.ts",
+        "line": 55,
+        "severity": "non-blocking",
+        "description": "WIKI_LINK_REGEX uses global 'g' flag which maintains state across matches. For InputRule usage, the global flag is unnecessary and could cause unexpected behavior in edge cases.",
+        "suggestedFix": "Remove the 'g' flag: const WIKI_LINK_REGEX = /\\[\\[([^\\]]+)\\]\\]/g; → const WIKI_LINK_REGEX = /\\[\\[([^\\]]+)\\]\\]/;"
+      },
+      {
+        "file": "webview/src/extensions/WikiLink.ts",
+        "line": 140,
+        "severity": "non-blocking",
+        "description": "The fallback code uses 'state.schema.text(' ') as any' which has incorrect typing. The text() method creates a TextNode/Fragment, not something that should be cast with 'as any' for insertion.",
+        "suggestedFix": "Use proper transaction method: tr.insert(from, state.schema.text(' '));"
+      },
+      {
+        "file": "webview/src/extensions/WikiLink.ts",
+        "line": 281,
+        "severity": "suggestion",
+        "description": "Popup positioning uses fixed offset (rect.bottom + 8) without viewport boundary checks. The popup could render off-screen for content near the bottom of the viewport.",
+        "suggestedFix": "Add viewport boundary detection: Check if popup fits within window.innerHeight and adjust position if needed."
+      },
+      {
+        "file": "webview/src/extensions/WikiLink.ts",
+        "line": 267,
+        "severity": "suggestion",
+        "description": "The items filtering function has no result limit. With large wikis (1000+ pages), all matching results are returned which could impact performance.",
+        "suggestedFix": "Consider adding a limit: return filtered.slice(0, 10); for optimal UX."
+      },
+      {
+        "file": "webview/src/components/WikiLinkSuggestion.vue",
+        "line": 26,
+        "severity": "suggestion",
+        "description": "The computed property 'filteredItems' doesn't actually filter - it just returns props.items. The filtering is expected to happen in the parent component. The naming could be misleading.",
+        "suggestedFix": "Rename to 'suggestionItems' or add a comment explaining this is intentionally passthrough."
+      }
+    ]
+  },
+  "sharedStateObservations": [],
+  "addressesFailureFrom": null,
+  "summary": "The link-autocomplete feature successfully implements VAL-BACKLINKS-002. Typing [[ triggers autocomplete suggestions with existing pages and a 'Create new page' option. All 19 tests pass. Minor issues found include a regex global flag concern, incorrect typing in fallback code, and suggestions for viewport boundary handling and result limiting, but none are blocking."
+}
