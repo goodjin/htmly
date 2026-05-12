@@ -86,7 +86,12 @@
       "properties": {
         "htmly.defaultMode": {
           "type": "string",
-          "enum": ["wysiwyg", "source", "preview", "split"],
+          "enum": [
+            "wysiwyg",
+            "source",
+            "preview",
+            "split"
+          ],
           "default": "wysiwyg",
           "description": "Default editor mode when opening a file"
         },
@@ -112,7 +117,10 @@
         },
         "htmly.splitScreenDirection": {
           "type": "string",
-          "enum": ["horizontal", "vertical"],
+          "enum": [
+            "horizontal",
+            "vertical"
+          ],
           "default": "horizontal",
           "description": "Direction of the split screen (horizontal: left-right, vertical: top-bottom)"
         },
@@ -128,7 +136,12 @@
         },
         "htmly.cloudStorage.provider": {
           "type": "string",
-          "enum": ["none", "s3", "cloudinary", "imgbb"],
+          "enum": [
+            "none",
+            "s3",
+            "cloudinary",
+            "imgbb"
+          ],
           "default": "none",
           "description": "Cloud storage provider for image uploads. Use 'none' for base64 encoding."
         },
@@ -193,10 +206,18 @@
             "^htmly\\.": {
               "type": "object",
               "properties": {
-                "command": { "type": "string" },
-                "key": { "type": "string" },
-                "mac": { "type": "string" },
-                "when": { "type": "string" }
+                "command": {
+                  "type": "string"
+                },
+                "key": {
+                  "type": "string"
+                },
+                "mac": {
+                  "type": "string"
+                },
+                "when": {
+                  "type": "string"
+                }
               },
               "additionalProperties": false
             }
@@ -222,7 +243,9 @@
     "languages": [
       {
         "id": "htmly-content",
-        "aliases": ["Htmly Content"],
+        "aliases": [
+          "Htmly Content"
+        ],
         "extensions": [],
         "configuration": "./language-config.json"
       }
@@ -256,5 +279,8 @@
     "mocha": "^11.7.5",
     "typescript": "^5.3.2",
     "vitest": "^1.0.4"
+  },
+  "dependencies": {
+    "pdfmake": "^0.3.8"
   }
 }
