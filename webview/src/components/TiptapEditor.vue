@@ -64,6 +64,9 @@ import { useCloudUpload } from '../composables/useCloudUpload';
 import { SpellCheckExtension, type SpellCheckMark } from '../extensions/SpellCheck';
 import { MathExtension } from '../extensions/Math';
 import { WikiLinkExtension } from '../extensions/WikiLink';
+import { TableSort } from '../extensions/TableSort';
+import { DatePickerCell } from '../extensions/DatePickerCell';
+import { CheckboxCell } from '../extensions/CheckboxCell';
 import type { CloudStorageConfig } from '../../../src/shared/types';
 
 const props = withDefaults(defineProps<{
@@ -157,6 +160,9 @@ const editor = useEditor({
     TableRow,
     TableCell,
     TableHeader,
+    TableSort,
+    DatePickerCell,
+    CheckboxCell,
     Placeholder.configure({ placeholder: 'Start writing HTML…' }),
     TextStyle,
     Color,

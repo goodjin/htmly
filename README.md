@@ -2,6 +2,33 @@
 
 Htmly is a VS Code extension that provides a full-featured WYSIWYG (What You See Is What You Get) HTML editor directly within VS Code. Edit HTML files visually with a familiar rich-text editing experience, or switch to source code mode for direct HTML manipulation.
 
+## Features Implemented in v1.5
+
+### LaTeX Math
+- **Inline Math** — Type `$E=mc^2$` for inline math using KaTeX
+- **Block Math** — Type `$$...$$` for display/block equations
+- **Math Toolbar** — Quick insert common symbols (Greek letters, operators, relations, arrows)
+- **Live Preview** — Real-time LaTeX rendering in the editor
+
+### Wiki Links & Backlinks
+- **Wiki Links** — Type `[[Page Name]]` to create links between documents
+- **Backlinks Panel** — See all pages that link to the current document
+- **Auto-complete** — Suggestions appear as you type `[[`
+- **Create New Pages** — Option to create non-existent linked pages
+
+### Static Site Publishing
+- **GitHub Pages Export** — Publish directly to GitHub Pages with CI workflow
+- **SEO Settings** — Configure title, description, and og:image for search engines
+- **Custom Domain** — Support for custom domains with CNAME file
+- **Static Site Export** — Export workspace as static HTML site
+
+### Table Enhancements
+- **Column Sorting** — Click to sort by any column (ascending/descending)
+- **Multi-sort** — Shift+click to add secondary sort columns
+- **Row Filtering** — Filter table rows with search input
+- **Date Column** — Native date picker cells
+- **Checkbox Column** — Interactive checkbox cells with sorting support
+
 ## Features Implemented in v1.2
 
 ### Mode Switching

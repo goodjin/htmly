@@ -80,10 +80,12 @@ export function useExport() {
 
   /**
    * Request export of the document in the specified format
-   * @param format - The export format (pdf, markdown, plaintext, embedded)
+   * @param format - The export format (pdf, markdown, plaintext, embedded, site)
    * @param content - The HTML content to export
+   * @param seoSettings - Optional SEO settings for static site export
+   * @param siteOptions - Optional site options for static site export
    */
-  function requestExport(format: ExportFormat, content: string): void {
+  function requestExport(format: ExportFormat, content: string, seoSettings?: import('../../../src/shared/types').SeoSettings, siteOptions?: Partial<import('../../../src/shared/types').StaticSiteOptions>): void {
     if (isExporting.value) {
       console.warn('[useExport] Export already in progress');
       return;
@@ -97,6 +99,8 @@ export function useExport() {
       type: 'exportRequest',
       format,
       content,
+      seoSettings,
+      siteOptions,
     });
   }
 

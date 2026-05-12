@@ -308,6 +308,14 @@ function onSavePreset() {
         headerText: headerText.value,
         footerText: footerText.value,
         preset: 'custom',
+        pageSize: pageSize.value,
+        orientation: orientation.value,
+        margins: {
+          top: marginTop.value,
+          right: marginRight.value,
+          bottom: marginBottom.value,
+          left: marginLeft.value,
+        },
       },
     });
     newPresetName.value = '';

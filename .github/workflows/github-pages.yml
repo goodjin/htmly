@@ -47,65 +47,176 @@ jobs:
 
       - name: Export static site
         run: |
-          # Create a script to export the static site
-          cat > scripts/export-static.sh << 'EOF'
-          #!/bin/bash
-          set -e
-          
-          # Get list of HTML files to export
-          # This assumes the workspace contains HTML files to export
-          echo "Exporting static site..."
-          
-          # For each HTML file, we'll use the static site export functionality
-          # The actual export logic is handled by the extension's exportUtils.ts
-          
-          # Create output directory
-          mkdir -p _site
-          
-          # Find all HTML files in the workspace (excluding node_modules and _site)
-          find . -type f -name "*.html" \
-            ! -path "./node_modules/*" \
-            ! -path "./_site/*" \
-            ! -path "./.git/*" \
-            ! -path "./dist/*" \
-            ! -path "./webview/node_modules/*" \
-            -exec echo "Processing: {}" \;
-          
-          echo "Static site export complete"
-          EOF
-          chmod +x scripts/export-static.sh
-          ./scripts/export-static.sh
+          node -e "
+            const fs = require('fs');
+            const path = require('path');
+
+            // Default static site styles
+            const BASE_CSS = \`
+              * { box-sizing: border-box; }
+              body {
+                font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                line-height: 1.6;
+                max-width: 900px;
+                margin: 0 auto;
+                padding: 20px;
+                color: #333;
+                background-color: #fafafa;
+              }
+              h1, h2, h3, h4, h5, h6 { line-height: 1.2; margin-top: 1.5em; margin-bottom: 0.5em; }
+              h1 { font-size: 2em; border-bottom: 2px solid #eee; padding-bottom: 0.3em; }
+              h2 { font-size: 1.5em; }
+              h3 { font-size: 1.25em; }
+              a { color: #0066cc; text-decoration: none; }
+              a:hover { text-decoration: underline; }
+              img { max-width: 100%; height: auto; }
+              pre, code { background-color: #f4f4f4; padding: 2px 6px; border-radius: 3px; font-family: 'Courier New', monospace; }
+              pre { padding: 12px; overflow-x: auto; }
+              blockquote { border-left: 4px solid #ddd; margin: 1em 0; padding-left: 1em; color: #666; }
+            \`;
+
+            // Strip HTML tags for basic text extraction
+            function stripHtmlTags(html) {
+              return html
+                .replace(/<script[\s\S]*?<\/script>/gi, '')
+                .replace(/<style[\s\S]*?<\/style>/gi, '')
+                .replace(/<noscript[\s\S]*?<\/noscript>/gi, '')
+                .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+                .replace(/<[^>]+>/g, '')
+                .replace(/&nbsp;/g, ' ')
+                .replace(/&amp;/g, '&')
+                .replace(/&lt;/g, '<')
+                .replace(/&gt;/g, '>')
+                .trim();
+            }
+
+            // Extract title from HTML
+            function extractTitle(html, defaultName) {
+              const titleMatch = html.match(/<title[^>]*>([^<]*)<\/title>/i);
+              if (titleMatch) return stripHtmlTags(titleMatch[1]).trim();
+              const h1Match = html.match(/<h1[^>]*>([^<]*)<\/h1>/i);
+              if (h1Match) return stripHtmlTags(h1Match[1]).trim();
+              return defaultName;
+            }
+
+            // Wrap content in HTML document
+            function wrapInHtmlDocument(content, title, siteTitle, siteDescription) {
+              return \`<!DOCTYPE html>
+<html lang=\"en\">
+<head>
+  <meta charset=\"UTF-8\">
+  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">
+  <meta name=\"description\" content=\"\${siteDescription}\">
+  <title>\${title} - \${siteTitle}</title>
+  <style>
+\${BASE_CSS}
+  </style>
+</head>
+<body>
+\${content}
+</body>
+</html>\`;
+            }
+
+            // Extract body content from HTML
+            function extractBody(html) {
+              const bodyMatch = html.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
+              if (bodyMatch) return bodyMatch[1].trim();
+              // Fallback: return the whole content
+              return html;
+            }
+
+            // Create output directory
+            const outputDir = '_site';
+            if (!fs.existsSync(outputDir)) {
+              fs.mkdirSync(outputDir, { recursive: true });
+            }
+
+            // Find all HTML files (excluding vendor and output directories)
+            const htmlFiles = [];
+            function findHtmlFiles(dir, baseDir) {
+              const entries = fs.readdirSync(dir, { withFileTypes: true });
+              for (const entry of entries) {
+                const fullPath = path.join(dir, entry.name);
+                const relativePath = path.relative(baseDir, fullPath);
+                if (entry.isDirectory()) {
+                  if (!['node_modules', 'dist', 'webview', '.git', '_site'].includes(entry.name)) {
+                    findHtmlFiles(fullPath, baseDir);
+                  }
+                } else if (entry.isFile() && /\.(html?|htm)$/i.test(entry.name)) {
+                  htmlFiles.push({ fullPath, relativePath });
+                }
+              }
+            }
+
+            findHtmlFiles('.', '.');
+
+            if (htmlFiles.length === 0) {
+              console.log('No HTML files found. Creating default index page.');
+              // Create a default index.html
+              fs.writeFileSync(path.join(outputDir, 'index.html'), \`<!DOCTYPE html>
+<html lang=\"en\">
+<head>
+  <meta charset=\"UTF-8\">
+  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">
+  <title>Htmly Site</title>
+  <style>
+\${BASE_CSS}
+  </style>
+</head>
+<body>
+  <h1>Welcome to Htmly</h1>
+  <p>This is a placeholder for your exported static site. Add HTML files to your repository to see them exported here.</p>
+</body>
+</html>\`);
+            } else {
+              console.log('Found HTML files:', htmlFiles.map(f => f.relativePath));
+              
+              // Get site title from first file or repository name
+              const repoName = process.env.GITHUB_REPOSITORY?.split('/')[1] || 'My Site';
+              const siteTitle = repoName.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+              const siteDescription = 'A static site generated by Htmly';
+              
+              // Export each HTML file
+              for (const { fullPath, relativePath } of htmlFiles) {
+                const html = fs.readFileSync(fullPath, 'utf-8');
+                const bodyContent = extractBody(html);
+                const pageName = path.basename(relativePath, path.extname(relativePath));
+                const title = extractTitle(html, pageName);
+                
+                // Create output path (maintain directory structure)
+                const outputPath = relativePath.replace(/\\/g, '/');
+                const outputFile = path.join(outputDir, outputPath);
+                const outputDirForFile = path.dirname(outputFile);
+                
+                if (!fs.existsSync(outputDirForFile)) {
+                  fs.mkdirSync(outputDirForFile, { recursive: true });
+                }
+                
+                // Wrap content in HTML document
+                const wrappedHtml = wrapInHtmlDocument(bodyContent, title, siteTitle, siteDescription);
+                fs.writeFileSync(outputFile, wrappedHtml);
+                console.log('Exported:', relativePath, '->', outputPath);
+              }
+              
+              console.log('Static site export complete');
+            }
+          "
+
+      - name: Create CNAME file for custom domain (if specified)
+        if: inputs.custom_domain != ''
+        run: |
+          echo "${{ inputs.custom_domain }}" > _site/CNAME
+          echo "CNAME file created with domain: ${{ inputs.custom_domain }}"
 
       - name: Verify static site output
         run: |
-          if [ ! -d "_site" ]; then
-            echo "Warning: _site directory not created. Creating empty structure for deployment."
-            mkdir -p _site
-            # Create a default index.html if no files were exported
-            if [ ! -f "_site/index.html" ]; then
-              cat > _site/index.html << 'EOF'
-              <!DOCTYPE html>
-              <html lang="en">
-              <head>
-                <meta charset="UTF-8">
-                <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                <title>Htmly Site</title>
-                <style>
-                  body { font-family: system-ui, sans-serif; max-width: 800px; margin: 50px auto; padding: 20px; }
-                  h1 { color: #333; }
-                  p { color: #666; line-height: 1.6; }
-                </style>
-              </head>
-              <body>
-                <h1>Welcome to Htmly</h1>
-                <p>This is a placeholder for your exported static site. Add HTML files to your repository to see them exported here.</p>
-              </body>
-              </html>
-              EOF
-            fi
-          fi
           echo "Contents of _site directory:"
           ls -la _site/
+          if [ -f "_site/CNAME" ]; then
+            echo "CNAME file exists in artifact:"
+            cat _site/CNAME
+          fi
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
@@ -126,9 +237,3 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
-
-      - name: Create CNAME file for custom domain (if specified)
-        if: inputs.custom_domain != ''
-        run: |
-          echo "${{ inputs.custom_domain }}" > _site/CNAME
-          echo "CNAME file created with domain: ${{ inputs.custom_domain }}"

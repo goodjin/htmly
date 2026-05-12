@@ -2,6 +2,7 @@
 import { computed, ref, watch, onMounted, onBeforeUnmount, nextTick } from 'vue';
 import type { EditorMode, HtmlySettings, TemplateCategory, UserTemplateMetadata, SnippetCategory } from '../../src/shared/types';
 import { useVSCode } from './composables/useVSCode';
+import { useExport } from './composables/useExport';
 import { useSharedHistory, onHistoryChange } from './composables/useSharedHistory';
 import { useProjectSearch } from './composables/useProjectSearch';
 import { useSpellCheck } from './composables/useSpellCheck';
@@ -42,7 +43,6 @@ const {
   requestExportHistory,
   clearCrashRecoveryData,
   clearHistoryExportedPath,
-  requestExport,
   userTemplates,
   userSnippets,
   loadUserTemplates,
@@ -55,6 +55,9 @@ const {
   loadSnippetContent,
   handleWikiLinkClick
 } = useVSCode();
+
+// Export composable (handles seoSettings and siteOptions)
+const { requestExport: exportRequest } = useExport();
 
 // Project search composable
 const {
@@ -568,7 +571,7 @@ function handleDeleteSnippet(id: string) {
 }
 
 // Export handler
-function handleExportRequest(format: 'pdf' | 'markdown' | 'plaintext' | 'embedded', options?: import('../../src/shared/types').PdfExportOptions) {
+function handleExportRequest(format: 'pdf' | 'markdown' | 'plaintext' | 'embedded' | 'site', options?: import('../../src/shared/types').PdfExportOptions, seoSettings?: import('../../src/shared/types').SeoSettings) {
   if (format === 'pdf') {
     // PDF export with options
     if (options) {
@@ -579,8 +582,22 @@ function handleExportRequest(format: 'pdf' | 'markdown' | 'plaintext' | 'embedde
     window.print();
     return;
   }
+  
+  if (format === 'site') {
+    // Static site export with SEO settings
+    // Derive siteOptions from seoSettings for the export message
+    const siteOptions = seoSettings ? {
+      siteTitle: seoSettings.seoTitle,
+      siteDescription: seoSettings.seoDescription,
+      seoTitle: seoSettings.seoTitle,
+      customDescription: seoSettings.seoDescription,
+    } : undefined;
+    exportRequest(format, content.value, seoSettings, siteOptions);
+    return;
+  }
+  
   // Get the full HTML content for export
-  requestExport(format, content.value);
+  exportRequest(format, content.value);
 }
 
 // Store print media query and cleanup handler for proper cleanup
