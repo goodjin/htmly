@@ -232,6 +232,8 @@ interface ListItemData {
   type: 'list-item';
   children: TextRunData[];
   ordered: boolean;  // true for ol, false for ul
+  level: number;  // nesting level (0 = top level, 1 = nested, etc.)
+  nestedItems?: ListItemData[];  // nested list items within this li
 }
 
 interface TableData {
@@ -599,22 +601,117 @@ function parseHtmlContent(html: string): ContentBlock[] {
 
 /**
  * Parse list items from ul or ol content
+ * Handles nested lists by detecting <ul>/<ol> inside <li> and parsing them recursively
  */
-function parseListItems(listHtml: string, ordered: boolean): ListItemData[] {
+function parseListItems(listHtml: string, ordered: boolean, level: number = 0): ListItemData[] {
   const items: ListItemData[] = [];
   
+  // Match li tags with their full content
   const liPattern = /<li[^>]*>([\s\S]*?)<\/li>/gi;
   let match;
   
   while ((match = liPattern.exec(listHtml)) !== null) {
     const liContent = match[1];
-    const textRuns = parseInlineFormatting(stripHtmlTags(liContent));
     
-    items.push({
-      type: 'list-item',
-      children: textRuns,
-      ordered,
-    });
+    // Check for nested lists within this li
+    const nestedUlMatch = liContent.match(/<ul[^>]*>([\s\S]*?)<\/ul>/i);
+    const nestedOlMatch = liContent.match(/<ol[^>]*>([\s\S]*?)<\/ol>/i);
+    
+    let textRuns: TextRunData[] = [];
+    let nestedItems: ListItemData[] | undefined;
+    
+    if (nestedUlMatch || nestedOlMatch) {
+      // There are nested lists - process content around and including the nested list
+      nestedItems = [];
+      
+      // Find all nested list positions
+      const nestedLists: { start: number; end: number; content: string; ordered: boolean }[] = [];
+      
+      const ulGlobal = /<ul[^>]*>([\s\S]*?)<\/ul>/gi;
+      let ulMatch;
+      while ((ulMatch = ulGlobal.exec(liContent)) !== null) {
+        nestedLists.push({
+          start: ulMatch.index,
+          end: ulMatch.index + ulMatch[0].length,
+          content: ulMatch[1],
+          ordered: false,
+        });
+      }
+      
+      const olGlobal = /<ol[^>]*>([\s\S]*?)<\/ol>/gi;
+      let olMatch;
+      while ((olMatch = olGlobal.exec(liContent)) !== null) {
+        nestedLists.push({
+          start: olMatch.index,
+          end: olMatch.index + olMatch[0].length,
+          content: olMatch[1],
+          ordered: true,
+        });
+      }
+      
+      // Sort by position
+      nestedLists.sort((a, b) => a.start - b.start);
+      
+      // Process content: text before first nested list, then each nested list, then text after
+      let lastEnd = 0;
+      for (const nested of nestedLists) {
+        // Text before this nested list
+        if (nested.start > lastEnd) {
+          const textBefore = liContent.slice(lastEnd, nested.start);
+          const beforeRuns = parseInlineFormatting(stripHtmlTags(textBefore));
+          if (beforeRuns.length > 0) {
+            items.push({
+              type: 'list-item',
+              children: beforeRuns,
+              ordered,
+              level,
+            });
+          }
+        }
+        
+        // The nested list items
+        const nestedListItems = parseListItems(nested.content, nested.ordered, level + 1);
+        nestedItems.push(...nestedListItems);
+        
+        lastEnd = nested.end;
+      }
+      
+      // Text after last nested list
+      if (lastEnd < liContent.length) {
+        const textAfter = liContent.slice(lastEnd);
+        const afterRuns = parseInlineFormatting(stripHtmlTags(textAfter));
+        if (afterRuns.length > 0) {
+          items.push({
+            type: 'list-item',
+            children: afterRuns,
+            ordered,
+            level,
+          });
+        }
+      }
+    } else {
+      // No nested lists - just strip tags and parse inline formatting
+      textRuns = parseInlineFormatting(stripHtmlTags(liContent));
+    }
+    
+    if (textRuns.length > 0) {
+      items.push({
+        type: 'list-item',
+        children: textRuns,
+        ordered,
+        level,
+        ...(nestedItems && nestedItems.length > 0 ? { nestedItems } : {}),
+      });
+    } else if (nestedItems && nestedItems.length > 0) {
+      // Item with only nested content (no direct text)
+      items.push({
+        type: 'list-item',
+        children: [],
+        ordered,
+        level,
+        nestedItems,
+      });
+    }
   }
   
   return items;
@@ -740,6 +837,18 @@ export function convertHtmlToDocxContent(html: string): (Paragraph | Table)[] {
         result.push(createTable(block));
       } else if (block.type === 'list-item') {
         result.push(createListParagraph(block));
+        // Process nested items if present
+        if (block.nestedItems && block.nestedItems.length > 0) {
+          for (const nestedItem of block.nestedItems) {
+            result.push(createListParagraph(nestedItem));
+            // Recursively process any nested items within nested items
+            if (nestedItem.nestedItems && nestedItem.nestedItems.length > 0) {
+              for (const deeplyNested of nestedItem.nestedItems) {
+                result.push(createListParagraph(deeplyNested));
+              }
+            }
+          }
+        }
       } else if (block.type === 'image') {
         // Images are logged - full embedding requires base64 data
         console.warn('Image block found but cannot be embedded without image data:', block.src);
@@ -776,12 +885,14 @@ function createListParagraph(data: ListItemData): Paragraph {
   
   // Use proper Word numbering reference
   const numberingRef = data.ordered ? 'numbered-list' : 'bullet-list';
+  // Clamp level to max 1 (our numbering config only defines 0 and 1)
+  const level = Math.min(data.level, 1);
   
   return new Paragraph({
     children: textRuns,
     numbering: {
       reference: numberingRef,
-      level: 0,
+      level,
     },
   });
 }
