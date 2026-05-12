@@ -163,11 +163,12 @@ describe('versionPreviewRestore', () => {
       const db = new VersionHistoryDatabase(mockContext as any);
       await db.initialize();
       
-      // Mock getVersion query
+      // Mock getVersion query - returns id, content, timestamp, pinned (4 values matching SELECT columns)
       mockDb.exec.mockImplementation((sql: string) => {
         if (sql.includes('SELECT id, content, timestamp')) {
+          // 4 values: id, content, timestamp, pinned
           return [{
-            values: [[1, '<html><body>Version 1 content</body></html>', '2024-01-01T00:00:00.000Z']]
+            values: [[1, '<html><body>Version 1 content</body></html>', '2024-01-01T00:00:00.000Z', 0]]
           }];
         }
         if (sql.includes('sqlite_master')) {
@@ -191,7 +192,7 @@ describe('versionPreviewRestore', () => {
       
       expect(version).not.toBeNull();
       expect(version?.content).toBe('<html><body>Version 1 content</body></html>');
-      expect(version?.versionNumber).toBeUndefined(); // versionNumber is not returned by getVersion
+      expect(version?.versionNumber).toBe(1); // versionNumber is returned from the parameter
     });
     
     it('getVersion returns null when version not found', async () => {
