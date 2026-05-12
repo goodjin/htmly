@@ -20,6 +20,8 @@ import {
   WidthType,
   ShadingType,
   UnderlineType,
+  ExternalHyperlink,
+  LevelFormat,
 } from 'docx';
 
 // Standard page sizes in points (1 inch = 72 points)
@@ -106,7 +108,70 @@ export function createDocxDocument(config: DocxConfig, content: (Paragraph | Tab
   const width = config.orientation === 'landscape' ? pageDimensions.height : pageDimensions.width;
   const height = config.orientation === 'landscape' ? pageDimensions.width : pageDimensions.height;
 
+  // Create numbering definitions for lists
+  const numbering = {
+    config: [
+      {
+        reference: 'bullet-list',
+        levels: [
+          {
+            level: 0,
+            format: LevelFormat.BULLET,
+            text: '\u2022',
+            alignment: AlignmentType.LEFT,
+            style: {
+              paragraph: {
+                indent: { left: convertInchesToTwip(0.25), hanging: convertInchesToTwip(0.25) },
+              },
+            },
+          },
+          {
+            level: 1,
+            format: LevelFormat.BULLET,
+            text: '\u25E6',
+            alignment: AlignmentType.LEFT,
+            style: {
+              paragraph: {
+                indent: { left: convertInchesToTwip(0.5), hanging: convertInchesToTwip(0.25) },
+              },
+            },
+          },
+        ],
+      },
+      {
+        reference: 'numbered-list',
+        levels: [
+          {
+            level: 0,
+            format: LevelFormat.DECIMAL,
+            text: '%1.',
+            alignment: AlignmentType.LEFT,
+            start: 1,
+            style: {
+              paragraph: {
+                indent: { left: convertInchesToTwip(0.25), hanging: convertInchesToTwip(0.25) },
+              },
+            },
+          },
+          {
+            level: 1,
+            format: LevelFormat.LOWER_LETTER,
+            text: '%2.',
+            alignment: AlignmentType.LEFT,
+            start: 1,
+            style: {
+              paragraph: {
+                indent: { left: convertInchesToTwip(0.5), hanging: convertInchesToTwip(0.25) },
+              },
+            },
+          },
+        ],
+      },
+    ],
+  };
+
   const doc = new Document({
+    numbering,
     sections: [
       {
         properties: {
@@ -143,15 +208,30 @@ interface TextRunData {
   underline?: boolean;
   strike?: boolean;
   code?: boolean;
+  href?: string;  // For hyperlinks
 }
 
-type ContentBlock = ParagraphData | TableData | string;
+interface ImageData {
+  type: 'image';
+  src: string;
+  alt?: string;
+  width?: number;
+  height?: number;
+}
+
+type ContentBlock = ParagraphData | TableData | ListItemData | ImageData | string;
 
 interface ParagraphData {
   type: 'paragraph';
   children: TextRunData[];
   headingLevel?: typeof HeadingLevel[keyof typeof HeadingLevel];
   alignment?: typeof AlignmentType[keyof typeof AlignmentType];
+}
+
+interface ListItemData {
+  type: 'list-item';
+  children: TextRunData[];
+  ordered: boolean;  // true for ol, false for ul
 }
 
 interface TableData {
@@ -212,8 +292,8 @@ function stripHtmlTags(html: string): string {
 function parseInlineFormatting(html: string): TextRunData[] {
   const result: TextRunData[] = [];
   
-  // Pattern to match inline elements
-  const inlinePattern = /<(strong|b|em|i|u|s|del|code|span|mark|a)(?:\s+[^>]*)?>([\s\S]*?)<\/\1>|<([^>\s]+)(?:\s+[^>]*)?\/>/gi;
+  // Pattern to match inline elements - improved to capture href for anchor tags
+  const inlinePattern = /<(strong|b|em|i|u|s|del|code|span|mark)(?:\s+[^>]*)?>([\s\S]*?)<\/\1>|<(a)(?:\s+[^>]*)?>([\s\S]*?)<\/\3>|<img[^>]+>|<([^>\s]+)(?:\s+[^>]*)?\/>/gi;
   
   let lastIndex = 0;
   let match;
@@ -225,9 +305,31 @@ function parseInlineFormatting(html: string): TextRunData[] {
       result.push({ text: decodeHtmlEntities(beforeText) });
     }
     
-    const tagName = match[1] ? match[1].toLowerCase() : match[3] ? match[3].toLowerCase() : '';
-    const content = match[2] || '';
     const fullMatch = match[0];
+    
+    // Handle anchor tags with href
+    if (match[3] === 'a' || (match[3] && match[3].toLowerCase() === 'a')) {
+      const content = match[4] || '';
+      // Extract href attribute
+      const hrefMatch = fullMatch.match(/href=["']([^"']+)["']/);
+      const href = hrefMatch ? hrefMatch[1] : '';
+      const children = parseInlineFormatting(content);
+      for (const child of children) {
+        result.push({ ...child, href });
+      }
+      lastIndex = match.index + fullMatch.length;
+      continue;
+    }
+    
+    // Handle image tags
+    if (match[0].startsWith('<img')) {
+      // Images are handled at block level, skip here
+      lastIndex = match.index + fullMatch.length;
+      continue;
+    }
+    
+    const tagName = match[1] ? match[1].toLowerCase() : match[5] ? match[5].toLowerCase() : '';
+    const content = match[2] || '';
     
     // Handle self-closing tags
     if (fullMatch.endsWith('/>') && !content) {
@@ -261,10 +363,6 @@ function parseInlineFormatting(html: string): TextRunData[] {
       for (const child of children) {
         result.push({ ...child });
       }
-    } else if (tagName === 'a') {
-      // Links - just include text
-      const children = parseInlineFormatting(content);
-      result.push(...children);
     } else if (tagName === 'span') {
       // Span - process children
       result.push(...parseInlineFormatting(content));
@@ -288,20 +386,40 @@ function parseInlineFormatting(html: string): TextRunData[] {
  * Convert parsed content to docx Paragraph
  */
 function createParagraph(data: ParagraphData): Paragraph {
-  const textRuns = data.children.map((child) => {
-    const run = new TextRun({
-      text: child.text,
-      bold: child.bold,
-      italics: child.italics,
-      underline: child.underline ? { type: UnderlineType.SINGLE } : undefined,
-      strike: child.strike,
-      font: child.code ? 'Courier New' : undefined,
-    });
-    return run;
-  });
+  const children: (TextRun | ExternalHyperlink)[] = [];
+  
+  for (const child of data.children) {
+    // If there's an href, create a hyperlink
+    if (child.href) {
+      const linkText = new TextRun({
+        text: child.text,
+        bold: child.bold,
+        italics: child.italics,
+        underline: child.underline ? { type: UnderlineType.SINGLE } : undefined,
+        strike: child.strike,
+        font: child.code ? 'Courier New' : undefined,
+      });
+      children.push(
+        new ExternalHyperlink({
+          link: child.href,
+          children: [linkText],
+        })
+      );
+    } else {
+      const run = new TextRun({
+        text: child.text,
+        bold: child.bold,
+        italics: child.italics,
+        underline: child.underline ? { type: UnderlineType.SINGLE } : undefined,
+        strike: child.strike,
+        font: child.code ? 'Courier New' : undefined,
+      });
+      children.push(run);
+    }
+  }
   
   return new Paragraph({
-    children: textRuns,
+    children,
     heading: data.headingLevel,
     alignment: data.alignment,
   });
@@ -394,6 +512,21 @@ function parseHtmlContent(html: string): ContentBlock[] {
       }
     }
     
+    // Check for self-closing tags before this match
+    const selfClosingBefore = html.slice(lastIndex, match.index);
+    let imgMatch;
+    const imgPattern = /<(img|br|hr)(?:\s+[^>]*)?\/?>/gi;
+    while ((imgMatch = imgPattern.exec(selfClosingBefore)) !== null) {
+      if (imgMatch[1].toLowerCase() === 'img') {
+        const imgData = parseImageTag(imgMatch[0]);
+        if (imgData) {
+          blocks.push(imgData);
+        }
+      } else if (imgMatch[1].toLowerCase() === 'br') {
+        // BR tags are handled inline, skip here
+      }
+    }
+    
     const fullMatch = match[0];
     const tagName = (match[1] || '').toLowerCase();
     const content = match[2];
@@ -432,11 +565,11 @@ function parseHtmlContent(html: string): ContentBlock[] {
         blocks.push({ type: 'paragraph', children: textRuns.map(t => ({ ...t, code: true })) });
       }
     } else if (tagName === 'ul') {
-      const tableData = parseList(content, false);
-      blocks.push(tableData);
+      const listItems = parseListItems(content, false);
+      blocks.push(...listItems);
     } else if (tagName === 'ol') {
-      const tableData = parseList(content, true);
-      blocks.push(tableData);
+      const listItems = parseListItems(content, true);
+      blocks.push(...listItems);
     } else if (tagName === 'table') {
       const tableData = parseTable(fullMatch);
       if (tableData) {
@@ -465,12 +598,10 @@ function parseHtmlContent(html: string): ContentBlock[] {
 }
 
 /**
- * Parse list content (ul or ol)
+ * Parse list items from ul or ol content
  */
-function parseList(listHtml: string, _ordered: boolean): TableData {
-  // Note: ordered parameter reserved for future use when differentiating bullet vs numbered lists
-  void _ordered;
-  const rows: TableRowData[] = [];
+function parseListItems(listHtml: string, ordered: boolean): ListItemData[] {
+  const items: ListItemData[] = [];
   
   const liPattern = /<li[^>]*>([\s\S]*?)<\/li>/gi;
   let match;
@@ -479,15 +610,35 @@ function parseList(listHtml: string, _ordered: boolean): TableData {
     const liContent = match[1];
     const textRuns = parseInlineFormatting(stripHtmlTags(liContent));
     
-    // For simplicity, we use a table with a single cell per list item
-    rows.push({
-      cells: [textRuns],
+    items.push({
+      type: 'list-item',
+      children: textRuns,
+      ordered,
     });
   }
   
+  return items;
+}
+
+/**
+ * Parse an image tag and extract image data
+ */
+function parseImageTag(imgTag: string): ImageData | null {
+  const srcMatch = imgTag.match(/src=["']([^"']+)["']/);
+  const altMatch = imgTag.match(/alt=["']([^"']+)["']/);
+  const widthMatch = imgTag.match(/width=["'](\d+)/);
+  const heightMatch = imgTag.match(/height=["'](\d+)/);
+  
+  if (!srcMatch) {
+    return null;
+  }
+  
   return {
-    type: 'table',
-    rows,
+    type: 'image',
+    src: srcMatch[1],
+    alt: altMatch ? altMatch[1] : undefined,
+    width: widthMatch ? parseInt(widthMatch[1], 10) : undefined,
+    height: heightMatch ? parseInt(heightMatch[1], 10) : undefined,
   };
 }
 
@@ -578,20 +729,26 @@ export function convertHtmlToDocxContent(html: string): (Paragraph | Table)[] {
   
   try {
     const blocks = parseHtmlContent(html);
+    const result: (Paragraph | Table)[] = [];
     
-    return blocks.map((block) => {
+    for (const block of blocks) {
       if (typeof block === 'string') {
-        return new Paragraph({
+        result.push(new Paragraph({
           children: [new TextRun({ text: block })],
-        });
+        }));
+      } else if (block.type === 'table') {
+        result.push(createTable(block));
+      } else if (block.type === 'list-item') {
+        result.push(createListParagraph(block));
+      } else if (block.type === 'image') {
+        // Images are logged - full embedding requires base64 data
+        console.warn('Image block found but cannot be embedded without image data:', block.src);
+      } else if (block.type === 'paragraph') {
+        result.push(createParagraph(block));
       }
-      
-      if (block.type === 'table') {
-        return createTable(block);
-      }
-      
-      return createParagraph(block);
-    });
+    }
+    
+    return result;
   } catch (error) {
     console.error('Error converting HTML to DOCX content:', error);
     return [
@@ -600,6 +757,33 @@ export function convertHtmlToDocxContent(html: string): (Paragraph | Table)[] {
       }),
     ];
   }
+}
+
+/**
+ * Create a list paragraph with proper Word numbering
+ */
+function createListParagraph(data: ListItemData): Paragraph {
+  const textRuns = data.children.map((child) => {
+    return new TextRun({
+      text: child.text,
+      bold: child.bold,
+      italics: child.italics,
+      underline: child.underline ? { type: UnderlineType.SINGLE } : undefined,
+      strike: child.strike,
+      font: child.code ? 'Courier New' : undefined,
+    });
+  });
+  
+  // Use proper Word numbering reference
+  const numberingRef = data.ordered ? 'numbered-list' : 'bullet-list';
+  
+  return new Paragraph({
+    children: textRuns,
+    numbering: {
+      reference: numberingRef,
+      level: 0,
+    },
+  });
 }
 
 /**

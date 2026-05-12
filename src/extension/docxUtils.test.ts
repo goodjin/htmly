@@ -264,13 +264,51 @@ describe('docxUtils', () => {
       expect(result.data).toBeDefined();
     });
 
-    it('should generate DOCX with lists', async () => {
+    it('should generate DOCX with unordered lists', async () => {
       const html = `
         <ul>
           <li>Item 1</li>
           <li>Item 2</li>
         </ul>
       `;
+      const result = await createDocxFromHtml(html);
+      expect(result.success).toBe(true);
+      expect(result.data).toBeDefined();
+    });
+
+    it('should generate DOCX with ordered lists', async () => {
+      const html = `
+        <ol>
+          <li>First</li>
+          <li>Second</li>
+          <li>Third</li>
+        </ol>
+      `;
+      const result = await createDocxFromHtml(html);
+      expect(result.success).toBe(true);
+      expect(result.data).toBeDefined();
+    });
+
+    it('should generate DOCX with mixed lists', async () => {
+      const html = `
+        <h2>Shopping List</h2>
+        <ul>
+          <li>Fruits
+            <ol>
+              <li>Apples</li>
+              <li>Oranges</li>
+            </ol>
+          </li>
+          <li>Dairy</li>
+        </ul>
+      `;
+      const result = await createDocxFromHtml(html);
+      expect(result.success).toBe(true);
+      expect(result.data).toBeDefined();
+    });
+
+    it('should generate DOCX with hyperlinks', async () => {
+      const html = '<p>Visit <a href="https://example.com">our website</a> for more info.</p>';
       const result = await createDocxFromHtml(html);
       expect(result.success).toBe(true);
       expect(result.data).toBeDefined();
@@ -311,6 +349,20 @@ describe('docxUtils', () => {
       });
       expect(result.success).toBe(true);
       expect(result.data).toBeDefined();
+    });
+
+    it('should generate valid DOCX ZIP structure', async () => {
+      const html = '<p>Hello World</p>';
+      const result = await createDocxFromHtml(html);
+      expect(result.success).toBe(true);
+      expect(result.data).toBeDefined();
+      
+      // DOCX is a ZIP file - verify it starts with PK (ZIP magic bytes)
+      const bytes = new Uint8Array(result.data!);
+      expect(bytes[0]).toBe(0x50); // 'P'
+      expect(bytes[1]).toBe(0x4B); // 'K'
+      expect(bytes[2]).toBe(0x03); // ZIP version
+      expect(bytes[3]).toBe(0x04); // ZIP flags
     });
   });
 });
