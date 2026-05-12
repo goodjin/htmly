@@ -28,6 +28,8 @@ import { setPageIndex, setWikiLinkClickCallback, addPage } from './extensions/Wi
 import BacklinksPanel from './components/BacklinksPanel.vue';
 import { useBacklinks } from './composables/useBacklinks';
 import type { BacklinkInfo } from './composables/useBacklinks';
+import VersionHistoryPanel from './components/VersionHistoryPanel.vue';
+import { useVersionHistory } from './composables/useVersionHistory';
 
 const { 
   onMessage, 
@@ -97,6 +99,10 @@ const spellCheckWord = ref<string>('');
 // Backlinks panel state
 const showBacklinksPanel = ref(false);
 const { setBacklinks, setCurrentPage, totalBacklinks } = useBacklinks();
+
+// Version history panel state
+const showVersionHistoryPanel = ref(false);
+const versionHistory = useVersionHistory();
 
 // Shared history for cross-mode undo/redo
 const sharedHistory = useSharedHistory();
@@ -369,6 +375,25 @@ function handleOpenBacklink(pageName: string, pagePath?: string) {
   // Send message to extension to open the page
   postMessage({ type: 'openFile', filePath: pagePath || `${pageName}.html` });
   showBacklinksPanel.value = false;
+}
+
+// Version history panel functions
+function toggleVersionHistoryPanel() {
+  showVersionHistoryPanel.value = !showVersionHistoryPanel.value;
+  // When opening the panel, request version history from extension
+  if (showVersionHistoryPanel.value) {
+    versionHistory.requestVersionHistory();
+  }
+}
+
+function handleVersionSelect(versionNumber: number) {
+  versionHistory.selectVersion(versionNumber);
+}
+
+function handleVersionRestore(versionNumber: number) {
+  versionHistory.restoreVersion(versionNumber);
+  // Close panel after restore
+  showVersionHistoryPanel.value = false;
 }
 
 // Format painter state
@@ -999,12 +1024,14 @@ onBeforeUnmount(() => {
       :show-toc="showTOC"
       :show-history="showHistoryPanel"
       :show-backlinks="showBacklinksPanel"
+      :show-version-history="showVersionHistoryPanel"
       :save-status="saveStatus"
       @set-mode="setMode"
       @activate-format-painter="activateFormatPainter"
       @toggle-toc="toggleTOC"
       @toggle-history="toggleHistoryPanel"
       @toggle-backlinks="toggleBacklinksPanel"
+      @toggle-version-history="toggleVersionHistoryPanel"
       @toggle-template="toggleTemplateSelector"
       @open-cover-dialog="tiptapRef?.openCoverImageDialog()"
       @export-request="handleExportRequest"
@@ -1093,6 +1120,21 @@ onBeforeUnmount(() => {
       :visible="showBacklinksPanel"
       @close="showBacklinksPanel = false"
       @open-page="handleOpenBacklink"
+    />
+
+    <!-- Version History Panel -->
+    <VersionHistoryPanel
+      :visible="showVersionHistoryPanel"
+      :versions="versionHistory.versions.value.map((v, i) => ({
+        ...v,
+        index: i,
+        isSelected: v.versionNumber === versionHistory.selectedVersionNumber.value
+      }))"
+      :is-loading="versionHistory.isLoading.value"
+      :is-restoring="versionHistory.isRestoring.value"
+      @close="showVersionHistoryPanel = false"
+      @select="handleVersionSelect"
+      @restore="handleVersionRestore"
     />
 
     <!-- Template Selector -->

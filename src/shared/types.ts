@@ -92,6 +92,18 @@ export interface HistoryEntry {
   cursorPosition?: number;
 }
 
+// Version history entry for persisted document versions (from database)
+export interface VersionHistoryEntry {
+  /** Database ID for this version */
+  id: number;
+  /** Version number (increments per document) */
+  versionNumber: number;
+  /** HTML content at this version (may be null if using diffs) */
+  content: string | null;
+  /** ISO timestamp when version was saved */
+  timestamp: string;
+}
+
 // History state for persistence
 export interface HistoryState {
   entries: HistoryEntry[];
@@ -281,7 +293,9 @@ export type ExtToWebMsg =
   | { type: 'keybindingImportResponse'; success: boolean; count?: number; error?: string }
   | { type: 'wikiPages'; pages: WikiPage[] }
   | { type: 'backlinks'; pageName: string; backlinks: BacklinkInfo[] }
-  | { type: 'pageCreated'; pageName: string; pagePath: string };
+  | { type: 'pageCreated'; pageName: string; pagePath: string }
+  | { type: 'versionHistory'; versions: VersionHistoryEntry[] }
+  | { type: 'versionRestored'; versionNumber: number; content: string };
 
 // Messages from webview → extension
 export type WebToExtMsg =
@@ -320,4 +334,6 @@ export type WebToExtMsg =
   | { type: 'resetKeybindings' }
   | { type: 'requestBacklinks'; pageName: string }
   | { type: 'createPage'; pageName: string }
-  | { type: 'openWikiLink'; pageName: string; existingPages: string[] };
+  | { type: 'openWikiLink'; pageName: string; existingPages: string[] }
+  | { type: 'requestVersionHistory' }
+  | { type: 'restoreVersion'; versionNumber: number };

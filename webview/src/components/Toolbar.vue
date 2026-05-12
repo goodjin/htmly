@@ -25,6 +25,7 @@ const props = defineProps<{
   showTOC?: boolean;
   showHistory?: boolean;
   showBacklinks?: boolean;
+  showVersionHistory?: boolean;
   saveStatus?: 'idle' | 'saving' | 'saved' | 'error';
 }>();
 
@@ -34,6 +35,7 @@ const emit = defineEmits<{
   toggleTOC: [];
   toggleHistory: [];
   toggleBacklinks: [];
+  toggleVersionHistory: [];
   toggleTemplate: [];
   openCoverDialog: [];
   exportRequest: [format: ExportFormat, options?: PdfExportOptions, seoSettings?: import('../../../src/shared/types').SeoSettings];
@@ -789,6 +791,14 @@ function insertMathSymbol(symbol: string) {
         >
           <span class="btn-icon">📋</span>
           <span class="btn-label">Templates</span>
+        </button>
+        <button
+          title="Version History"
+          :class="{ active: showVersionHistory }"
+          @mousedown="btn(() => emit('toggleVersionHistory'))"
+        >
+          <span class="btn-icon">🕐</span>
+          <span class="btn-label">Versions</span>
         </button>
         <button
           title="Undo History"

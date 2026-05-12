@@ -450,6 +450,12 @@ export class HtmlyEditorProvider implements vscode.CustomTextEditorProvider {
         case 'openWikiLink':
           await this.handleOpenWikiLink(msg.pageName, msg.existingPages, webviewPanel);
           break;
+        case 'requestVersionHistory':
+          await this.handleRequestVersionHistory(docKey, webviewPanel);
+          break;
+        case 'restoreVersion':
+          await this.handleRestoreVersion(docKey, msg.versionNumber, document, webviewPanel);
+          break;
       }
     });
 
@@ -2114,6 +2120,88 @@ export class HtmlyEditorProvider implements vscode.CustomTextEditorProvider {
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#039;');
+  }
+
+  /**
+   * Handle request for version history - sends all versions for current document
+   */
+  private async handleRequestVersionHistory(docKey: string, panel: vscode.WebviewPanel): Promise<void> {
+    try {
+      const db = getVersionHistoryDb(this.context);
+      if (!db.isInitialized()) {
+        this.postMessage(panel, { type: 'versionHistory', versions: [] });
+        return;
+      }
+
+      const versions = db.getVersions(docKey);
+      this.postMessage(panel, { type: 'versionHistory', versions });
+    } catch (error) {
+      console.error('[VersionHistory] Failed to get versions:', error);
+      this.postMessage(panel, { type: 'versionHistory', versions: [] });
+    }
+  }
+
+  /**
+   * Handle restore version request - replaces current content with selected version
+   */
+  private async handleRestoreVersion(
+    docKey: string,
+    versionNumber: number,
+    document: vscode.TextDocument,
+    panel: vscode.WebviewPanel
+  ): Promise<void> {
+    try {
+      const db = getVersionHistoryDb(this.context);
+      if (!db.isInitialized()) {
+        vscode.window.showErrorMessage('Version history database not initialized');
+        return;
+      }
+
+      const version = db.getVersion(docKey, versionNumber);
+      if (!version) {
+        vscode.window.showErrorMessage(`Version ${versionNumber} not found`);
+        return;
+      }
+
+      // Get the version content - if null, we need to reconstruct from diffs
+      const content = version.content;
+      if (content === null) {
+        // Content was stored as diff, need to reconstruct
+        // For now, show an error - full diff reconstruction is complex
+        vscode.window.showErrorMessage('Version content not available (stored as diff)');
+        return;
+      }
+
+      // Ask for confirmation before restoring
+      const response = await vscode.window.showInformationMessage(
+        `Restore to version ${versionNumber}? This will replace the current content.`,
+        { modal: true },
+        'Restore',
+        'Cancel'
+      );
+
+      if (response === 'Restore') {
+        // Apply the content
+        const edit = new vscode.WorkspaceEdit();
+        edit.replace(
+          document.uri,
+          new vscode.Range(document.positionAt(0), document.positionAt(document.getText().length)),
+          content
+        );
+        await vscode.workspace.applyEdit(edit);
+        await document.save();
+
+        // Notify webview of the restored content
+        this.postMessage(panel, {
+          type: 'versionRestored',
+          versionNumber,
+          content,
+        });
+      }
+    } catch (error) {
+      console.error('[VersionHistory] Failed to restore version:', error);
+      vscode.window.showErrorMessage(`Failed to restore version: ${error}`);
+    }
   }
 
   private getWebviewHtml(webview: vscode.Webview): string {
