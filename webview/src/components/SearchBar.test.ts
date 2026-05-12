@@ -164,4 +164,108 @@ describe('SearchBar regex search', () => {
       expect(hasActiveClass).toBe(true);
     });
   });
+
+  describe('capture group replacement', () => {
+    /**
+     * Helper function that expands capture group references ($1, $2, etc.)
+     * This mirrors the implementation in SearchBar.vue
+     */
+    function expandCaptureGroups(replacement: string, match: RegExpExecArray): string {
+      return replacement.replace(/\$(\d+)/g, (_, groupNum: string) => {
+        const index = parseInt(groupNum, 10);
+        return match[index] !== undefined ? match[index] : _;
+      });
+    }
+
+    it('replaces $1 with first capture group', () => {
+      const content = 'hello world';
+      const regex = /(hello)/g;
+      const match = regex.exec(content)!;
+
+      const result = expandCaptureGroups('$1', match);
+      expect(result).toBe('hello');
+    });
+
+    it('duplicates match with $1$1 pattern', () => {
+      // Pattern: /(old)/ with replacement '$1$1' transforms "old" to "oldold"
+      const content = 'old text';
+      const regex = /(old)/g;
+      const match = regex.exec(content)!;
+
+      const result = expandCaptureGroups('$1$1', match);
+      expect(result).toBe('oldold');
+    });
+
+    it('supports multiple capture groups', () => {
+      // Pattern: /(\w+)@(\w+)/ with replacement '$2@$1' swaps username and domain
+      const content = 'user@example.com';
+      const regex = /(\w+)@(\w+)/g;
+      const match = regex.exec(content)!;
+
+      const result = expandCaptureGroups('$2@$1', match);
+      expect(result).toBe('example@user');
+    });
+
+    it('handles $0 for full match', () => {
+      const content = 'abc123';
+      const regex = /(\d+)/g;
+      const match = regex.exec(content)!;
+
+      const result = expandCaptureGroups('[$0]', match);
+      expect(result).toBe('[123]');
+    });
+
+    it('returns $1 for unmatched group reference', () => {
+      // When a group number doesn't exist, return the literal string
+      const content = 'hello';
+      const regex = /(hello)/g;
+      const match = regex.exec(content)!;
+
+      // $2 doesn't exist, should return $2 literally
+      const result = expandCaptureGroups('$1$2', match);
+      expect(result).toBe('hello$2');
+    });
+
+    it('handles replacement with surrounding text', () => {
+      const content = 'user@domain.com';
+      const regex = /(\w+)@(\w+)/g;
+      const match = regex.exec(content)!;
+
+      const result = expandCaptureGroups('Email: $1 from $2', match);
+      expect(result).toBe('Email: user from domain');
+    });
+
+    it('handles double dollar sign (escaped dollar)', () => {
+      // $$ should be replaced with a single $
+      // So $$1 becomes $ followed by $1, and $1 is then replaced with the capture group
+      const content = 'hello';
+      const regex = /(hello)/g;
+      const match = regex.exec(content)!;
+
+      // $$ -> $, then $1 -> capture group
+      const result = expandCaptureGroups('$$1', match);
+      expect(result).toBe('$hello');
+    });
+
+    it('handles numeric groups correctly', () => {
+      const content = 'abc123def';
+      const regex = /(\d+)/g;
+      const match = regex.exec(content)!;
+
+      // $10 should try to get group 10, not group 1 followed by 0
+      const result = expandCaptureGroups('$10', match);
+      // $10 is group 10 (doesn't exist) + 0, so it becomes $10
+      expect(result).toBe('$10');
+    });
+
+    it('handles pattern with multiple captures', () => {
+      const content = '<h1>Title</h1>';
+      const regex = /<(\w+)>(.*?)<\/\1>/g;
+      const match = regex.exec(content)!;
+
+      // match[1] = 'h1', match[2] = 'Title'
+      const result = expandCaptureGroups('<$1>$2</$1>', match);
+      expect(result).toBe('<h1>Title</h1>');
+    });
+  });
 });

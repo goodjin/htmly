@@ -17,7 +17,7 @@ const replaceTerm = ref('');
 const showReplace = ref(false);
 const isRegex = ref(false);
 const regexError = ref<string | null>(null);
-const matches = ref<Array<{ from: number; to: number }>>([]);
+const matches = ref<Array<{ from: number; to: number; match: RegExpExecArray }>>([]);
 const currentMatchIndex = ref(-1);
 
 const matchLabel = computed(() => {
@@ -51,6 +51,35 @@ watch(isRegex, () => {
  */
 function escapeRegex(str: string): string {
   return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * Expand capture group references ($1, $2, etc.) in replacement string.
+ * Also handles $$ escape sequence ($$ becomes $).
+ */
+function expandCaptureGroups(replacement: string, match: RegExpExecArray): string {
+  let result = '';
+  let i = 0;
+  while (i < replacement.length) {
+    // Handle $$ escape sequence - $$ becomes $
+    if (replacement[i] === '$' && replacement[i + 1] === '$') {
+      result += '$';
+      i += 2;
+    }
+    // Handle $1, $2, etc. capture group references
+    else if (replacement[i] === '$' && /\d/.test(replacement[i + 1])) {
+      const groupNum = replacement[i + 1];
+      const index = parseInt(groupNum, 10);
+      result += match[index] !== undefined ? match[index] : '$' + groupNum;
+      i += 2;
+    }
+    // Regular character
+    else {
+      result += replacement[i];
+      i++;
+    }
+  }
+  return result;
 }
 
 function findMatches() {
@@ -100,6 +129,7 @@ function findMatches() {
         result.push({
           from: pos + match.index,
           to: pos + match.index + match[0].length,
+          match: match,
         });
 
         // Prevent infinite loop for zero-length matches
@@ -145,8 +175,9 @@ function prevMatch() {
 
 function replaceCurrent() {
   if (!props.editor || currentMatchIndex.value === -1) return;
-  const { from, to } = matches.value[currentMatchIndex.value];
-  props.editor.chain().focus().insertContentAt({ from, to }, replaceTerm.value).run();
+  const { from, to, match } = matches.value[currentMatchIndex.value];
+  const expandedReplacement = expandCaptureGroups(replaceTerm.value, match);
+  props.editor.chain().focus().insertContentAt({ from, to }, expandedReplacement).run();
   findMatches();
 }
 
@@ -154,8 +185,9 @@ function replaceAll() {
   if (!props.editor || matches.value.length === 0) return;
   let tr = props.editor.state.tr;
   for (let i = matches.value.length - 1; i >= 0; i--) {
-    const { from, to } = matches.value[i];
-    tr = tr.insertText(replaceTerm.value, from, to);
+    const { from, to, match } = matches.value[i];
+    const expandedReplacement = expandCaptureGroups(replaceTerm.value, match);
+    tr = tr.insertText(expandedReplacement, from, to);
   }
   props.editor.view.dispatch(tr);
   findMatches();
