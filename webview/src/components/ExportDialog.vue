@@ -39,6 +39,12 @@ const showPdfOptions = ref(false);
 const includePageNumbers = ref(true);
 const headerText = ref('');
 const footerText = ref('');
+const pageSize = ref<'A4' | 'LETTER'>('A4');
+const orientation = ref<'portrait' | 'landscape'>('portrait');
+const marginTop = ref(70);
+const marginRight = ref(70);
+const marginBottom = ref(70);
+const marginLeft = ref(70);
 const newPresetName = ref('');
 const showSavePresetDialog = ref(false);
 
@@ -59,6 +65,14 @@ const currentOptions = computed<PdfExportOptions>(() => ({
   headerText: headerText.value,
   footerText: footerText.value,
   preset: selectedPreset.value.type,
+  pageSize: pageSize.value,
+  orientation: orientation.value,
+  margins: {
+    top: marginTop.value,
+    right: marginRight.value,
+    bottom: marginBottom.value,
+    left: marginLeft.value,
+  },
 }));
 
 // SEO settings for static site export
@@ -143,6 +157,14 @@ watch(selectedPresetId, (id) => {
     includePageNumbers.value = preset.options.includePageNumbers;
     headerText.value = preset.options.headerText;
     footerText.value = preset.options.footerText;
+    pageSize.value = preset.options.pageSize ?? 'A4';
+    orientation.value = preset.options.orientation ?? 'portrait';
+    if (preset.options.margins) {
+      marginTop.value = preset.options.margins.top;
+      marginRight.value = preset.options.margins.right;
+      marginBottom.value = preset.options.margins.bottom;
+      marginLeft.value = preset.options.margins.left;
+    }
   }
 });
 
@@ -159,16 +181,32 @@ watch(() => props.visible, (v) => {
       includePageNumbers.value = preset.options.includePageNumbers;
       headerText.value = preset.options.headerText;
       footerText.value = preset.options.footerText;
+      pageSize.value = preset.options.pageSize ?? 'A4';
+      orientation.value = preset.options.orientation ?? 'portrait';
+      if (preset.options.margins) {
+        marginTop.value = preset.options.margins.top;
+        marginRight.value = preset.options.margins.right;
+        marginBottom.value = preset.options.margins.bottom;
+        marginLeft.value = preset.options.margins.left;
+      }
     }
   }
 });
 
 // Update options when user changes them
-watch([includePageNumbers, headerText, footerText], () => {
+watch([includePageNumbers, headerText, footerText, pageSize, orientation, marginTop, marginRight, marginBottom, marginLeft], () => {
   updateSelectedPresetOptions({
     includePageNumbers: includePageNumbers.value,
     headerText: headerText.value,
     footerText: footerText.value,
+    pageSize: pageSize.value,
+    orientation: orientation.value,
+    margins: {
+      top: marginTop.value,
+      right: marginRight.value,
+      bottom: marginBottom.value,
+      left: marginLeft.value,
+    },
   });
 });
 
@@ -348,6 +386,93 @@ function toggleSeoOptions() {
               v-model="footerText"
               placeholder="Use {page} and {total} for page numbers"
             />
+          </div>
+
+          <!-- Page Size -->
+          <div class="option-row">
+            <label class="option-label" for="page-size">Page Size:</label>
+            <select 
+              id="page-size"
+              class="option-select"
+              v-model="pageSize"
+            >
+              <option value="A4">A4</option>
+              <option value="LETTER">Letter</option>
+            </select>
+          </div>
+
+          <!-- Orientation -->
+          <div class="option-row">
+            <label class="option-label">Orientation:</label>
+            <div class="orientation-toggle">
+              <button 
+                class="orientation-btn"
+                :class="{ active: orientation === 'portrait' }"
+                @click="orientation = 'portrait'"
+                title="Portrait"
+              >
+                📄
+              </button>
+              <button 
+                class="orientation-btn"
+                :class="{ active: orientation === 'landscape' }"
+                @click="orientation = 'landscape'"
+                title="Landscape"
+              >
+                📄➡️
+              </button>
+            </div>
+          </div>
+
+          <!-- Margins -->
+          <div class="option-row margins-label">
+            <span class="option-label">Margins:</span>
+          </div>
+          <div class="margins-grid">
+            <div class="margin-row">
+              <label class="margin-label" for="margin-top">Top:</label>
+              <input 
+                id="margin-top"
+                type="number"
+                class="margin-input"
+                v-model.number="marginTop"
+                min="0"
+                max="200"
+              />
+            </div>
+            <div class="margin-row">
+              <label class="margin-label" for="margin-right">Right:</label>
+              <input 
+                id="margin-right"
+                type="number"
+                class="margin-input"
+                v-model.number="marginRight"
+                min="0"
+                max="200"
+              />
+            </div>
+            <div class="margin-row">
+              <label class="margin-label" for="margin-bottom">Bottom:</label>
+              <input 
+                id="margin-bottom"
+                type="number"
+                class="margin-input"
+                v-model.number="marginBottom"
+                min="0"
+                max="200"
+              />
+            </div>
+            <div class="margin-row">
+              <label class="margin-label" for="margin-left">Left:</label>
+              <input 
+                id="margin-left"
+                type="number"
+                class="margin-input"
+                v-model.number="marginLeft"
+                min="0"
+                max="200"
+              />
+            </div>
           </div>
 
           <!-- Save as Preset -->
@@ -724,6 +849,81 @@ function toggleSeoOptions() {
 .save-preset-row {
   justify-content: flex-end;
   margin-top: 4px;
+}
+
+/* Orientation Toggle */
+.orientation-toggle {
+  display: flex;
+  gap: 4px;
+}
+
+.orientation-btn {
+  background: var(--vscode-input-background, #3c3c3c);
+  border: 1px solid var(--vscode-input-border, #454545);
+  border-radius: 4px;
+  padding: 4px 8px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background-color 100ms ease;
+}
+
+.orientation-btn:hover {
+  background: var(--vscode-toolbar-hoverBackground, #2a2d2e);
+}
+
+.orientation-btn.active {
+  background: var(--vscode-button-background, #0e639c);
+  border-color: var(--vscode-button-background, #0e639c);
+}
+
+/* Margins */
+.margins-label {
+  margin-top: 8px;
+}
+
+.margins-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-left: 70px;
+}
+
+.margin-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.margin-label {
+  font-size: 11px;
+  color: var(--vscode-editor-foreground, #cccccc);
+  min-width: 45px;
+}
+
+.margin-input {
+  width: 60px;
+  background: var(--vscode-input-background, #3c3c3c);
+  border: 1px solid var(--vscode-input-border, #454545);
+  border-radius: 4px;
+  padding: 4px 6px;
+  color: var(--vscode-input-foreground, #cccccc);
+  font-size: 11px;
+  font-family: inherit;
+}
+
+.margin-input:focus {
+  outline: none;
+  border-color: var(--vscode-focusBorder, #007acc);
+}
+
+.margin-input::-webkit-inner-spin-button, 
+.margin-input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.margin-input[type=number] {
+  -moz-appearance: textfield;
 }
 
 .save-preset-btn {

@@ -129,6 +129,103 @@ describe('ExportDialog.vue', () => {
       await wrapper.find('.pdf-options-toggle').trigger('click');
       expect(wrapper.find('.save-preset-btn').exists()).toBe(true);
     });
+
+    it('shows page size dropdown with A4 and Letter options', async () => {
+      const wrapper = mount(ExportDialog, {
+        props: { visible: true },
+      });
+      await wrapper.find('.pdf-options-toggle').trigger('click');
+      const pageSizeSelect = wrapper.find('#page-size');
+      expect(pageSizeSelect.exists()).toBe(true);
+      const options = pageSizeSelect.findAll('option');
+      expect(options).toHaveLength(2);
+      expect(options[0].text()).toBe('A4');
+      expect(options[1].text()).toBe('Letter');
+    });
+
+    it('shows orientation toggle with portrait and landscape buttons', async () => {
+      const wrapper = mount(ExportDialog, {
+        props: { visible: true },
+      });
+      await wrapper.find('.pdf-options-toggle').trigger('click');
+      const orientationButtons = wrapper.findAll('.orientation-btn');
+      expect(orientationButtons).toHaveLength(2);
+      expect(orientationButtons[0].exists()).toBe(true);
+      expect(orientationButtons[1].exists()).toBe(true);
+    });
+
+    it('shows all margin inputs', async () => {
+      const wrapper = mount(ExportDialog, {
+        props: { visible: true },
+      });
+      await wrapper.find('.pdf-options-toggle').trigger('click');
+      expect(wrapper.find('#margin-top').exists()).toBe(true);
+      expect(wrapper.find('#margin-right').exists()).toBe(true);
+      expect(wrapper.find('#margin-bottom').exists()).toBe(true);
+      expect(wrapper.find('#margin-left').exists()).toBe(true);
+    });
+
+    it('emits export with page size, orientation, and margins in options', async () => {
+      const wrapper = mount(ExportDialog, {
+        props: { visible: true },
+      });
+      const pdfOption = wrapper.findAll('.export-option')[0];
+      await pdfOption.trigger('click');
+      expect(wrapper.emitted('export')).toBeTruthy();
+      const emitted = wrapper.emitted('export')![0];
+      expect(emitted[1]).toBeDefined();
+      expect(emitted[1]).toHaveProperty('pageSize', 'A4');
+      expect(emitted[1]).toHaveProperty('orientation', 'portrait');
+      expect(emitted[1]).toHaveProperty('margins');
+      expect(emitted[1].margins).toHaveProperty('top', 70);
+      expect(emitted[1].margins).toHaveProperty('right', 70);
+      expect(emitted[1].margins).toHaveProperty('bottom', 70);
+      expect(emitted[1].margins).toHaveProperty('left', 70);
+    });
+
+    it('can change page size to Letter', async () => {
+      const wrapper = mount(ExportDialog, {
+        props: { visible: true },
+      });
+      await wrapper.find('.pdf-options-toggle').trigger('click');
+      await wrapper.find('#page-size').setValue('LETTER');
+      const pdfOption = wrapper.findAll('.export-option')[0];
+      await pdfOption.trigger('click');
+      const emitted = wrapper.emitted('export')![0];
+      expect(emitted[1]).toHaveProperty('pageSize', 'LETTER');
+    });
+
+    it('can change orientation to landscape', async () => {
+      const wrapper = mount(ExportDialog, {
+        props: { visible: true },
+      });
+      await wrapper.find('.pdf-options-toggle').trigger('click');
+      // Click the landscape button (second orientation button)
+      const orientationButtons = wrapper.findAll('.orientation-btn');
+      await orientationButtons[1].trigger('click');
+      const pdfOption = wrapper.findAll('.export-option')[0];
+      await pdfOption.trigger('click');
+      const emitted = wrapper.emitted('export')![0];
+      expect(emitted[1]).toHaveProperty('orientation', 'landscape');
+    });
+
+    it('can change margin values', async () => {
+      const wrapper = mount(ExportDialog, {
+        props: { visible: true },
+      });
+      await wrapper.find('.pdf-options-toggle').trigger('click');
+      await wrapper.find('#margin-top').setValue(100);
+      await wrapper.find('#margin-right').setValue(50);
+      await wrapper.find('#margin-bottom').setValue(100);
+      await wrapper.find('#margin-left').setValue(50);
+      const pdfOption = wrapper.findAll('.export-option')[0];
+      await pdfOption.trigger('click');
+      const emitted = wrapper.emitted('export')![0];
+      expect(emitted[1].margins).toHaveProperty('top', 100);
+      expect(emitted[1].margins).toHaveProperty('right', 50);
+      expect(emitted[1].margins).toHaveProperty('bottom', 100);
+      expect(emitted[1].margins).toHaveProperty('left', 50);
+    });
   });
 
   describe('SEO Settings Section', () => {
@@ -220,6 +317,9 @@ describe('ExportDialog.vue', () => {
       expect(emitted[1]).toHaveProperty('includePageNumbers');
       expect(emitted[1]).toHaveProperty('headerText');
       expect(emitted[1]).toHaveProperty('footerText');
+      expect(emitted[1]).toHaveProperty('pageSize');
+      expect(emitted[1]).toHaveProperty('orientation');
+      expect(emitted[1]).toHaveProperty('margins');
     });
 
     it('emits export with "markdown" format when Markdown option is clicked', async () => {

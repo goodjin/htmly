@@ -63,6 +63,14 @@ export interface PdfExportOptions {
   headerText: string;
   footerText: string;
   preset: ExportPresetType;
+  pageSize: 'A4' | 'LETTER';
+  orientation: 'portrait' | 'landscape';
+  margins: {
+    top: number;
+    right: number;
+    bottom: number;
+    left: number;
+  };
 }
 
 // Export preset configuration
@@ -284,7 +292,7 @@ export type WebToExtMsg =
   | { type: 'syncHistory'; history: HistoryState }
   | { type: 'selectiveUndo'; targetIndex: number }
   | { type: 'exportHistory' }
-  | { type: 'exportRequest'; format: ExportFormat; content: string; options?: PdfExportOptions }
+  | { type: 'exportRequest'; format: ExportFormat; content: string; options?: PdfExportOptions; seoSettings?: SeoSettings; siteOptions?: Partial<StaticSiteOptions> }
   | { type: 'loadExportPresets' }
   | { type: 'saveExportPreset'; preset: Omit<ExportPreset, 'id' | 'isBuiltIn'> }
   | { type: 'deleteExportPreset'; id: string }
