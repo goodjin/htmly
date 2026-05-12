@@ -1132,9 +1132,11 @@ onBeforeUnmount(() => {
       }))"
       :is-loading="versionHistory.isLoading.value"
       :is-restoring="versionHistory.isRestoring.value"
+      :preview-version="versionHistory.previewVersion.value"
       @close="showVersionHistoryPanel = false"
       @select="handleVersionSelect"
       @restore="handleVersionRestore"
+      @dismiss-preview="versionHistory.dismissPreview"
     />
 
     <!-- Template Selector -->

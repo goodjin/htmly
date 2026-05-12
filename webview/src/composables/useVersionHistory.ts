@@ -60,6 +60,13 @@ export function useVersionHistory() {
   }
 
   /**
+   * Dismiss preview and return to version list
+   */
+  function dismissPreview(): void {
+    selectedVersionNumber.value = null;
+  }
+
+  /**
    * Get version count
    */
   const versionCount = computed(() => versions.value.length);
@@ -84,6 +91,14 @@ export function useVersionHistory() {
     return versions.value.find(v => v.versionNumber === versionNumber);
   }
 
+  /**
+   * Get the currently selected/previewed version object
+   */
+  const previewVersion = computed(() => {
+    if (selectedVersionNumber.value === null) return null;
+    return versions.value.find(v => v.versionNumber === selectedVersionNumber.value) || null;
+  });
+
   return {
     // State
     versions,
@@ -93,11 +108,13 @@ export function useVersionHistory() {
     versionCount,
     latestVersionNumber,
     hasVersions,
+    previewVersion,
 
     // Actions
     requestVersionHistory,
     restoreVersion,
     selectVersion,
+    dismissPreview,
     getVersion,
   };
 }

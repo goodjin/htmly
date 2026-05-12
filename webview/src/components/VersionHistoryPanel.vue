@@ -12,12 +12,14 @@ const props = defineProps<{
   visible: boolean;
   isLoading: boolean;
   isRestoring: boolean;
+  previewVersion: VersionHistoryItem | null;
 }>();
 
 const emit = defineEmits<{
   (e: 'close'): void;
   (e: 'select', versionNumber: number): void;
   (e: 'restore', versionNumber: number): void;
+  (e: 'dismissPreview'): void;
 }>();
 
 const formatTimestamp = (timestamp: string): string => {
@@ -70,7 +72,14 @@ const handleRestore = (version: VersionHistoryItem, event: Event) => {
   emit('restore', version.versionNumber);
 };
 
+const handleDismissPreview = () => {
+  emit('dismissPreview');
+};
+
 const totalVersions = computed(() => props.versions.length);
+
+// Check if we're in preview mode
+const isInPreviewMode = computed(() => props.previewVersion !== null);
 </script>
 
 <template>
@@ -90,6 +99,39 @@ const totalVersions = computed(() => props.versions.length);
     <div v-if="isLoading" class="version-history-loading">
       <span class="loading-spinner"></span>
       <span>Loading versions...</span>
+    </div>
+
+    <!-- Preview mode -->
+    <div v-else-if="isInPreviewMode" class="version-preview-pane">
+      <div class="preview-header">
+        <div class="preview-title">
+          <span class="preview-badge">Preview</span>
+          <span class="preview-version">v{{ previewVersion?.versionNumber }}</span>
+          <span class="preview-time" :title="formatFullTimestamp(previewVersion?.timestamp || '')">
+            {{ formatTimestamp(previewVersion?.timestamp || '') }}
+          </span>
+        </div>
+        <button class="dismiss-btn" @click="handleDismissPreview" title="Back to list">
+          ← Back
+        </button>
+      </div>
+      
+      <div class="preview-content" v-if="previewVersion?.content">
+        <div class="preview-readonly" v-html="previewVersion.content"></div>
+      </div>
+      <div v-else class="preview-empty">
+        (no content)
+      </div>
+      
+      <div class="preview-actions">
+        <button
+          class="restore-btn"
+          :disabled="isRestoring"
+          @click="handleRestore(previewVersion!, $event)"
+        >
+          {{ isRestoring ? 'Restoring...' : 'Restore this version' }}
+        </button>
+      </div>
     </div>
 
     <!-- Empty state -->
@@ -136,7 +178,7 @@ const totalVersions = computed(() => props.versions.length);
     </div>
 
     <!-- Footer info -->
-    <div v-if="totalVersions > 0" class="version-history-footer">
+    <div v-if="totalVersions > 0 && !isInPreviewMode" class="version-history-footer">
       <span>{{ totalVersions }} version(s) saved</span>
     </div>
   </div>
@@ -353,5 +395,126 @@ const totalVersions = computed(() => props.versions.length);
   font-size: 11px;
   color: var(--vscode-descriptionForeground, #888);
   flex-shrink: 0;
+}
+
+/* Preview pane styles */
+.version-preview-pane {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.preview-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--vscode-widget-border, #454545);
+  flex-shrink: 0;
+}
+
+.preview-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.preview-badge {
+  background: var(--vscode-textPreformat-background, #3c3c3c);
+  color: var(--vscode-descriptionForeground, #888);
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 3px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.preview-version {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--vscode-activityBarBadge-background, #007acc);
+}
+
+.preview-time {
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground, #888);
+}
+
+.dismiss-btn {
+  background: transparent;
+  border: none;
+  color: var(--vscode-button-foreground, #cccccc);
+  cursor: pointer;
+  padding: 4px 8px;
+  font-size: 11px;
+  border-radius: 4px;
+  transition: background-color 0.15s ease;
+}
+
+.dismiss-btn:hover {
+  background: var(--vscode-toolbar-hoverBackground, #2a2d2e);
+}
+
+.preview-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 14px;
+  min-height: 0;
+}
+
+.preview-readonly {
+  font-size: 12px;
+  color: var(--vscode-editor-foreground, #cccccc);
+  line-height: 1.5;
+  font-family: var(--vscode-editor-font-family, monospace);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.preview-readonly :deep(h1),
+.preview-readonly :deep(h2),
+.preview-readonly :deep(h3),
+.preview-readonly :deep(h4),
+.preview-readonly :deep(h5),
+.preview-readonly :deep(h6) {
+  color: var(--vscode-editor-foreground, #cccccc);
+  margin-top: 1em;
+  margin-bottom: 0.5em;
+}
+
+.preview-readonly :deep(p) {
+  margin-bottom: 0.8em;
+}
+
+.preview-readonly :deep(code) {
+  background: var(--vscode-textPreformat-background, #3c3c3c);
+  padding: 2px 4px;
+  border-radius: 2px;
+  font-family: var(--vscode-editor-font-family, monospace);
+}
+
+.preview-empty {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--vscode-descriptionForeground, #888);
+  font-size: 13px;
+  font-style: italic;
+}
+
+.preview-actions {
+  padding: 10px 14px;
+  border-top: 1px solid var(--vscode-widget-border, #454545);
+  flex-shrink: 0;
+}
+
+.preview-actions .restore-btn {
+  width: 100%;
+  padding: 6px 12px;
+  font-size: 12px;
 }
 </style>

@@ -2191,6 +2191,9 @@ export class HtmlyEditorProvider implements vscode.CustomTextEditorProvider {
         await vscode.workspace.applyEdit(edit);
         await document.save();
 
+        // Create a new version entry after restore (VAL-HISTORY-005)
+        await this.createVersionEntry(docKey, content);
+
         // Notify webview of the restored content
         this.postMessage(panel, {
           type: 'versionRestored',
