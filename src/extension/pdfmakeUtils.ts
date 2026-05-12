@@ -10,6 +10,10 @@
 import pdfMake from 'pdfmake/build/pdfmake';
 import pdfFonts from 'pdfmake/build/vfs_fonts';
 
+// Type definitions for pdfmake - using any since @types/pdfmake doesn't export them properly
+type TDocumentDefinitions = Parameters<typeof pdfMake.createPdf>[0];
+type TVirtualFileSystem = { [key: string]: string };
+
 // Type definitions for pdfmake configuration
 export type PdfPageSize = 'A4' | 'LETTER' | 'LEGAL' | 'A3' | 'A5' | 'TABLOID' | [number, number];
 
@@ -59,17 +63,17 @@ export function initializePdfMake(): void {
   // Initialize pdfmake with virtual file system fonts
   // pdfFonts can have vfs directly or via pdfMake property depending on build
   const vfs = (pdfFonts as { vfs?: unknown; pdfMake?: { vfs?: unknown } }).vfs || (pdfFonts as { pdfMake?: { vfs?: unknown } }).pdfMake?.vfs;
-  pdfMake.vfs = vfs;
+  pdfMake.addVirtualFileSystem(vfs as TVirtualFileSystem);
   
   // Set up default fonts
-  pdfMake.fonts = {
+  pdfMake.setFonts({
     Roboto: {
       normal: 'Roboto-Regular.ttf',
       bold: 'Roboto-Medium.ttf',
       italics: 'Roboto-Italic.ttf',
       bolditalics: 'Roboto-MediumItalic.ttf',
     },
-  };
+  });
 }
 
 /**
@@ -116,7 +120,7 @@ export function createPdfMakeConfig(config: Partial<PdfMakeConfig> = {}): PdfMak
 export function createPdfDocumentDefinition(
   config: PdfMakeConfig,
   content: string
-): pdfMake.TDocumentDefinitions {
+): TDocumentDefinitions {
   const pageMargins: [number, number, number, number] = [
     config.margins.left,
     config.margins.top,
@@ -124,7 +128,7 @@ export function createPdfDocumentDefinition(
     config.margins.bottom,
   ];
 
-  const docDefinition: pdfMake.TDocumentDefinitions = {
+  const docDefinition: TDocumentDefinitions = {
     content: [
       {
         text: content,
@@ -184,14 +188,12 @@ export function createPdfDocumentDefinition(
 export function createPdfFromHtml(
   htmlContent: string,
   config: PdfMakeConfig,
-  onSuccess: (pdfData: Uint8Array) => void,
+  onSuccess: (pdfData: Buffer) => void,
   onError: (error: Error) => void
 ): void {
   try {
     // Ensure pdfmake is initialized
-    if (!pdfMake.vfs) {
-      initializePdfMake();
-    }
+    initializePdfMake();
 
     // Create document definition
     const docDefinition = createPdfDocumentDefinition(config, htmlContent);
@@ -199,8 +201,8 @@ export function createPdfFromHtml(
     // Generate PDF
     const pdfDoc = pdfMake.createPdf(docDefinition);
     
-    pdfDoc.getBytes().then(
-      (pdfData: Uint8Array) => {
+    pdfDoc.getBuffer().then(
+      (pdfData: Buffer) => {
         onSuccess(pdfData);
       },
       (err: Error) => {
@@ -284,6 +286,11 @@ interface PdfMakeTable {
     body: PdfMakeTableRow[];
   };
   layout?: string;
+}
+
+interface PdfMakeList {
+  ul?: PdfMakeListItem[];
+  ol?: PdfMakeListItem[];
 }
 
 interface PdfMakeTableRow {
@@ -914,7 +921,7 @@ export function convertHtmlToPdfMakeContent(html: string): PdfMakeContent[] {
 export function createPdfDocumentDefinitionFromHtml(
   config: PdfMakeConfig,
   htmlContent: string
-): pdfMake.TDocumentDefinitions {
+): TDocumentDefinitions {
   const pageMargins: [number, number, number, number] = [
     config.margins.left,
     config.margins.top,
@@ -925,8 +932,8 @@ export function createPdfDocumentDefinitionFromHtml(
   // Convert HTML to pdfmake content
   const pdfContent = convertHtmlToPdfMakeContent(htmlContent);
 
-  const docDefinition: pdfMake.TDocumentDefinitions = {
-    content: pdfContent,
+  const docDefinition: TDocumentDefinitions = {
+    content: pdfContent as unknown as TDocumentDefinitions['content'],
     pageSize: Array.isArray(config.pageSize)
       ? { width: config.pageSize[0], height: config.pageSize[1] }
       : config.pageSize,
@@ -1023,14 +1030,12 @@ export function createPdfDocumentDefinitionFromHtml(
 export function createPdfFromHtmlContent(
   htmlContent: string,
   config: PdfMakeConfig,
-  onSuccess: (pdfData: Uint8Array) => void,
+  onSuccess: (pdfData: Buffer) => void,
   onError: (error: Error) => void
 ): void {
   try {
     // Ensure pdfmake is initialized
-    if (!pdfMake.vfs) {
-      initializePdfMake();
-    }
+    initializePdfMake();
 
     // Create document definition with proper HTML conversion
     const docDefinition = createPdfDocumentDefinitionFromHtml(config, htmlContent);
@@ -1038,8 +1043,8 @@ export function createPdfFromHtmlContent(
     // Generate PDF
     const pdfDoc = pdfMake.createPdf(docDefinition);
 
-    pdfDoc.getBytes().then(
-      (pdfData: Uint8Array) => {
+    pdfDoc.getBuffer().then(
+      (pdfData: Buffer) => {
         onSuccess(pdfData);
       },
       (err: Error) => {
