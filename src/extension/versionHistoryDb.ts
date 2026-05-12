@@ -314,7 +314,7 @@ export class VersionHistoryDatabase {
   /**
    * Get a specific version
    */
-  getVersion(documentId: string, versionNumber: number): { id: number; content: string | null; timestamp: string; pinned: boolean } | null {
+  getVersion(documentId: string, versionNumber: number): { id: number; versionNumber: number; content: string | null; timestamp: string; pinned: boolean } | null {
     if (!this.db) {
       throw new Error('Database not initialized');
     }
@@ -330,6 +330,7 @@ export class VersionHistoryDatabase {
     
     return {
       id: result[0].values[0][0] as number,
+      versionNumber: versionNumber,
       content: result[0].values[0][1] as string | null,
       timestamp: result[0].values[0][2] as string,
       pinned: (result[0].values[0][3] as number) === 1

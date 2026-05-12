@@ -13,16 +13,15 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import * as vscode from 'vscode';
 
 // Mock sql.js before importing the module
-const mockDb = {
+const mockDb: any = {
   run: vi.fn(),
   exec: vi.fn(),
   export: vi.fn(() => new Uint8Array([1, 2, 3])),
   close: vi.fn()
 };
 
-const mockDatabaseConstructor = vi.fn(() => mockDb);
-
 vi.mock('sql.js', () => {
+  const mockDatabaseConstructor = vi.fn(() => mockDb);
   return {
     default: vi.fn(() => Promise.resolve({
       Database: mockDatabaseConstructor
@@ -78,23 +77,23 @@ interface MockContext {
   globalStoragePath: string;
   subscriptions: vscode.Disposable[];
   workspaceState: {
-    get: ReturnType<typeof vi.fn>;
-    update: ReturnType<typeof vi.fn>;
-    keys: ReturnType<typeof vi.fn>;
+    get: any;
+    update: any;
+    keys: any;
   };
   globalState: {
-    get: ReturnType<typeof vi.fn>;
-    update: ReturnType<typeof vi.fn>;
-    keys: ReturnType<typeof vi.fn>;
-    setKeysForSync: ReturnType<typeof vi.fn>;
+    get: any;
+    update: any;
+    keys: any;
+    setKeysForSync: any;
   };
   extensionPath: string;
   extensionUri: vscode.Uri;
   environmentValue: string | undefined;
   secrets: {
-    get: ReturnType<typeof vi.fn>;
-    store: ReturnType<typeof vi.fn>;
-    delete: ReturnType<typeof vi.fn>;
+    get: any;
+    store: any;
+    delete: any;
   };
 }
 
