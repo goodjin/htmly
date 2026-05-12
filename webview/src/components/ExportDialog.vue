@@ -49,6 +49,15 @@ const marginLeft = ref(70);
 const newPresetName = ref('');
 const showSavePresetDialog = ref(false);
 
+// DOCX-specific options (for when DOCX format is selected)
+const showDocxOptions = ref(false);
+const docxPageSize = ref<'A4' | 'LETTER'>('LETTER');
+const docxOrientation = ref<'portrait' | 'landscape'>('portrait');
+const docxMarginTop = ref(72);
+const docxMarginRight = ref(72);
+const docxMarginBottom = ref(72);
+const docxMarginLeft = ref(72);
+
 // SEO-specific options (for when static site format is selected)
 const showSeoOptions = ref(false);
 const seoTitle = ref('');
@@ -175,6 +184,7 @@ watch(() => props.visible, (v) => {
     hoveredIndex.value = -1;
     showPdfOptions.value = false;
     showSeoOptions.value = false;
+    showDocxOptions.value = false;
     loadPresets();
     // Reset to selected preset values
     const preset = presets.value.find(p => p.id === selectedPresetId.value);
@@ -211,9 +221,41 @@ watch([includePageNumbers, headerText, footerText, pageSize, orientation, margin
   });
 });
 
+// Persist DOCX options to localStorage
+watch([docxPageSize, docxOrientation, docxMarginTop, docxMarginRight, docxMarginBottom, docxMarginLeft], () => {
+  const docxOptions = {
+    pageSize: docxPageSize.value,
+    orientation: docxOrientation.value,
+    margins: {
+      top: docxMarginTop.value,
+      right: docxMarginRight.value,
+      bottom: docxMarginBottom.value,
+      left: docxMarginLeft.value,
+    },
+  };
+  localStorage.setItem('htmly-docx-options', JSON.stringify(docxOptions));
+});
+
 function onExport(format: ExportFormat) {
   if (format === 'pdf') {
     emit('export', format, currentOptions.value);
+  } else if (format === 'docx') {
+    // Pass DOCX options with page size, orientation, and margins
+    const docxOptions: PdfExportOptions = {
+      includePageNumbers: false,
+      headerText: '',
+      footerText: '',
+      preset: 'custom',
+      pageSize: docxPageSize.value,
+      orientation: docxOrientation.value,
+      margins: {
+        top: docxMarginTop.value,
+        right: docxMarginRight.value,
+        bottom: docxMarginBottom.value,
+        left: docxMarginLeft.value,
+      },
+    };
+    emit('export', format, docxOptions);
   } else if (format === 'site') {
     // Validate custom domain before export
     if (customDomain.value && !validateDomain(customDomain.value)) {
@@ -286,6 +328,30 @@ function togglePdfOptions() {
 function toggleSeoOptions() {
   showSeoOptions.value = !showSeoOptions.value;
 }
+
+function toggleDocxOptions() {
+  showDocxOptions.value = !showDocxOptions.value;
+}
+
+// Initialize DOCX options from localStorage on mount
+onMounted(() => {
+  const savedDocxOptions = localStorage.getItem('htmly-docx-options');
+  if (savedDocxOptions) {
+    try {
+      const options = JSON.parse(savedDocxOptions);
+      docxPageSize.value = options.pageSize ?? 'LETTER';
+      docxOrientation.value = options.orientation ?? 'portrait';
+      if (options.margins) {
+        docxMarginTop.value = options.margins.top ?? 72;
+        docxMarginRight.value = options.margins.right ?? 72;
+        docxMarginBottom.value = options.margins.bottom ?? 72;
+        docxMarginLeft.value = options.margins.left ?? 72;
+      }
+    } catch {
+      // Ignore parse errors
+    }
+  }
+});
 </script>
 
 <template>
@@ -484,6 +550,106 @@ function toggleSeoOptions() {
             >
               Save as Preset
             </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- DOCX Options Section -->
+      <div class="docx-options-section">
+        <button 
+          class="docx-options-toggle"
+          @click="toggleDocxOptions"
+        >
+          <span class="toggle-icon">{{ showDocxOptions ? '▼' : '▶' }}</span>
+          <span>DOCX Options</span>
+        </button>
+        
+        <div v-if="showDocxOptions" class="docx-options-content">
+          <!-- Page Size -->
+          <div class="option-row">
+            <label class="option-label" for="docx-page-size">Page Size:</label>
+            <select 
+              id="docx-page-size"
+              class="option-select"
+              v-model="docxPageSize"
+            >
+              <option value="A4">A4</option>
+              <option value="LETTER">Letter</option>
+            </select>
+          </div>
+
+          <!-- Orientation -->
+          <div class="option-row">
+            <label class="option-label">Orientation:</label>
+            <div class="orientation-toggle">
+              <button 
+                class="orientation-btn"
+                :class="{ active: docxOrientation === 'portrait' }"
+                @click="docxOrientation = 'portrait'"
+                title="Portrait"
+              >
+                📄
+              </button>
+              <button 
+                class="orientation-btn"
+                :class="{ active: docxOrientation === 'landscape' }"
+                @click="docxOrientation = 'landscape'"
+                title="Landscape"
+              >
+                📄➡️
+              </button>
+            </div>
+          </div>
+
+          <!-- Margins -->
+          <div class="option-row margins-label">
+            <span class="option-label">Margins:</span>
+          </div>
+          <div class="margins-grid">
+            <div class="margin-row">
+              <label class="margin-label" for="docx-margin-top">Top:</label>
+              <input 
+                id="docx-margin-top"
+                type="number"
+                class="margin-input"
+                v-model.number="docxMarginTop"
+                min="0"
+                max="200"
+              />
+            </div>
+            <div class="margin-row">
+              <label class="margin-label" for="docx-margin-right">Right:</label>
+              <input 
+                id="docx-margin-right"
+                type="number"
+                class="margin-input"
+                v-model.number="docxMarginRight"
+                min="0"
+                max="200"
+              />
+            </div>
+            <div class="margin-row">
+              <label class="margin-label" for="docx-margin-bottom">Bottom:</label>
+              <input 
+                id="docx-margin-bottom"
+                type="number"
+                class="margin-input"
+                v-model.number="docxMarginBottom"
+                min="0"
+                max="200"
+              />
+            </div>
+            <div class="margin-row">
+              <label class="margin-label" for="docx-margin-left">Left:</label>
+              <input 
+                id="docx-margin-left"
+                type="number"
+                class="margin-input"
+                v-model.number="docxMarginLeft"
+                min="0"
+                max="200"
+              />
+            </div>
           </div>
         </div>
       </div>
@@ -717,6 +883,36 @@ function toggleSeoOptions() {
 }
 
 .pdf-options-content {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* DOCX Options Section */
+.docx-options-section {
+  border-top: 1px solid var(--vscode-panel-border, #3c3c3c);
+  padding: 8px 14px;
+}
+
+.docx-options-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: transparent;
+  border: none;
+  color: var(--vscode-editor-foreground, #cccccc);
+  font-size: 13px;
+  cursor: pointer;
+  padding: 4px 0;
+  font-family: inherit;
+}
+
+.docx-options-toggle:hover {
+  color: var(--vscode-textLink-foreground, #4fc1ff);
+}
+
+.docx-options-content {
   margin-top: 12px;
   display: flex;
   flex-direction: column;

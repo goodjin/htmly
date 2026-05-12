@@ -26,12 +26,12 @@ describe('ExportDialog.vue', () => {
       expect(wrapper.find('.export-title').text()).toBe('Export Document');
     });
 
-    it('renders all five export options', () => {
+    it('renders all six export options', () => {
       const wrapper = mount(ExportDialog, {
         props: { visible: true },
       });
       const options = wrapper.findAll('.export-option');
-      expect(options).toHaveLength(5);
+      expect(options).toHaveLength(6);
     });
   });
 
@@ -45,11 +45,20 @@ describe('ExportDialog.vue', () => {
       expect(pdfOption.find('.option-label').text()).toBe('Export as PDF');
     });
 
+    it('shows DOCX export option with correct icon and label', () => {
+      const wrapper = mount(ExportDialog, {
+        props: { visible: true },
+      });
+      const docxOption = wrapper.findAll('.export-option')[1];
+      expect(docxOption.find('.option-icon').text()).toBe('📘');
+      expect(docxOption.find('.option-label').text()).toBe('Export as Word Document');
+    });
+
     it('shows Markdown export option with correct icon and label', () => {
       const wrapper = mount(ExportDialog, {
         props: { visible: true },
       });
-      const mdOption = wrapper.findAll('.export-option')[1];
+      const mdOption = wrapper.findAll('.export-option')[2];
       expect(mdOption.find('.option-icon').text()).toBe('📝');
       expect(mdOption.find('.option-label').text()).toBe('Export as Markdown');
     });
@@ -58,7 +67,7 @@ describe('ExportDialog.vue', () => {
       const wrapper = mount(ExportDialog, {
         props: { visible: true },
       });
-      const txtOption = wrapper.findAll('.export-option')[2];
+      const txtOption = wrapper.findAll('.export-option')[3];
       expect(txtOption.find('.option-icon').text()).toBe('📃');
       expect(txtOption.find('.option-label').text()).toBe('Export as Plain Text');
     });
@@ -67,7 +76,7 @@ describe('ExportDialog.vue', () => {
       const wrapper = mount(ExportDialog, {
         props: { visible: true },
       });
-      const htmlOption = wrapper.findAll('.export-option')[3];
+      const htmlOption = wrapper.findAll('.export-option')[4];
       expect(htmlOption.find('.option-icon').text()).toBe('🔗');
       expect(htmlOption.find('.option-label').text()).toBe('Export as Embedded HTML');
     });
@@ -228,6 +237,120 @@ describe('ExportDialog.vue', () => {
     });
   });
 
+  describe('DOCX Options Section', () => {
+    it('shows DOCX options toggle button', () => {
+      const wrapper = mount(ExportDialog, {
+        props: { visible: true },
+      });
+      expect(wrapper.find('.docx-options-toggle').exists()).toBe(true);
+    });
+
+    it('expands DOCX options when toggle is clicked', async () => {
+      const wrapper = mount(ExportDialog, {
+        props: { visible: true },
+      });
+      await wrapper.find('.docx-options-toggle').trigger('click');
+      expect(wrapper.find('.docx-options-content').exists()).toBe(true);
+    });
+
+    it('shows page size dropdown with A4 and Letter options', async () => {
+      const wrapper = mount(ExportDialog, {
+        props: { visible: true },
+      });
+      await wrapper.find('.docx-options-toggle').trigger('click');
+      const pageSizeSelect = wrapper.find('#docx-page-size');
+      expect(pageSizeSelect.exists()).toBe(true);
+      const options = pageSizeSelect.findAll('option');
+      expect(options).toHaveLength(2);
+      expect(options[0].text()).toBe('A4');
+      expect(options[1].text()).toBe('Letter');
+    });
+
+    it('shows orientation toggle with portrait and landscape buttons', async () => {
+      const wrapper = mount(ExportDialog, {
+        props: { visible: true },
+      });
+      await wrapper.find('.docx-options-toggle').trigger('click');
+      const orientationButtons = wrapper.findAll('.orientation-btn');
+      expect(orientationButtons.length).toBeGreaterThanOrEqual(2);
+    });
+
+    it('shows all margin inputs', async () => {
+      const wrapper = mount(ExportDialog, {
+        props: { visible: true },
+      });
+      await wrapper.find('.docx-options-toggle').trigger('click');
+      expect(wrapper.find('#docx-margin-top').exists()).toBe(true);
+      expect(wrapper.find('#docx-margin-right').exists()).toBe(true);
+      expect(wrapper.find('#docx-margin-bottom').exists()).toBe(true);
+      expect(wrapper.find('#docx-margin-left').exists()).toBe(true);
+    });
+
+    it('emits export with docx format and options when DOCX option is clicked', async () => {
+      const wrapper = mount(ExportDialog, {
+        props: { visible: true },
+      });
+      const docxOption = wrapper.findAll('.export-option')[1];
+      await docxOption.trigger('click');
+      expect(wrapper.emitted('export')).toBeTruthy();
+      const emitted = wrapper.emitted('export')![0];
+      expect(emitted[0]).toBe('docx');
+      expect(emitted[1]).toBeDefined();
+      expect(emitted[1]).toHaveProperty('pageSize', 'LETTER');
+      expect(emitted[1]).toHaveProperty('orientation', 'portrait');
+      expect(emitted[1]).toHaveProperty('margins');
+      expect(emitted[1].margins).toHaveProperty('top', 72);
+      expect(emitted[1].margins).toHaveProperty('right', 72);
+      expect(emitted[1].margins).toHaveProperty('bottom', 72);
+      expect(emitted[1].margins).toHaveProperty('left', 72);
+    });
+
+    it('can change DOCX page size to A4', async () => {
+      const wrapper = mount(ExportDialog, {
+        props: { visible: true },
+      });
+      await wrapper.find('.docx-options-toggle').trigger('click');
+      await wrapper.find('#docx-page-size').setValue('A4');
+      const docxOption = wrapper.findAll('.export-option')[1];
+      await docxOption.trigger('click');
+      const emitted = wrapper.emitted('export')![0];
+      expect(emitted[1]).toHaveProperty('pageSize', 'A4');
+    });
+
+    it('can change DOCX orientation to landscape', async () => {
+      const wrapper = mount(ExportDialog, {
+        props: { visible: true },
+      });
+      await wrapper.find('.docx-options-toggle').trigger('click');
+      // Find orientation buttons within DOCX section specifically
+      const docxSection = wrapper.find('.docx-options-content');
+      const orientationButtons = docxSection.findAll('.orientation-btn');
+      await orientationButtons[1].trigger('click');
+      const docxOption = wrapper.findAll('.export-option')[1];
+      await docxOption.trigger('click');
+      const emitted = wrapper.emitted('export')![0];
+      expect(emitted[1]).toHaveProperty('orientation', 'landscape');
+    });
+
+    it('can change DOCX margin values', async () => {
+      const wrapper = mount(ExportDialog, {
+        props: { visible: true },
+      });
+      await wrapper.find('.docx-options-toggle').trigger('click');
+      await wrapper.find('#docx-margin-top').setValue(100);
+      await wrapper.find('#docx-margin-right').setValue(50);
+      await wrapper.find('#docx-margin-bottom').setValue(100);
+      await wrapper.find('#docx-margin-left').setValue(50);
+      const docxOption = wrapper.findAll('.export-option')[1];
+      await docxOption.trigger('click');
+      const emitted = wrapper.emitted('export')![0];
+      expect(emitted[1].margins).toHaveProperty('top', 100);
+      expect(emitted[1].margins).toHaveProperty('right', 50);
+      expect(emitted[1].margins).toHaveProperty('bottom', 100);
+      expect(emitted[1].margins).toHaveProperty('left', 50);
+    });
+  });
+
   describe('SEO Settings Section', () => {
     it('shows SEO settings toggle button', () => {
       const wrapper = mount(ExportDialog, {
@@ -287,8 +410,8 @@ describe('ExportDialog.vue', () => {
       await wrapper.find('#seo-description').setValue('My custom description for SEO');
       await wrapper.find('#og-image').setValue('https://example.com/og-image.png');
       
-      // Click Static Site export option (index 4)
-      const siteOption = wrapper.findAll('.export-option')[4];
+      // Click Static Site export option (index 5)
+      const siteOption = wrapper.findAll('.export-option')[5];
       await siteOption.trigger('click');
       
       expect(wrapper.emitted('export')).toBeTruthy();
@@ -326,7 +449,7 @@ describe('ExportDialog.vue', () => {
       const wrapper = mount(ExportDialog, {
         props: { visible: true },
       });
-      const mdOption = wrapper.findAll('.export-option')[1];
+      const mdOption = wrapper.findAll('.export-option')[2];
       await mdOption.trigger('click');
       expect(wrapper.emitted('export')).toBeTruthy();
       expect(wrapper.emitted('export')![0]).toEqual(['markdown']);
@@ -336,7 +459,7 @@ describe('ExportDialog.vue', () => {
       const wrapper = mount(ExportDialog, {
         props: { visible: true },
       });
-      const txtOption = wrapper.findAll('.export-option')[2];
+      const txtOption = wrapper.findAll('.export-option')[3];
       await txtOption.trigger('click');
       expect(wrapper.emitted('export')).toBeTruthy();
       expect(wrapper.emitted('export')![0]).toEqual(['plaintext']);
@@ -346,7 +469,7 @@ describe('ExportDialog.vue', () => {
       const wrapper = mount(ExportDialog, {
         props: { visible: true },
       });
-      const htmlOption = wrapper.findAll('.export-option')[3];
+      const htmlOption = wrapper.findAll('.export-option')[4];
       await htmlOption.trigger('click');
       expect(wrapper.emitted('export')).toBeTruthy();
       expect(wrapper.emitted('export')![0]).toEqual(['embedded']);
@@ -400,7 +523,8 @@ describe('ExportDialog.vue', () => {
         props: { visible: true },
       });
       const dialog = wrapper.find('.export-dialog');
-      // Navigate to second option (index 1)
+      // Navigate to third option (index 2) - Markdown
+      await dialog.trigger('keydown', { key: 'ArrowDown' });
       await dialog.trigger('keydown', { key: 'ArrowDown' });
       await dialog.trigger('keydown', { key: 'ArrowDown' });
       await dialog.trigger('keydown', { key: 'Enter' });
