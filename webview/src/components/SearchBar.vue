@@ -69,7 +69,17 @@ function findMatches() {
 
     if (isRegex.value) {
       // Try to compile as regex
-      regex = new RegExp(searchTerm.value, 'g');
+      let pattern = searchTerm.value;
+      let flags = 'g';
+
+      // Check for case-insensitive suffix /i at end of pattern
+      // Users can append /i to patterns like "hello/i" for case-insensitive matching
+      if (pattern.endsWith('/i')) {
+        pattern = pattern.slice(0, -2);
+        flags += 'i';
+      }
+
+      regex = new RegExp(pattern, flags);
     } else {
       // Escape special characters for literal search
       const escaped = escapeRegex(searchTerm.value);
