@@ -62,6 +62,7 @@ import { useVirtualScroll } from '../composables/useVirtualScroll';
 import { useLazyExtensionLoader } from '../composables/useLazyExtensionLoader';
 import { useCloudUpload } from '../composables/useCloudUpload';
 import { SpellCheckExtension, type SpellCheckMark } from '../extensions/SpellCheck';
+import { SearchHighlightExtension } from '../extensions/SearchHighlight';
 import { MathExtension } from '../extensions/Math';
 import { WikiLinkExtension } from '../extensions/WikiLink';
 import { TableSort } from '../extensions/TableSort';
@@ -189,6 +190,7 @@ const editor = useEditor({
     CoverImage,
     LinkPreview,
     VirtualScroll,
+    SearchHighlightExtension,
     SpellCheckExtension.configure({
       enabled: props.spellCheckEnabled !== false,
       misspelledWords: [],

@@ -1301,6 +1301,53 @@ body {
 }
 
 /* =========================================
+   Search Highlight Styles for Tiptap (WYSIWYG)
+   ========================================= */
+
+/**
+ * Search match highlighting for Tiptap WYSIWYG editor
+ * These styles are used by the SearchHighlight extension
+ */
+
+/* Regular search match highlight */
+.tiptap-editor .search-highlight {
+  background-color: rgba(255, 213, 0, 0.4);
+  border-radius: 2px;
+  padding: 0 1px;
+}
+
+/* Current/selected search match highlight */
+.tiptap-editor .search-highlight-current {
+  background-color: rgba(0, 120, 212, 0.5);
+  border-radius: 2px;
+  padding: 0 1px;
+}
+
+/* Dark theme adjustments */
+.dark .tiptap-editor .search-highlight {
+  background-color: rgba(255, 213, 0, 0.35);
+}
+
+.dark .tiptap-editor .search-highlight-current {
+  background-color: rgba(0, 120, 212, 0.6);
+}
+
+/* Light theme adjustments */
+.light .tiptap-editor .search-highlight {
+  background-color: rgba(255, 213, 0, 0.4);
+}
+
+.light .tiptap-editor .search-highlight-current {
+  background-color: rgba(0, 120, 212, 0.4);
+}
+
+/* Ensure highlights don't affect text selection */
+.tiptap-editor .search-highlight::selection,
+.tiptap-editor .search-highlight-current::selection {
+  background: transparent;
+}
+
+/* =========================================
    Date Picker Cell Styles
    ========================================= */
 

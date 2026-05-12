@@ -158,7 +158,12 @@ function findMatches() {
 
 function selectMatch(match: { from: number; to: number }) {
   if (!props.editor) return;
-  props.editor.chain().focus().setTextSelection({ from: match.from, to: match.to }).scrollIntoView().run();
+  // Use currentMatchIndex to get the correct match from the array
+  const currentMatch = matches.value[currentMatchIndex.value];
+  if (!currentMatch) return;
+  props.editor.chain().focus().setTextSelection({ from: currentMatch.from, to: currentMatch.to }).scrollIntoView().run();
+  // Update search highlights to reflect current match
+  props.editor.chain().focus().setSearchHighlights(matches.value, currentMatchIndex.value).run();
 }
 
 function nextMatch() {
@@ -202,6 +207,10 @@ function clearSearch() {
   if (debounceTimer) {
     clearTimeout(debounceTimer);
     debounceTimer = null;
+  }
+  // Clear search highlights when search is cleared
+  if (props.editor) {
+    props.editor.chain().focus().clearSearchHighlights().run();
   }
 }
 
