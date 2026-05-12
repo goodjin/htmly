@@ -283,6 +283,7 @@
   },
   "dependencies": {
     "docx": "^9.6.1",
-    "pdfmake": "^0.3.8"
+    "pdfmake": "^0.3.8",
+    "sql.js": "^1.14.1"
   }
 }
