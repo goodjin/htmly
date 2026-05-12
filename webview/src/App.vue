@@ -1133,10 +1133,16 @@ onBeforeUnmount(() => {
       :is-loading="versionHistory.isLoading.value"
       :is-restoring="versionHistory.isRestoring.value"
       :preview-version="versionHistory.previewVersion.value"
+      :diff-result="versionHistory.diffResult.value"
+      :diff-error="versionHistory.diffError.value"
+      :is-diff-loading="versionHistory.isDiffLoading.value"
       @close="showVersionHistoryPanel = false"
       @select="handleVersionSelect"
       @restore="handleVersionRestore"
       @dismiss-preview="versionHistory.dismissPreview"
+      @request-diff="versionHistory.requestDiff"
+      @enter-diff-mode="() => {}"
+      @exit-diff-mode="versionHistory.clearDiff"
     />
 
     <!-- Template Selector -->

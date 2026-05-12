@@ -7,7 +7,7 @@
  */
 import { ref, computed } from 'vue';
 import { useVSCode } from './useVSCode';
-import type { VersionHistoryEntry } from '../../../src/shared/types';
+import type { VersionHistoryEntry, VersionDiffResult } from '../../../src/shared/types';
 
 export function useVersionHistory() {
   const { onMessage, postMessage } = useVSCode();
@@ -17,6 +17,11 @@ export function useVersionHistory() {
   const isLoading = ref(false);
   const selectedVersionNumber = ref<number | null>(null);
   const isRestoring = ref(false);
+  
+  // Diff state
+  const diffResult = ref<VersionDiffResult | null>(null);
+  const diffError = ref<string | null>(null);
+  const isDiffLoading = ref(false);
 
   // Set up listener for version history messages
   onMessage((msg) => {
@@ -30,6 +35,18 @@ export function useVersionHistory() {
         isRestoring.value = false;
         // Clear selection after restore
         selectedVersionNumber.value = null;
+        break;
+        
+      case 'versionDiff':
+        diffResult.value = msg.diff;
+        diffError.value = null;
+        isDiffLoading.value = false;
+        break;
+        
+      case 'versionDiffError':
+        diffError.value = msg.error;
+        diffResult.value = null;
+        isDiffLoading.value = false;
         break;
     }
   });
@@ -64,6 +81,24 @@ export function useVersionHistory() {
    */
   function dismissPreview(): void {
     selectedVersionNumber.value = null;
+  }
+
+  /**
+   * Request diff between two versions
+   */
+  function requestDiff(oldVersion: number, newVersion: number): void {
+    isDiffLoading.value = true;
+    diffError.value = null;
+    diffResult.value = null;
+    postMessage({ type: 'requestVersionDiff', oldVersion, newVersion });
+  }
+
+  /**
+   * Clear diff results
+   */
+  function clearDiff(): void {
+    diffResult.value = null;
+    diffError.value = null;
   }
 
   /**
@@ -109,6 +144,9 @@ export function useVersionHistory() {
     latestVersionNumber,
     hasVersions,
     previewVersion,
+    diffResult,
+    diffError,
+    isDiffLoading,
 
     // Actions
     requestVersionHistory,
@@ -116,5 +154,7 @@ export function useVersionHistory() {
     selectVersion,
     dismissPreview,
     getVersion,
+    requestDiff,
+    clearDiff,
   };
 }

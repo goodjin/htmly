@@ -1,10 +1,15 @@
 <script setup lang="ts">
-import { computed } from 'vue';
-import type { VersionHistoryEntry } from '../../src/shared/types';
+import { computed, ref } from 'vue';
+import type { VersionHistoryEntry, VersionDiffResult, DiffChange } from '../../src/shared/types';
 
 interface VersionHistoryItem extends VersionHistoryEntry {
   index: number;
   isSelected: boolean;
+}
+
+interface DiffVersionSelection {
+  oldVersion: number | null;
+  newVersion: number | null;
 }
 
 const props = defineProps<{
@@ -13,6 +18,9 @@ const props = defineProps<{
   isLoading: boolean;
   isRestoring: boolean;
   previewVersion: VersionHistoryItem | null;
+  diffResult: VersionDiffResult | null;
+  diffError: string | null;
+  isDiffLoading: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -20,7 +28,14 @@ const emit = defineEmits<{
   (e: 'select', versionNumber: number): void;
   (e: 'restore', versionNumber: number): void;
   (e: 'dismissPreview'): void;
+  (e: 'requestDiff', oldVersion: number, newVersion: number): void;
+  (e: 'enterDiffMode'): void;
+  (e: 'exitDiffMode'): void;
 }>();
+
+// Diff mode state
+const isInDiffMode = ref(false);
+const diffSelections = ref<DiffVersionSelection>({ oldVersion: null, newVersion: null });
 
 const formatTimestamp = (timestamp: string): string => {
   const date = new Date(timestamp);
@@ -80,6 +95,89 @@ const totalVersions = computed(() => props.versions.length);
 
 // Check if we're in preview mode
 const isInPreviewMode = computed(() => props.previewVersion !== null);
+
+// Check if we can compare (need at least 2 versions)
+const canCompare = computed(() => props.versions.length >= 2);
+
+// Handle entering diff mode
+const handleEnterDiffMode = () => {
+  isInDiffMode.value = true;
+  diffSelections.value = { oldVersion: null, newVersion: null };
+  emit('enterDiffMode');
+};
+
+// Handle exiting diff mode
+const handleExitDiffMode = () => {
+  isInDiffMode.value = false;
+  diffSelections.value = { oldVersion: null, newVersion: null };
+  emit('exitDiffMode');
+};
+
+// Handle version selection for diff
+const handleDiffVersionSelect = (version: VersionHistoryItem) => {
+  if (diffSelections.value.oldVersion === null) {
+    diffSelections.value.oldVersion = version.versionNumber;
+  } else if (diffSelections.value.newVersion === null && version.versionNumber !== diffSelections.value.oldVersion) {
+    diffSelections.value.newVersion = version.versionNumber;
+    
+    // Auto-trigger diff when both versions selected
+    if (diffSelections.value.oldVersion !== null && diffSelections.value.newVersion !== null) {
+      emit('requestDiff', diffSelections.value.oldVersion, diffSelections.value.newVersion);
+    }
+  } else if (version.versionNumber === diffSelections.value.oldVersion) {
+    // Clicking on already selected old version - clear it
+    diffSelections.value.oldVersion = null;
+  } else if (version.versionNumber === diffSelections.value.newVersion) {
+    // Clicking on already selected new version - clear it
+    diffSelections.value.newVersion = null;
+  } else if (diffSelections.value.oldVersion !== null) {
+    // Replace new selection
+    diffSelections.value.newVersion = version.versionNumber;
+    emit('requestDiff', diffSelections.value.oldVersion, diffSelections.value.newVersion);
+  }
+};
+
+// Check if a version is selected for diff
+const isSelectedForDiff = (versionNumber: number): 'old' | 'new' | null => {
+  if (diffSelections.value.oldVersion === versionNumber) return 'old';
+  if (diffSelections.value.newVersion === versionNumber) return 'new';
+  return null;
+};
+
+// Check if we can trigger diff
+const canTriggerDiff = computed(() => {
+  return diffSelections.value.oldVersion !== null && 
+         diffSelections.value.newVersion !== null && 
+         diffSelections.value.oldVersion !== diffSelections.value.newVersion;
+});
+
+// Trigger diff manually
+const triggerDiff = () => {
+  if (canTriggerDiff.value) {
+    emit('requestDiff', diffSelections.value.oldVersion!, diffSelections.value.newVersion!);
+  }
+};
+
+// Reset diff selection
+const resetDiffSelection = () => {
+  diffSelections.value = { oldVersion: null, newVersion: null };
+};
+
+// Get diff change class
+const getDiffChangeClass = (change: DiffChange): string => {
+  return `diff-${change.type}`;
+};
+
+// Format diff stats
+const diffStatsText = computed(() => {
+  if (!props.diffResult) return '';
+  const { stats } = props.diffResult;
+  const parts: string[] = [];
+  if (stats.added > 0) parts.push(`+${stats.added}`);
+  if (stats.removed > 0) parts.push(`-${stats.removed}`);
+  if (stats.unchanged > 0) parts.push(`${stats.unchanged} unchanged`);
+  return parts.join(', ');
+});
 </script>
 
 <template>
@@ -88,7 +186,7 @@ const isInPreviewMode = computed(() => props.previewVersion !== null);
       <div class="header-title">
         <span class="title-icon">🕐</span>
         <span>Version History</span>
-        <span class="version-count" v-if="totalVersions > 0">{{ totalVersions }}</span>
+        <span class="version-count" v-if="totalVersions > 0 && !isInDiffMode">{{ totalVersions }}</span>
       </div>
       <button class="close-btn" @click="emit('close')" title="Close">
         ✕
@@ -99,6 +197,110 @@ const isInPreviewMode = computed(() => props.previewVersion !== null);
     <div v-if="isLoading" class="version-history-loading">
       <span class="loading-spinner"></span>
       <span>Loading versions...</span>
+    </div>
+
+    <!-- Diff mode -->
+    <div v-else-if="isInDiffMode" class="version-diff-pane">
+      <div class="diff-header">
+        <div class="diff-title">
+          <span class="diff-badge">Compare</span>
+          <span v-if="diffSelections.oldVersion && diffSelections.newVersion">
+            v{{ diffSelections.oldVersion }} → v{{ diffSelections.newVersion }}
+          </span>
+          <span v-else class="diff-hint">Select two versions to compare</span>
+        </div>
+        <button class="dismiss-btn" @click="handleExitDiffMode" title="Exit compare mode">
+          ← Back
+        </button>
+      </div>
+
+      <!-- Diff selection info -->
+      <div v-if="diffSelections.oldVersion || diffSelections.newVersion" class="diff-selection-info">
+        <span class="diff-version-tag old" v-if="diffSelections.oldVersion">
+          Old: v{{ diffSelections.oldVersion }}
+        </span>
+        <span class="diff-arrow" v-if="diffSelections.oldVersion && diffSelections.newVersion">→</span>
+        <span class="diff-version-tag new" v-if="diffSelections.newVersion">
+          New: v{{ diffSelections.newVersion }}
+        </span>
+        <button 
+          v-if="canTriggerDiff && !props.diffResult && !props.isDiffLoading" 
+          class="compare-btn"
+          @click="triggerDiff"
+        >
+          Compare
+        </button>
+        <button v-if="diffSelections.oldVersion || diffSelections.newVersion" class="clear-btn" @click="resetDiffSelection">
+          Clear
+        </button>
+      </div>
+
+      <!-- Diff loading -->
+      <div v-if="props.isDiffLoading" class="diff-loading">
+        <span class="loading-spinner"></span>
+        <span>Computing diff...</span>
+      </div>
+
+      <!-- Diff error -->
+      <div v-else-if="props.diffError" class="diff-error">
+        <span class="error-icon">⚠️</span>
+        <span>{{ props.diffError }}</span>
+      </div>
+
+      <!-- Diff result -->
+      <div v-else-if="props.diffResult" class="diff-result">
+        <div class="diff-stats">
+          <span class="stat-added">+{{ props.diffResult.stats.added }}</span>
+          <span class="stat-removed">-{{ props.diffResult.stats.removed }}</span>
+          <span class="stat-unchanged">{{ props.diffResult.stats.unchanged }} unchanged</span>
+        </div>
+        <div class="diff-content">
+          <div 
+            v-for="(change, index) in props.diffResult.changes" 
+            :key="index"
+            class="diff-line"
+            :class="getDiffChangeClass(change)"
+          >
+            <span class="diff-line-marker">
+              {{ change.type === 'added' ? '+' : change.type === 'removed' ? '-' : ' ' }}
+            </span>
+            <span class="diff-line-content">{{ change.value }}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Version list for selection -->
+      <div class="version-diff-list">
+        <div
+          v-for="version in versions"
+          :key="version.id"
+          class="version-item diff-selectable"
+          :class="{ 
+            'is-selected-old': isSelectedForDiff(version.versionNumber) === 'old',
+            'is-selected-new': isSelectedForDiff(version.versionNumber) === 'new'
+          }"
+          @click="handleDiffVersionSelect(version)"
+        >
+          <div class="version-header">
+            <span class="version-number">v{{ version.versionNumber }}</span>
+            <span 
+              class="version-time" 
+              :title="formatFullTimestamp(version.timestamp)"
+            >
+              {{ formatTimestamp(version.timestamp) }}
+            </span>
+          </div>
+          
+          <div class="version-preview">
+            {{ truncateContent(version.content) }}
+          </div>
+
+          <div class="selection-indicator">
+            <span v-if="isSelectedForDiff(version.versionNumber) === 'old'" class="indicator old">Old</span>
+            <span v-if="isSelectedForDiff(version.versionNumber) === 'new'" class="indicator new">New</span>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- Preview mode -->
@@ -178,8 +380,16 @@ const isInPreviewMode = computed(() => props.previewVersion !== null);
     </div>
 
     <!-- Footer info -->
-    <div v-if="totalVersions > 0 && !isInPreviewMode" class="version-history-footer">
+    <div v-if="totalVersions > 0 && !isInPreviewMode && !isInDiffMode" class="version-history-footer">
       <span>{{ totalVersions }} version(s) saved</span>
+      <button 
+        v-if="canCompare" 
+        class="compare-link" 
+        @click="handleEnterDiffMode"
+        title="Compare two versions"
+      >
+        | Compare
+      </button>
     </div>
   </div>
 </template>
@@ -516,5 +726,273 @@ const isInPreviewMode = computed(() => props.previewVersion !== null);
   width: 100%;
   padding: 6px 12px;
   font-size: 12px;
+}
+
+/* Diff mode styles */
+.version-diff-pane {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.diff-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--vscode-widget-border, #454545);
+  flex-shrink: 0;
+}
+
+.diff-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.diff-badge {
+  background: var(--vscode-textPreformat-background, #3c3c3c);
+  color: var(--vscode-descriptionForeground, #888);
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 3px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.diff-hint {
+  color: var(--vscode-descriptionForeground, #888);
+  font-size: 12px;
+  font-weight: normal;
+}
+
+.diff-selection-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  background: var(--vscode-textPreformat-background, #3c3c3c);
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.diff-version-tag {
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-weight: 600;
+}
+
+.diff-version-tag.old {
+  background: rgba(220, 53, 69, 0.2);
+  color: #dc3545;
+}
+
+.diff-version-tag.new {
+  background: rgba(40, 167, 69, 0.2);
+  color: #28a745;
+}
+
+.diff-arrow {
+  color: var(--vscode-descriptionForeground, #888);
+}
+
+.compare-btn {
+  background: var(--vscode-button-background, #0e639c);
+  border: none;
+  color: white;
+  padding: 4px 12px;
+  border-radius: 4px;
+  font-size: 11px;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+  margin-left: auto;
+}
+
+.compare-btn:hover {
+  background: var(--vscode-button-hoverBackground, #1177bb);
+}
+
+.clear-btn {
+  background: transparent;
+  border: none;
+  color: var(--vscode-descriptionForeground, #888);
+  padding: 4px 8px;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.clear-btn:hover {
+  color: var(--vscode-editor-foreground, #ccc);
+}
+
+.diff-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  color: var(--vscode-descriptionForeground, #888);
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.diff-error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 14px;
+  background: rgba(220, 53, 69, 0.1);
+  color: #dc3545;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.error-icon {
+  font-size: 16px;
+}
+
+.diff-result {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  border-bottom: 1px solid var(--vscode-widget-border, #454545);
+}
+
+.diff-stats {
+  display: flex;
+  gap: 12px;
+  padding: 8px 14px;
+  background: var(--vscode-editorWidget-background, #252526);
+  font-size: 11px;
+  font-weight: 600;
+  border-bottom: 1px solid var(--vscode-widget-border, #454545);
+  flex-shrink: 0;
+}
+
+.stat-added {
+  color: #28a745;
+}
+
+.stat-removed {
+  color: #dc3545;
+}
+
+.stat-unchanged {
+  color: var(--vscode-descriptionForeground, #888);
+}
+
+.diff-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 0;
+  font-family: var(--vscode-editor-font-family, monospace);
+  font-size: 11px;
+}
+
+.diff-line {
+  display: flex;
+  padding: 1px 14px;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.diff-line-marker {
+  width: 14px;
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.diff-line-content {
+  flex: 1;
+}
+
+.diff-added {
+  background: rgba(40, 167, 69, 0.15);
+}
+
+.diff-added .diff-line-marker {
+  color: #28a745;
+}
+
+.diff-removed {
+  background: rgba(220, 53, 69, 0.15);
+}
+
+.diff-removed .diff-line-marker {
+  color: #dc3545;
+}
+
+.diff-removed .diff-line-content {
+  text-decoration: line-through;
+}
+
+.diff-unchanged {
+  color: var(--vscode-descriptionForeground, #888);
+}
+
+.version-diff-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 0;
+  min-height: 0;
+}
+
+.diff-selectable {
+  cursor: pointer;
+}
+
+.diff-selectable.is-selected-old {
+  border-left-color: #dc3545;
+  background: rgba(220, 53, 69, 0.1);
+}
+
+.diff-selectable.is-selected-new {
+  border-left-color: #28a745;
+  background: rgba(40, 167, 69, 0.1);
+}
+
+.selection-indicator {
+  display: flex;
+  justify-content: flex-end;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.selection-indicator .indicator {
+  font-size: 9px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 3px;
+  text-transform: uppercase;
+}
+
+.selection-indicator .indicator.old {
+  background: rgba(220, 53, 69, 0.2);
+  color: #dc3545;
+}
+
+.selection-indicator .indicator.new {
+  background: rgba(40, 167, 69, 0.2);
+  color: #28a745;
+}
+
+.compare-link {
+  background: transparent;
+  border: none;
+  color: var(--vscode-activityBarBadge-background, #007acc);
+  cursor: pointer;
+  font-size: 11px;
+  padding: 0;
+}
+
+.compare-link:hover {
+  text-decoration: underline;
 }
 </style>

@@ -104,6 +104,37 @@ export interface VersionHistoryEntry {
   timestamp: string;
 }
 
+// Diff change types for version comparison
+export interface DiffChange {
+  /** Type of change: 'added', 'removed', or 'unchanged' */
+  type: 'added' | 'removed' | 'unchanged';
+  /** The text content of this change */
+  value: string;
+  /** Line number in the old text (for removed/unchanged) */
+  oldLineNumber?: number;
+  /** Line number in the new text (for added/unchanged) */
+  newLineNumber?: number;
+}
+
+// Result of comparing two versions
+export interface VersionDiffResult {
+  /** Version number of the older version */
+  oldVersion: number;
+  /** Version number of the newer version */
+  newVersion: number;
+  /** Array of changes between the two versions */
+  changes: DiffChange[];
+  /** Statistics about the diff */
+  stats: {
+    /** Number of lines added */
+    added: number;
+    /** Number of lines removed */
+    removed: number;
+    /** Number of lines unchanged */
+    unchanged: number;
+  };
+}
+
 // History state for persistence
 export interface HistoryState {
   entries: HistoryEntry[];
@@ -295,7 +326,9 @@ export type ExtToWebMsg =
   | { type: 'backlinks'; pageName: string; backlinks: BacklinkInfo[] }
   | { type: 'pageCreated'; pageName: string; pagePath: string }
   | { type: 'versionHistory'; versions: VersionHistoryEntry[] }
-  | { type: 'versionRestored'; versionNumber: number; content: string };
+  | { type: 'versionRestored'; versionNumber: number; content: string }
+  | { type: 'versionDiff'; diff: VersionDiffResult }
+  | { type: 'versionDiffError'; error: string };
 
 // Messages from webview → extension
 export type WebToExtMsg =
@@ -336,4 +369,5 @@ export type WebToExtMsg =
   | { type: 'createPage'; pageName: string }
   | { type: 'openWikiLink'; pageName: string; existingPages: string[] }
   | { type: 'requestVersionHistory' }
-  | { type: 'restoreVersion'; versionNumber: number };
+  | { type: 'restoreVersion'; versionNumber: number }
+  | { type: 'requestVersionDiff'; oldVersion: number; newVersion: number };

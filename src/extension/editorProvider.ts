@@ -54,6 +54,7 @@ import {
   createDocxFromHtml,
   createDocxConfig,
 } from './docxUtils';
+import { computeLineDiff, areStringsEqual } from './diffUtils';
 
 const HISTORY_STATE_KEY = 'htmly.history';
 const CRASH_RECOVERY_KEY = 'htmly.crashRecovery';
@@ -455,6 +456,9 @@ export class HtmlyEditorProvider implements vscode.CustomTextEditorProvider {
           break;
         case 'restoreVersion':
           await this.handleRestoreVersion(docKey, msg.versionNumber, document, webviewPanel);
+          break;
+        case 'requestVersionDiff':
+          await this.handleRequestVersionDiff(docKey, msg.oldVersion, msg.newVersion, webviewPanel);
           break;
       }
     });
@@ -2204,6 +2208,88 @@ export class HtmlyEditorProvider implements vscode.CustomTextEditorProvider {
     } catch (error) {
       console.error('[VersionHistory] Failed to restore version:', error);
       vscode.window.showErrorMessage(`Failed to restore version: ${error}`);
+    }
+  }
+
+  /**
+   * Handle request for diff between two versions
+   */
+  private async handleRequestVersionDiff(
+    docKey: string,
+    oldVersion: number,
+    newVersion: number,
+    panel: vscode.WebviewPanel
+  ): Promise<void> {
+    try {
+      const db = getVersionHistoryDb(this.context);
+      if (!db.isInitialized()) {
+        this.postMessage(panel, { type: 'versionDiffError', error: 'Version history database not initialized' });
+        return;
+      }
+
+      // Get both versions
+      const oldVersionData = db.getVersion(docKey, oldVersion);
+      const newVersionData = db.getVersion(docKey, newVersion);
+
+      if (!oldVersionData) {
+        this.postMessage(panel, { type: 'versionDiffError', error: `Version ${oldVersion} not found` });
+        return;
+      }
+
+      if (!newVersionData) {
+        this.postMessage(panel, { type: 'versionDiffError', error: `Version ${newVersion} not found` });
+        return;
+      }
+
+      const oldContent = oldVersionData.content;
+      const newContent = newVersionData.content;
+
+      // Handle null content cases
+      if (oldContent === null && newContent === null) {
+        this.postMessage(panel, { type: 'versionDiffError', error: 'Both versions have no content' });
+        return;
+      }
+
+      if (oldContent === null) {
+        this.postMessage(panel, { type: 'versionDiffError', error: 'Old version has no content' });
+        return;
+      }
+
+      if (newContent === null) {
+        this.postMessage(panel, { type: 'versionDiffError', error: 'New version has no content' });
+        return;
+      }
+
+      // Check if contents are identical
+      if (areStringsEqual(oldContent, newContent)) {
+        this.postMessage(panel, {
+          type: 'versionDiff',
+          diff: {
+            oldVersion,
+            newVersion,
+            changes: [],
+            stats: { added: 0, removed: 0, unchanged: oldContent.split('\n').length }
+          }
+        });
+        return;
+      }
+
+      // Compute the diff
+      const diffResult = computeLineDiff(oldContent, newContent);
+
+      // Send the diff result to the webview
+      this.postMessage(panel, {
+        type: 'versionDiff',
+        diff: {
+          oldVersion,
+          newVersion,
+          changes: diffResult.changes,
+          stats: diffResult.stats
+        }
+      });
+    } catch (error) {
+      console.error('[VersionHistory] Failed to compute diff:', error);
+      this.postMessage(panel, { type: 'versionDiffError', error: `Failed to compute diff: ${error}` });
     }
   }
 
