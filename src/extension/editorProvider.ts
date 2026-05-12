@@ -43,6 +43,7 @@ import {
   importKeybindings,
 } from './keybindingManager';
 import { backlinksIndex } from './backlinksIndex';
+import { getVersionHistoryDb } from './versionHistoryDb';
 import {
   initializePdfMake,
   createPdfMakeConfig,
@@ -1122,6 +1123,8 @@ export class HtmlyEditorProvider implements vscode.CustomTextEditorProvider {
       Promise.resolve(vscode.workspace.applyEdit(edit))
         .then(async () => {
           this.updateSaveStatus(panel, docKey, 'saved');
+          // Create version history entry after successful save
+          await this.createVersionEntry(docKey, newContent);
           // Reset to idle after 2 seconds
           setTimeout(() => {
             if (this.saveStatusMap.get(docKey) === 'saved') {
@@ -1159,6 +1162,8 @@ export class HtmlyEditorProvider implements vscode.CustomTextEditorProvider {
           // Force save to disk for large files
           await document.save();
           this.updateSaveStatus(panel, docKey, 'saved');
+          // Create version history entry after successful save
+          await this.createVersionEntry(docKey, newContent);
           // Reset to idle after 2 seconds
           setTimeout(() => {
             if (this.saveStatusMap.get(docKey) === 'saved') {
@@ -1182,6 +1187,25 @@ export class HtmlyEditorProvider implements vscode.CustomTextEditorProvider {
     if (currentStatus !== status) {
       this.saveStatusMap.set(docKey, status);
       this.postMessage(panel, { type: 'saveStatus', status });
+    }
+  }
+
+  /**
+   * Create a version history entry for the document
+   */
+  private async createVersionEntry(docKey: string, content: string): Promise<void> {
+    try {
+      const db = getVersionHistoryDb(this.context);
+      if (!db.isInitialized()) {
+        // Database not yet initialized, skip version creation
+        return;
+      }
+      
+      await db.saveVersion(docKey, content);
+      console.log(`[VersionHistory] Created version entry for: ${docKey}`);
+    } catch (error) {
+      // Log error but don't fail the save operation
+      console.error(`[VersionHistory] Failed to create version entry:`, error);
     }
   }
 

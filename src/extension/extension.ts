@@ -5,6 +5,7 @@ import {
   exportKeybindings,
   importKeybindings,
 } from './keybindingManager';
+import { initializeVersionHistory } from './versionHistoryDb';
 
 const MODE_LABELS: Record<EditorMode, string> = {
   wysiwyg: 'WYSIWYG',
@@ -20,7 +21,10 @@ const MODE_ICONS: Record<EditorMode, string> = {
   split: '$(split-horizontal)',
 };
 
-export function activate(context: vscode.ExtensionContext) {
+export async function activate(context: vscode.ExtensionContext) {
+  // Initialize version history database
+  await initializeVersionHistory(context);
+  
   const provider = new HtmlyEditorProvider(context);
   context.subscriptions.push(provider.register());
 
