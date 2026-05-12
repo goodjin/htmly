@@ -10,13 +10,17 @@ import {
   ExportFormat,
   TemplateCategory,
   SnippetCategory,
-  CloudStorageProvider
+  CloudStorageProvider,
+  SeoSettings,
+  StaticSiteOptions,
+  PdfExportOptions
 } from '../shared/types';
 import {
   showExportSaveDialog,
   convertContent,
   convertToEmbeddedHtmlWithImages,
   saveContentToFile,
+  exportStaticSite,
 } from './exportUtils';
 import {
   listTemplates,
@@ -39,6 +43,12 @@ import {
   importKeybindings,
 } from './keybindingManager';
 import { backlinksIndex } from './backlinksIndex';
+import {
+  initializePdfMake,
+  createPdfMakeConfig,
+  createPdfFromHtmlContent,
+  PdfMakeConfig
+} from './pdfmakeUtils';
 
 const HISTORY_STATE_KEY = 'htmly.history';
 const CRASH_RECOVERY_KEY = 'htmly.crashRecovery';
@@ -326,7 +336,7 @@ export class HtmlyEditorProvider implements vscode.CustomTextEditorProvider {
           break;
 
         case 'exportRequest':
-          this.handleExportRequest(msg.format, msg.content, docKey, webviewPanel);
+          this.handleExportRequest(msg.format, msg.content, docKey, webviewPanel, msg.seoSettings, msg.siteOptions, msg.options);
           break;
 
         case 'loadUserTemplates':
@@ -729,31 +739,168 @@ export class HtmlyEditorProvider implements vscode.CustomTextEditorProvider {
   /**
    * Handle export request from webview
    * Shows save dialog, converts content, and saves to file
-   * Note: PDF export is handled directly in the webview using window.print()
+   * PDF export uses pdfmake for proper HTML-to-PDF conversion
    */
   private async handleExportRequest(
     format: ExportFormat,
     content: string,
     docKey: string,
-    panel: vscode.WebviewPanel
+    panel: vscode.WebviewPanel,
+    seoSettings?: SeoSettings,
+    siteOptions?: Partial<StaticSiteOptions>,
+    options?: PdfExportOptions
   ): Promise<void> {
-    // PDF export is handled by the webview (window.print())
-    // The extension doesn't need to do anything for PDF
-    if (format === 'pdf') {
-      // Send success response - actual PDF generation happens in browser
-      this.postMessage(panel, {
-        type: 'exportResponse',
-        success: true,
-      });
-      return;
-    }
-
     // Get the original document file name for the default save name
     const originalDocument = vscode.workspace.textDocuments.find(d => d.uri.toString() === docKey);
     const originalFileName = originalDocument?.fileName;
 
+    // Handle PDF export using pdfmake
+    if (format === 'pdf') {
+      try {
+        // Initialize pdfmake if not already initialized
+        initializePdfMake();
+
+        // Show save dialog
+        const saveUri = await showExportSaveDialog('pdf', originalFileName);
+        if (!saveUri) {
+          this.postMessage(panel, {
+            type: 'exportResponse',
+            success: false,
+            error: 'Export cancelled by user',
+          });
+          return;
+        }
+
+        // Create pdfmake config from options
+        const pdfConfig: PdfMakeConfig = createPdfMakeConfig({
+          pageSize: options?.pageSize || 'A4',
+          orientation: options?.orientation || 'portrait',
+          margins: options?.margins || { top: 70, right: 70, bottom: 70, left: 70 },
+          header: options?.headerText,
+          footer: options?.footerText,
+          includePageNumbers: options?.includePageNumbers ?? false,
+        });
+
+        // Generate PDF using pdfmake
+        const pdfData = await new Promise<Uint8Array>((resolve, reject) => {
+          createPdfFromHtmlContent(
+            content,
+            pdfConfig,
+            (data) => resolve(data),
+            (error) => reject(error)
+          );
+        });
+
+        // Save PDF to file
+        await vscode.workspace.fs.writeFile(saveUri, pdfData);
+
+        // Send success response
+        this.postMessage(panel, {
+          type: 'exportResponse',
+          success: true,
+          filePath: saveUri.fsPath,
+        });
+
+        // Show success notification
+        vscode.window.showInformationMessage(
+          'PDF exported successfully',
+          'Open File'
+        ).then(selection => {
+          if (selection === 'Open File') {
+            vscode.commands.executeCommand('vscode.open', saveUri);
+          }
+        });
+      } catch (error) {
+        // Send failure response
+        this.postMessage(panel, {
+          type: 'exportResponse',
+          success: false,
+          error: `PDF export failed: ${error}`,
+        });
+        vscode.window.showErrorMessage(`PDF export failed: ${error}`);
+      }
+      return;
+    }
+
     try {
-      // Show save dialog
+      // Handle 'site' format - export as static site
+      if (format === 'site') {
+        // Get the base name for the site
+        const baseName = originalFileName 
+          ? originalFileName.replace(/\.[^/.]+$/, '') 
+          : 'exported-site';
+        
+        // Get the directory to save the site
+        const siteDir = vscode.Uri.file(baseName);
+        
+        // Extract page name from file name
+        const pageName = originalFileName
+          ? originalFileName.split('/').pop()?.replace(/\.[^/.]+$/, '') || 'index'
+          : 'index';
+        
+        // Create a single page for export
+        const pages: import('../shared/types').StaticSitePage[] = [{
+          name: pageName,
+          path: 'index.html',
+          content: content
+        }];
+        
+        // Build static site options with SEO settings
+        const staticSiteOptions: StaticSiteOptions = {
+          siteTitle: siteOptions?.siteTitle || pageName,
+          siteDescription: siteOptions?.siteDescription || seoSettings?.seoDescription || '',
+          seoTitle: seoSettings?.seoTitle || siteOptions?.seoTitle,
+          customTitle: siteOptions?.customTitle,
+          customDescription: seoSettings?.seoDescription || siteOptions?.customDescription,
+          ogImage: seoSettings?.ogImage || siteOptions?.ogImage,
+          customDomain: seoSettings?.customDomain || siteOptions?.customDomain,
+          includeSearch: siteOptions?.includeSearch ?? false,
+          includeToc: siteOptions?.includeToc ?? false,
+          customCss: siteOptions?.customCss,
+        };
+        
+        // Export the static site
+        const siteContent = exportStaticSite(pages, staticSiteOptions);
+        
+        // Create output directory
+        const outputUri = vscode.Uri.joinPath(siteDir, '_site');
+        await vscode.workspace.fs.createDirectory(outputUri);
+        
+        // Save each file in the site
+        const savedPaths: string[] = [];
+        for (const [filePath, fileContent] of siteContent) {
+          const fileUri = vscode.Uri.joinPath(outputUri, filePath);
+          const dirUri = vscode.Uri.joinPath(outputUri, filePath.replace(/[^/]+$/, ''));
+          
+          // Create parent directories if needed
+          if (filePath.includes('/')) {
+            await vscode.workspace.fs.createDirectory(dirUri);
+          }
+          
+          await saveContentToFile(fileUri, fileContent);
+          savedPaths.push(fileUri.fsPath);
+        }
+        
+        // Send success response
+        this.postMessage(panel, {
+          type: 'exportResponse',
+          success: true,
+          filePath: outputUri.fsPath,
+        });
+
+        // Show success notification
+        vscode.window.showInformationMessage(
+          'Static site exported successfully',
+          'Open Folder'
+        ).then(selection => {
+          if (selection === 'Open Folder') {
+            vscode.commands.executeCommand('revealFileInOS', outputUri);
+          }
+        });
+        return;
+      }
+
+      // Show save dialog for other formats
       const saveUri = await showExportSaveDialog(format, originalFileName);
 
       if (!saveUri) {

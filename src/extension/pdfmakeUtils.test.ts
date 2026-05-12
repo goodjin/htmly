@@ -33,6 +33,8 @@ import {
   createPdfMakeConfig,
   createPdfDocumentDefinition,
   createPdfFromHtml,
+  convertHtmlToPdfMakeContent,
+  createPdfDocumentDefinitionFromHtml,
 } from './pdfmakeUtils';
 
 // Type for document definition content item
@@ -365,5 +367,289 @@ describe('pdfmakeUtils - integration', () => {
       expect(config.margins.bottom).toBe(100);
       expect(config.margins.left).toBe(50);
     });
+  });
+});
+
+describe('convertHtmlToPdfMakeContent', () => {
+  describe('headings', () => {
+    it('should convert h1 heading', () => {
+      const html = '<h1>Title</h1>';
+      const result = convertHtmlToPdfMakeContent(html);
+      expect(result).toBeDefined();
+      expect(result.length).toBeGreaterThan(0);
+      // First item should have text with heading style
+      const firstItem = result[0] as { text: Array<{ text: string; bold?: boolean; fontSize?: number }> };
+      expect(firstItem.text).toBeDefined();
+      expect(firstItem.text[0].text).toContain('Title');
+      expect(firstItem.text[0].bold).toBe(true);
+      expect(firstItem.text[0].fontSize).toBe(24);
+    });
+
+    it('should convert h2 heading', () => {
+      const html = '<h2>Subtitle</h2>';
+      const result = convertHtmlToPdfMakeContent(html);
+      const firstItem = result[0] as { text: Array<{ text: string; bold?: boolean; fontSize?: number }> };
+      expect(firstItem.text[0].text).toContain('Subtitle');
+      expect(firstItem.text[0].fontSize).toBe(20);
+    });
+
+    it('should convert h3 heading', () => {
+      const html = '<h3>Section</h3>';
+      const result = convertHtmlToPdfMakeContent(html);
+      const firstItem = result[0] as { text: Array<{ text: string; bold?: boolean; fontSize?: number }> };
+      expect(firstItem.text[0].text).toContain('Section');
+      expect(firstItem.text[0].fontSize).toBe(18);
+    });
+
+    it('should convert h4 heading', () => {
+      const html = '<h4> Subsection </h4>';
+      const result = convertHtmlToPdfMakeContent(html);
+      const firstItem = result[0] as { text: Array<{ text: string; bold?: boolean; fontSize?: number }> };
+      expect(firstItem.text[0].text).toContain('Subsection');
+      expect(firstItem.text[0].fontSize).toBe(16);
+    });
+
+    it('should convert h5 heading', () => {
+      const html = '<h5>H5 Title</h5>';
+      const result = convertHtmlToPdfMakeContent(html);
+      const firstItem = result[0] as { text: Array<{ text: string; bold?: boolean; fontSize?: number }> };
+      expect(firstItem.text[0].text).toContain('H5 Title');
+      expect(firstItem.text[0].fontSize).toBe(14);
+    });
+
+    it('should convert h6 heading', () => {
+      const html = '<h6>H6 Title</h6>';
+      const result = convertHtmlToPdfMakeContent(html);
+      const firstItem = result[0] as { text: Array<{ text: string; bold?: boolean; fontSize?: number }> };
+      expect(firstItem.text[0].text).toContain('H6 Title');
+      expect(firstItem.text[0].fontSize).toBe(12);
+    });
+  });
+
+  describe('text formatting', () => {
+    it('should convert bold text', () => {
+      const html = '<p><strong>bold text</strong></p>';
+      const result = convertHtmlToPdfMakeContent(html);
+      expect(result.length).toBeGreaterThan(0);
+    });
+
+    it('should convert italic text', () => {
+      const html = '<p><em>italic text</em></p>';
+      const result = convertHtmlToPdfMakeContent(html);
+      expect(result.length).toBeGreaterThan(0);
+    });
+
+    it('should convert underline', () => {
+      const html = '<p><u>underlined</u></p>';
+      const result = convertHtmlToPdfMakeContent(html);
+      expect(result.length).toBeGreaterThan(0);
+    });
+
+    it('should convert strikethrough', () => {
+      const html = '<p><del>deleted</del></p>';
+      const result = convertHtmlToPdfMakeContent(html);
+      expect(result.length).toBeGreaterThan(0);
+    });
+
+    it('should convert inline code', () => {
+      const html = '<p><code>code</code></p>';
+      const result = convertHtmlToPdfMakeContent(html);
+      expect(result.length).toBeGreaterThan(0);
+    });
+
+    it('should handle nested formatting', () => {
+      const html = '<p><strong><em>bold and italic</em></strong></p>';
+      const result = convertHtmlToPdfMakeContent(html);
+      expect(result.length).toBeGreaterThan(0);
+    });
+  });
+
+  describe('paragraphs', () => {
+    it('should convert paragraph', () => {
+      const html = '<p>Hello World</p>';
+      const result = convertHtmlToPdfMakeContent(html);
+      expect(result.length).toBeGreaterThan(0);
+      // Paragraph should have text array
+      const firstItem = result[0] as { text: Array<{ text: string }> };
+      expect(firstItem.text).toBeDefined();
+      expect(firstItem.text[0].text).toContain('Hello World');
+    });
+
+    it('should handle multiple paragraphs', () => {
+      const html = '<p>First paragraph</p><p>Second paragraph</p>';
+      const result = convertHtmlToPdfMakeContent(html);
+      expect(result.length).toBe(2);
+    });
+  });
+
+  describe('lists', () => {
+    it('should convert unordered list', () => {
+      const html = '<ul><li>Item 1</li><li>Item 2</li></ul>';
+      const result = convertHtmlToPdfMakeContent(html);
+      expect(result.length).toBe(1);
+      const firstItem = result[0] as { ul?: Array<{ text: Array<{ text: string }> }> };
+      expect(firstItem.ul).toBeDefined();
+      expect(firstItem.ul!.length).toBe(2);
+    });
+
+    it('should convert ordered list', () => {
+      const html = '<ol><li>First</li><li>Second</li></ol>';
+      const result = convertHtmlToPdfMakeContent(html);
+      expect(result.length).toBe(1);
+      const firstItem = result[0] as { ol?: Array<{ text: Array<{ text: string }> }> };
+      expect(firstItem.ol).toBeDefined();
+      expect(firstItem.ol!.length).toBe(2);
+    });
+  });
+
+  describe('tables', () => {
+    it('should convert table with headers', () => {
+      const html = '<table><thead><tr><th>Header 1</th><th>Header 2</th></tr></thead><tbody><tr><td>Cell 1</td><td>Cell 2</td></tr></tbody></table>';
+      const result = convertHtmlToPdfMakeContent(html);
+      expect(result.length).toBe(1);
+      const firstItem = result[0] as { table?: { headerRows: number; body: unknown[] } };
+      expect(firstItem.table).toBeDefined();
+      expect(firstItem.table!.headerRows).toBe(1);
+    });
+
+    it('should handle table without explicit thead', () => {
+      const html = '<table><tr><td>Data 1</td><td>Data 2</td></tr></table>';
+      const result = convertHtmlToPdfMakeContent(html);
+      expect(result.length).toBe(1);
+      const firstItem = result[0] as { table?: { headerRows: number } };
+      expect(firstItem.table).toBeDefined();
+    });
+  });
+
+  describe('images', () => {
+    it('should convert data URI image', () => {
+      const dataUri = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAUA';
+      const html = `<img src="${dataUri}" alt="Test Image">`;
+      const result = convertHtmlToPdfMakeContent(html);
+      expect(result.length).toBe(1);
+      const firstItem = result[0] as { image?: string };
+      expect(firstItem.image).toBeDefined();
+      expect(firstItem.image).toBe('iVBORw0KGgoAAAANSUhEUgAAAAUA');
+    });
+
+    it('should skip non-data URI images', () => {
+      const html = '<img src="https://example.com/image.png" alt="External Image">';
+      const result = convertHtmlToPdfMakeContent(html);
+      // Should return empty array since we can't embed external images
+      expect(result).toBeDefined();
+    });
+  });
+
+  describe('code blocks', () => {
+    it('should convert preformatted code block', () => {
+      const html = '<pre><code>function test() {\n  return 1;\n}</code></pre>';
+      const result = convertHtmlToPdfMakeContent(html);
+      expect(result.length).toBe(1);
+      const firstItem = result[0] as { text?: Array<{ text: string; code?: boolean }>; style?: string };
+      expect(firstItem.style).toBe('code');
+    });
+  });
+
+  describe('blockquotes', () => {
+    it('should convert blockquote', () => {
+      const html = '<blockquote>This is a quote</blockquote>';
+      const result = convertHtmlToPdfMakeContent(html);
+      expect(result.length).toBe(1);
+      const firstItem = result[0] as { style?: string };
+      expect(firstItem.style).toBe('quote');
+    });
+  });
+
+  describe('horizontal rules', () => {
+    it('should convert hr element', () => {
+      const html = '<hr />';
+      const result = convertHtmlToPdfMakeContent(html);
+      expect(result).toBeDefined();
+    });
+  });
+
+  describe('complex documents', () => {
+    it('should handle full HTML document', () => {
+      const html = `<!DOCTYPE html>
+<html>
+<head><title>Test</title></head>
+<body>
+<h1>Title</h1>
+<p>Paragraph with <strong>bold</strong> and <em>italic</em> text.</p>
+<ul>
+<li>List item 1</li>
+<li>List item 2</li>
+</ul>
+</body>
+</html>`;
+      const result = convertHtmlToPdfMakeContent(html);
+      expect(result).toBeDefined();
+      expect(result.length).toBeGreaterThan(0);
+    });
+
+    it('should handle empty input', () => {
+      const result = convertHtmlToPdfMakeContent('');
+      expect(result).toEqual([]);
+    });
+
+    it('should handle null input', () => {
+      const result = convertHtmlToPdfMakeContent(null as unknown as string);
+      expect(result).toEqual([]);
+    });
+  });
+});
+
+describe('createPdfDocumentDefinitionFromHtml', () => {
+  const defaultConfig: PdfMakeConfig = {
+    pageSize: 'A4',
+    orientation: 'portrait',
+    margins: { top: 70, right: 70, bottom: 70, left: 70 },
+  };
+
+  it('should create document with proper styles', () => {
+    const html = '<h1>Test Document</h1>';
+    const docDef = createPdfDocumentDefinitionFromHtml(defaultConfig, html);
+    
+    expect(docDef.content).toBeDefined();
+    expect(docDef.styles).toBeDefined();
+    expect(docDef.styles!['heading1']).toBeDefined();
+  });
+
+  it('should apply page size', () => {
+    const docDef = createPdfDocumentDefinitionFromHtml(defaultConfig, '<p>Test</p>');
+    expect(docDef.pageSize).toBe('A4');
+    expect(docDef.pageOrientation).toBe('portrait');
+  });
+
+  it('should apply margins', () => {
+    const docDef = createPdfDocumentDefinitionFromHtml(defaultConfig, '<p>Test</p>');
+    expect(docDef.pageMargins).toEqual([70, 70, 70, 70]);
+  });
+
+  it('should include page numbers when configured', () => {
+    const configWithNumbers: PdfMakeConfig = {
+      ...defaultConfig,
+      includePageNumbers: true,
+    };
+    const docDef = createPdfDocumentDefinitionFromHtml(configWithNumbers, '<p>Test</p>');
+    expect(docDef.footer).toBeDefined();
+  });
+
+  it('should include header when configured', () => {
+    const configWithHeader: PdfMakeConfig = {
+      ...defaultConfig,
+      header: 'Test Header',
+    };
+    const docDef = createPdfDocumentDefinitionFromHtml(configWithHeader, '<p>Test</p>');
+    expect(docDef.header).toBeDefined();
+  });
+
+  it('should include footer when configured', () => {
+    const configWithFooter: PdfMakeConfig = {
+      ...defaultConfig,
+      footer: 'Test Footer',
+    };
+    const docDef = createPdfDocumentDefinitionFromHtml(configWithFooter, '<p>Test</p>');
+    expect(docDef.footer).toBeDefined();
   });
 });
