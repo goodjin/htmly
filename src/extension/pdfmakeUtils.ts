@@ -157,17 +157,31 @@ export function createPdfDocumentDefinition(
     };
   }
 
-  // Add footer if provided
-  if (config.footer) {
+  // Add footer with page numbers if both are configured
+  if (config.footer && config.includePageNumbers) {
+    // Use columns to show both footer text and page numbers side by side
+    docDefinition.footer = {
+      columns: [
+        {
+          text: config.footer,
+          alignment: 'left',
+          margin: [0, 0, 10, 0] as [number, number, number, number],
+        },
+        {
+          text: 'Page {current-page} of {total-pages}',
+          alignment: 'right',
+          margin: [0, 0, 0, 0] as [number, number, number, number],
+        },
+      ],
+      margin: [0, 10, 0, 10] as [number, number, number, number],
+    };
+  } else if (config.footer) {
     docDefinition.footer = {
       text: config.footer,
       alignment: 'center',
       margin: [0, 10, 0, 10] as [number, number, number, number],
     };
-  }
-
-  // Add page numbers if requested
-  if (config.includePageNumbers) {
+  } else if (config.includePageNumbers) {
     docDefinition.footer = {
       text: 'Page {current-page} of {total-pages}',
       alignment: 'center',
@@ -999,17 +1013,31 @@ export function createPdfDocumentDefinitionFromHtml(
     };
   }
 
-  // Add footer if provided
-  if (config.footer) {
+  // Add footer with page numbers if both are configured
+  if (config.footer && config.includePageNumbers) {
+    // Use columns to show both footer text and page numbers side by side
+    docDefinition.footer = {
+      columns: [
+        {
+          text: config.footer,
+          alignment: 'left',
+          margin: [0, 0, 10, 0] as [number, number, number, number],
+        },
+        {
+          text: 'Page {current-page} of {total-pages}',
+          alignment: 'right',
+          margin: [0, 0, 0, 0] as [number, number, number, number],
+        },
+      ],
+      margin: [0, 10, 0, 10] as [number, number, number, number],
+    };
+  } else if (config.footer) {
     docDefinition.footer = {
       text: config.footer,
       alignment: 'center',
       margin: [0, 10, 0, 10] as [number, number, number, number],
     };
-  }
-
-  // Add page numbers if requested
-  if (config.includePageNumbers) {
+  } else if (config.includePageNumbers) {
     docDefinition.footer = {
       text: 'Page {current-page} of {total-pages}',
       alignment: 'center',

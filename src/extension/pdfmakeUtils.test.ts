@@ -653,4 +653,29 @@ describe('createPdfDocumentDefinitionFromHtml', () => {
     const docDef = createPdfDocumentDefinitionFromHtml(configWithFooter, '<p>Test</p>');
     expect(docDef.footer).toBeDefined();
   });
+
+  it('should include both footer text and page numbers when both are configured', () => {
+    const configWithBoth: PdfMakeConfig = {
+      ...defaultConfig,
+      footer: 'Custom Footer',
+      includePageNumbers: true,
+    };
+    const docDef = createPdfDocumentDefinitionFromHtml(configWithBoth, '<p>Test</p>');
+    
+    // Footer should be defined
+    expect(docDef.footer).toBeDefined();
+    
+    // When both footer text and page numbers are set, footer should use columns layout
+    // to show both the custom footer text and the page numbers
+    type FooterType = { columns?: Array<{ text?: string; width?: number | string; alignment?: string }> };
+    const footer = docDef.footer as FooterType;
+    expect(footer.columns).toBeDefined();
+    expect(footer.columns!.length).toBe(2);
+    
+    // First column should have custom footer text
+    expect(footer.columns![0].text).toContain('Custom Footer');
+    
+    // Second column should have page number template
+    expect(footer.columns![1].text).toContain('{current-page}');
+  });
 });
