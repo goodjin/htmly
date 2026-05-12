@@ -15,11 +15,14 @@ const searchInput = ref<HTMLInputElement | null>(null);
 const searchTerm = ref('');
 const replaceTerm = ref('');
 const showReplace = ref(false);
+const isRegex = ref(false);
+const regexError = ref<string | null>(null);
 const matches = ref<Array<{ from: number; to: number }>>([]);
 const currentMatchIndex = ref(-1);
 
 const matchLabel = computed(() => {
   if (!searchTerm.value) return '';
+  if (regexError.value) return 'Invalid regex';
   if (matches.value.length === 0) return 'No results';
   return `${currentMatchIndex.value + 1}/${matches.value.length}`;
 });
@@ -39,32 +42,77 @@ watch(searchTerm, () => {
   debounceTimer = setTimeout(findMatches, 150);
 });
 
+watch(isRegex, () => {
+  findMatches();
+});
+
+/**
+ * Escape special regex characters in a string for literal matching
+ */
+function escapeRegex(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 function findMatches() {
   if (!props.editor || !searchTerm.value) {
     matches.value = [];
     currentMatchIndex.value = -1;
+    regexError.value = null;
     return;
   }
 
-  const term = searchTerm.value.toLowerCase();
+  regexError.value = null;
   const result: Array<{ from: number; to: number }> = [];
 
-  props.editor.state.doc.descendants((node, pos) => {
-    if (!node.isText || !node.text) return;
-    const lowerText = node.text.toLowerCase();
-    let idx = 0;
-    while ((idx = lowerText.indexOf(term, idx)) !== -1) {
-      result.push({ from: pos + idx, to: pos + idx + searchTerm.value.length });
-      idx += term.length;
-    }
-  });
+  try {
+    let regex: RegExp;
 
-  matches.value = result;
-  if (result.length > 0) {
-    currentMatchIndex.value = 0;
-    selectMatch(result[0]);
-  } else {
-    currentMatchIndex.value = -1;
+    if (isRegex.value) {
+      // Try to compile as regex
+      regex = new RegExp(searchTerm.value, 'g');
+    } else {
+      // Escape special characters for literal search
+      const escaped = escapeRegex(searchTerm.value);
+      regex = new RegExp(escaped, 'gi');
+    }
+
+    // Search through all text in the document
+    props.editor.state.doc.descendants((node, pos) => {
+      if (!node.isText || !node.text) return;
+
+      // Reset lastIndex for global regex
+      regex.lastIndex = 0;
+
+      let match: RegExpExecArray | null;
+      const text = node.text;
+
+      while ((match = regex.exec(text)) !== null) {
+        result.push({
+          from: pos + match.index,
+          to: pos + match.index + match[0].length,
+        });
+
+        // Prevent infinite loop for zero-length matches
+        if (match[0].length === 0) {
+          regex.lastIndex++;
+        }
+      }
+    });
+
+    matches.value = result;
+    if (result.length > 0) {
+      currentMatchIndex.value = 0;
+      selectMatch(result[0]);
+    } else {
+      currentMatchIndex.value = -1;
+    }
+  } catch (e) {
+    // Invalid regex
+    if (isRegex.value && e instanceof SyntaxError) {
+      regexError.value = e.message;
+      matches.value = [];
+      currentMatchIndex.value = -1;
+    }
   }
 }
 
@@ -132,6 +180,13 @@ function onReplaceKeydown(e: KeyboardEvent) {
   <div v-if="visible" class="search-bar">
     <div class="search-row">
       <button class="toggle-replace" title="Toggle replace" @click="showReplace = !showReplace">▶</button>
+      <button
+        data-testid="regex-toggle"
+        class="regex-toggle"
+        :class="{ active: isRegex }"
+        title="Toggle regex mode"
+        @click="isRegex = !isRegex"
+      >.*</button>
       <input
         ref="searchInput"
         v-model="searchTerm"
@@ -230,6 +285,17 @@ function onReplaceKeydown(e: KeyboardEvent) {
   font-size: 10px;
   min-width: 20px;
   transition: transform 0.15s;
+}
+
+.regex-toggle {
+  font-size: 11px;
+  min-width: 24px;
+  font-family: monospace;
+}
+
+.regex-toggle.active {
+  background: var(--vscode-button-secondaryBackground, #3c3c3c);
+  color: var(--vscode-textLink-activeForeground, #007acc);
 }
 
 .replace-row {
