@@ -49,6 +49,10 @@ import {
   createPdfFromHtmlContent,
   PdfMakeConfig
 } from './pdfmakeUtils';
+import {
+  createDocxFromHtml,
+  createDocxConfig,
+} from './docxUtils';
 
 const HISTORY_STATE_KEY = 'htmly.history';
 const CRASH_RECOVERY_KEY = 'htmly.crashRecovery';
@@ -818,6 +822,70 @@ export class HtmlyEditorProvider implements vscode.CustomTextEditorProvider {
           error: `PDF export failed: ${error}`,
         });
         vscode.window.showErrorMessage(`PDF export failed: ${error}`);
+      }
+      return;
+    }
+
+    // Handle DOCX export using docx library
+    if (format === 'docx') {
+      try {
+        // Show save dialog
+        const saveUri = await showExportSaveDialog('docx', originalFileName);
+        if (!saveUri) {
+          this.postMessage(panel, {
+            type: 'exportResponse',
+            success: false,
+            error: 'Export cancelled by user',
+          });
+          return;
+        }
+
+        // Create docx config
+        const docxConfig = createDocxConfig({
+          pageSize: options?.pageSize || 'LETTER',
+          orientation: options?.orientation || 'portrait',
+          margins: options?.margins ? {
+            top: (options.margins.top || 70) / 72,  // Convert points to inches
+            right: (options.margins.right || 70) / 72,
+            bottom: (options.margins.bottom || 70) / 72,
+            left: (options.margins.left || 70) / 72,
+          } : undefined,
+        });
+
+        // Generate DOCX using docx library
+        const result = await createDocxFromHtml(content, docxConfig);
+
+        if (!result.success || !result.data) {
+          throw new Error(result.error || 'Failed to generate DOCX');
+        }
+
+        // Save DOCX to file
+        await vscode.workspace.fs.writeFile(saveUri, result.data);
+
+        // Send success response
+        this.postMessage(panel, {
+          type: 'exportResponse',
+          success: true,
+          filePath: saveUri.fsPath,
+        });
+
+        // Show success notification
+        vscode.window.showInformationMessage(
+          'DOCX exported successfully',
+          'Open File'
+        ).then(selection => {
+          if (selection === 'Open File') {
+            vscode.commands.executeCommand('vscode.open', saveUri);
+          }
+        });
+      } catch (error) {
+        // Send failure response
+        this.postMessage(panel, {
+          type: 'exportResponse',
+          success: false,
+          error: `DOCX export failed: ${error}`,
+        });
+        vscode.window.showErrorMessage(`DOCX export failed: ${error}`);
       }
       return;
     }

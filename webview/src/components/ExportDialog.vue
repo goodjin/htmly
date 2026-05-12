@@ -28,6 +28,7 @@ const {
 // Export format options
 const exportOptions: { format: ExportFormat; label: string; icon: string; description: string }[] = [
   { format: 'pdf', label: 'Export as PDF', icon: '📄', description: 'Export document as PDF using browser print' },
+  { format: 'docx', label: 'Export as Word Document', icon: '📘', description: 'Export as .docx file with formatting' },
   { format: 'markdown', label: 'Export as Markdown', icon: '📝', description: 'Convert to .md file with formatting' },
   { format: 'plaintext', label: 'Export as Plain Text', icon: '📃', description: 'Export as plain text file' },
   { format: 'embedded', label: 'Export as Embedded HTML', icon: '🔗', description: 'Single HTML file with inlined styles' },

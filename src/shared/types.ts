@@ -4,7 +4,7 @@ export type EditorMode = 'wysiwyg' | 'source' | 'preview' | 'split';
 export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 
 // Export format options
-export type ExportFormat = 'pdf' | 'markdown' | 'plaintext' | 'embedded' | 'site';
+export type ExportFormat = 'pdf' | 'markdown' | 'plaintext' | 'embedded' | 'site' | 'docx';
 
 // Static site export page
 export interface StaticSitePage {

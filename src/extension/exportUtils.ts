@@ -8,6 +8,7 @@ import type { ExportFormat } from '../shared/types';
 // File extension mapping for each export format
 const FORMAT_EXTENSIONS: Record<ExportFormat, string> = {
   pdf: 'pdf',
+  docx: 'docx',
   markdown: 'md',
   plaintext: 'txt',
   embedded: 'html',
@@ -41,6 +42,7 @@ export async function showExportSaveDialog(
 
   const filters: Record<ExportFormat, [string, string]> = {
     pdf: ['PDF Files', 'pdf'],
+    docx: ['Word Documents', 'docx'],
     markdown: ['Markdown Files', 'md'],
     plaintext: ['Text Files', 'txt'],
     embedded: ['HTML Files', 'html'],

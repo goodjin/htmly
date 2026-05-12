@@ -281,6 +281,7 @@
     "vitest": "^1.0.4"
   },
   "dependencies": {
+    "docx": "^9.6.1",
     "pdfmake": "^0.3.8"
   }
 }
