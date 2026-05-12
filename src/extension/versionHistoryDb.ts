@@ -9,15 +9,24 @@ import initSqlJs, { Database, SqlJsStatic } from 'sql.js';
 
 const DB_FILE_NAME = 'version-history.db';
 
-// Schema SQL for the versions table
+// Default maximum versions per document
+const DEFAULT_MAX_VERSIONS = 50;
+
+// Schema SQL for the versions table (with pinned column)
 const CREATE_VERSIONS_TABLE = `
 CREATE TABLE IF NOT EXISTS versions (
   id INTEGER PRIMARY KEY,
   documentId TEXT NOT NULL,
   content TEXT,
   timestamp TEXT NOT NULL,
-  versionNumber INTEGER NOT NULL
+  versionNumber INTEGER NOT NULL,
+  pinned INTEGER DEFAULT 0
 );
+`;
+
+// Migration SQL to add pinned column to existing databases
+const ADD_PINNED_COLUMN = `
+ALTER TABLE versions ADD COLUMN pinned INTEGER DEFAULT 0;
 `;
 
 // Schema SQL for index on documentId
@@ -131,7 +140,19 @@ function isSchemaValid(db: Database): boolean {
     
     const columns = columnsResult[0].values.map(row => row[1] as string);
     const requiredColumns = ['id', 'documentId', 'content', 'timestamp', 'versionNumber'];
-    return requiredColumns.every(col => columns.includes(col));
+    const hasAllRequiredColumns = requiredColumns.every(col => columns.includes(col));
+    
+    // For backward compatibility: check if pinned column exists, if not, add it
+    if (hasAllRequiredColumns && !columns.includes('pinned')) {
+      try {
+        db.run(ADD_PINNED_COLUMN);
+        console.log('[VersionHistory] Added pinned column to existing database');
+      } catch {
+        // Column might already exist or other error, continue
+      }
+    }
+    
+    return hasAllRequiredColumns;
   } catch {
     return false;
   }
@@ -267,13 +288,13 @@ export class VersionHistoryDatabase {
   /**
    * Get all versions for a document
    */
-  getVersions(documentId: string): Array<{ id: number; versionNumber: number; content: string | null; timestamp: string }> {
+  getVersions(documentId: string): Array<{ id: number; versionNumber: number; content: string | null; timestamp: string; pinned: boolean }> {
     if (!this.db) {
       throw new Error('Database not initialized');
     }
     
     const result = this.db.exec(
-      'SELECT id, versionNumber, content, timestamp FROM versions WHERE documentId = ? ORDER BY versionNumber DESC',
+      'SELECT id, versionNumber, content, timestamp, pinned FROM versions WHERE documentId = ? ORDER BY versionNumber DESC',
       [documentId]
     );
     
@@ -285,20 +306,21 @@ export class VersionHistoryDatabase {
       id: row[0] as number,
       versionNumber: row[1] as number,
       content: row[2] as string | null,
-      timestamp: row[3] as string
+      timestamp: row[3] as string,
+      pinned: (row[4] as number) === 1
     }));
   }
   
   /**
    * Get a specific version
    */
-  getVersion(documentId: string, versionNumber: number): { id: number; content: string | null; timestamp: string } | null {
+  getVersion(documentId: string, versionNumber: number): { id: number; content: string | null; timestamp: string; pinned: boolean } | null {
     if (!this.db) {
       throw new Error('Database not initialized');
     }
     
     const result = this.db.exec(
-      'SELECT id, content, timestamp FROM versions WHERE documentId = ? AND versionNumber = ?',
+      'SELECT id, content, timestamp, pinned FROM versions WHERE documentId = ? AND versionNumber = ?',
       [documentId, versionNumber]
     );
     
@@ -309,14 +331,16 @@ export class VersionHistoryDatabase {
     return {
       id: result[0].values[0][0] as number,
       content: result[0].values[0][1] as string | null,
-      timestamp: result[0].values[0][2] as string
+      timestamp: result[0].values[0][2] as string,
+      pinned: (result[0].values[0][3] as number) === 1
     };
   }
   
   /**
    * Save a new version (called when document is saved)
+   * Automatically prunes old versions if they exceed the maxVersions limit
    */
-  async saveVersion(documentId: string, content: string): Promise<number> {
+  async saveVersion(documentId: string, content: string, maxVersions?: number): Promise<number> {
     if (!this.db) {
       throw new Error('Database not initialized');
     }
@@ -325,11 +349,14 @@ export class VersionHistoryDatabase {
     const timestamp = new Date().toISOString();
     
     this.db.run(
-      'INSERT INTO versions (documentId, content, timestamp, versionNumber) VALUES (?, ?, ?, ?)',
+      'INSERT INTO versions (documentId, content, timestamp, versionNumber, pinned) VALUES (?, ?, ?, ?, 0)',
       [documentId, content, timestamp, versionNumber]
     );
     
     await this.persist();
+    
+    // Prune old versions after saving
+    await this.pruneVersions(documentId, maxVersions);
     
     console.log(`[VersionHistory] Saved version ${versionNumber} for document: ${documentId}`);
     return versionNumber;
@@ -410,6 +437,100 @@ export class VersionHistoryDatabase {
     }
     
     return result[0].values.map(row => row[0] as string);
+  }
+  
+  /**
+   * Pin a specific version to prevent it from being pruned
+   */
+  async pinVersion(documentId: string, versionNumber: number): Promise<void> {
+    if (!this.db) {
+      throw new Error('Database not initialized');
+    }
+    
+    this.db.run(
+      'UPDATE versions SET pinned = 1 WHERE documentId = ? AND versionNumber = ?',
+      [documentId, versionNumber]
+    );
+    
+    await this.persist();
+    console.log(`[VersionHistory] Pinned version ${versionNumber} for document: ${documentId}`);
+  }
+  
+  /**
+   * Unpin a version to allow it to be pruned again
+   */
+  async unpinVersion(documentId: string, versionNumber: number): Promise<void> {
+    if (!this.db) {
+      throw new Error('Database not initialized');
+    }
+    
+    this.db.run(
+      'UPDATE versions SET pinned = 0 WHERE documentId = ? AND versionNumber = ?',
+      [documentId, versionNumber]
+    );
+    
+    await this.persist();
+    console.log(`[VersionHistory] Unpinned version ${versionNumber} for document: ${documentId}`);
+  }
+  
+  /**
+   * Check if a specific version is pinned
+   */
+  async isVersionPinned(documentId: string, versionNumber: number): Promise<boolean> {
+    if (!this.db) {
+      throw new Error('Database not initialized');
+    }
+    
+    const result = this.db.exec(
+      'SELECT pinned FROM versions WHERE documentId = ? AND versionNumber = ?',
+      [documentId, versionNumber]
+    );
+    
+    if (result.length === 0 || result[0].values.length === 0) {
+      return false;
+    }
+    
+    const pinnedValue = result[0].values[0][0];
+    return pinnedValue === 1 || pinnedValue === true;
+  }
+  
+  /**
+   * Prune oldest non-pinned versions if they exceed the maxVersions limit
+   * Default limit is 50 versions per document
+   */
+  async pruneVersions(documentId: string, maxVersions?: number): Promise<number> {
+    if (!this.db) {
+      throw new Error('Database not initialized');
+    }
+    
+    const limit = maxVersions ?? DEFAULT_MAX_VERSIONS;
+    const currentCount = this.getVersionCount(documentId);
+    
+    // If we're at or below the limit, nothing to prune
+    if (currentCount <= limit) {
+      return 0;
+    }
+    
+    // Calculate how many versions to delete
+    const deleteCount = currentCount - limit;
+    
+    // Delete oldest non-pinned versions first
+    // ORDER BY versionNumber ASC = oldest first
+    // LIMIT ensures we only delete as many as needed
+    this.db.run(
+      `DELETE FROM versions WHERE id IN (
+        SELECT id FROM versions 
+        WHERE documentId = ? AND pinned = 0 
+        ORDER BY versionNumber ASC 
+        LIMIT ?
+      )`,
+      [documentId, deleteCount]
+    );
+    
+    await this.persist();
+    
+    console.log(`[VersionHistory] Pruned ${deleteCount} versions for document: ${documentId} (limit: ${limit})`);
+    return deleteCount;
   }
 }
 
