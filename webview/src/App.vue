@@ -132,10 +132,8 @@ function onContentChange(newHtml: string) {
   content.value = newHtml;
   // Push to shared history for cross-mode undo
   sharedHistory.push(newHtml, calculateCursorPercentage());
-  if (debounceTimer) clearTimeout(debounceTimer);
-  debounceTimer = setTimeout(() => {
-    sendContentUpdate(newHtml);
-  }, 300);
+  // Extension handles debouncing (500ms), so no debounce needed here
+  sendContentUpdate(newHtml);
   
   // Update spell check decorations with debounce
   if (spellCheckEnabled.value) {
@@ -958,6 +956,7 @@ const unsubscribe = onMessage((msg) => {
 });
 
 onMounted(() => {
+  console.log('[App] onMounted called');
   notifyReady();
   document.addEventListener('keydown', onGlobalKeydown);
 

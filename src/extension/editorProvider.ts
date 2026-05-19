@@ -55,18 +55,20 @@ import {
   createDocxConfig,
 } from './docxUtils';
 import { computeLineDiff, areStringsEqual } from './diffUtils';
+import {
+  MAX_HISTORY_ENTRIES,
+  HISTORY_DEBOUNCE_MS,
+  SAVE_DEBOUNCE_MS,
+  LARGE_FILE_THRESHOLD,
+  LARGE_SAVE_THRESHOLD,
+} from '../shared/constants';
 
 const HISTORY_STATE_KEY = 'htmly.history';
 const CRASH_RECOVERY_KEY = 'htmly.crashRecovery';
-const MAX_HISTORY_ENTRIES = 100;
-const HISTORY_DEBOUNCE_MS = 1000; // Debounce history persistence
 
 export class HtmlyEditorProvider implements vscode.CustomTextEditorProvider {
   public static readonly viewType = 'htmly.editor';
   private static readonly modeOrder: EditorMode[] = ['wysiwyg', 'source', 'preview'];
-  private static readonly LARGE_FILE_THRESHOLD = 500 * 1024; // 500 KB
-  private static readonly SAVE_DEBOUNCE_MS = 500; // Debounce auto-save for 500ms
-  private static readonly LARGE_SAVE_THRESHOLD = 100 * 1024; // 100 KB for optimization
 
   private modeMap = new Map<string, EditorMode>();
   private ackModeMap = new Map<string, EditorMode>();
@@ -212,7 +214,7 @@ export class HtmlyEditorProvider implements vscode.CustomTextEditorProvider {
 
     // Check for large file BEFORE sending any messages
     // Large files (>500KB) should open in Source mode with readOnly enabled
-    const isLargeFile = document.getText().length > HtmlyEditorProvider.LARGE_FILE_THRESHOLD;
+    const isLargeFile = document.getText().length > LARGE_FILE_THRESHOLD;
     const initialMode: EditorMode = isLargeFile ? 'source' : 'wysiwyg';
     if (isLargeFile) {
       this.modeMap.set(docKey, 'source');
@@ -1074,7 +1076,7 @@ export class HtmlyEditorProvider implements vscode.CustomTextEditorProvider {
       if (pending !== undefined) {
         this.executeSave(document, pending, panel, docKey);
       }
-    }, HtmlyEditorProvider.SAVE_DEBOUNCE_MS);
+    }, SAVE_DEBOUNCE_MS);
 
     this.saveTimers.set(docKey, timer);
   }
@@ -1117,7 +1119,7 @@ export class HtmlyEditorProvider implements vscode.CustomTextEditorProvider {
     }
 
     const fileSize = newContent.length;
-    const isLargeFile = fileSize > HtmlyEditorProvider.LARGE_SAVE_THRESHOLD;
+    const isLargeFile = fileSize > LARGE_SAVE_THRESHOLD;
 
     if (isLargeFile) {
       // Use optimized batch edit for large files
@@ -2304,7 +2306,7 @@ export class HtmlyEditorProvider implements vscode.CustomTextEditorProvider {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}'; img-src ${webview.cspSource} data: blob:; font-src ${webview.cspSource}; frame-src ${webview.cspSource} data: blob:; child-src ${webview.cspSource} data: blob:;">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}'; img-src ${webview.cspSource} data: blob:; font-src ${webview.cspSource}; frame-src ${webview.cspSource} data: blob:; child-src ${webview.cspSource} data: blob:; object-src 'none'; base-uri 'self'; form-action 'none';">
   <link rel="stylesheet" href="${styleUri}">
   <title>Htmly</title>
 </head>

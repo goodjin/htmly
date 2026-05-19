@@ -5,6 +5,9 @@ import { Plugin, PluginKey } from '@tiptap/pm/state';
 import WikiLinkSuggestion from '../components/WikiLinkSuggestion.vue';
 import type { WikiLinkSuggestionItem } from '../components/WikiLinkSuggestion.vue';
 
+// Plugin key for wiki link suggestion
+const wikiLinkSuggestionPluginKey = new PluginKey('wikiLinkSuggestion');
+
 /**
  * WikiLink extension for Tiptap
  * 
@@ -169,7 +172,7 @@ export const WikiLink = Node.create({
         class: 'wiki-link',
         'data-page': page,
         href: '#',
-        title: `Open page: ${page}`,
+        title: `Open page: ${escapeHtml(page)}`,
       }, HTMLAttributes),
       page,
     ];
@@ -410,6 +413,7 @@ const WikiLinkSuggestionExtension = Extension.create({
     return [
       Suggestion({
         editor: this.editor,
+        pluginKey: wikiLinkSuggestionPluginKey,
         ...createWikiLinkSuggestionOptions(),
       }),
     ];
