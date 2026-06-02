@@ -2,8 +2,8 @@
   "name": "htmly",
   "displayName": "Htmly",
   "description": "A WYSIWYG HTML editor for VSCode — edit visually or in source, always synced",
-  "version": "1.4.0",
-  "publisher": "jianmo",
+  "version": "1.8.1",
+  "publisher": "jinshan",
   "engines": {
     "vscode": "^1.80.0"
   },

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, defineAsyncComponent } from 'vue';
+import { computed, ref, watch } from 'vue';
 import type { Editor } from '@tiptap/core';
 import type { EditorMode, ExportFormat, PdfExportOptions } from '../../../src/shared/types';
 import { escapeHtml } from '../core/htmlUtils';
@@ -7,12 +7,10 @@ import LinkDialog from './LinkDialog.vue';
 import ImageDialog from './ImageDialog.vue';
 import ExportDialog from './ExportDialog.vue';
 import MathSymbolsDropdown from './MathSymbolsDropdown.vue';
-
-// Lazy load EmbedDialog - not needed at initial load
-const EmbedDialog = defineAsyncComponent(() => import('./EmbedDialog.vue'));
-
-// Lazy load LinkPreviewDialog - not needed at initial load
-const LinkPreviewDialog = defineAsyncComponent(() => import('./LinkPreviewDialog.vue'));
+import EmbedDialog from './EmbedDialog.vue';
+import LinkPreviewDialog from './LinkPreviewDialog.vue';
+import { openLinkPreviewDialog } from '../extensions/LinkPreview';
+import { toEmbedUrl } from '../extensions/Embed';
 
 const props = defineProps<{
   editor: Editor | undefined;
@@ -60,16 +58,13 @@ function openEmbedDialog() {
   embedDialogVisible.value = true;
 }
 
-// Lazy open link preview dialog with dynamic import
-async function openLinkPreview() {
-  const { openLinkPreviewDialog } = await import('../extensions/LinkPreview');
+// Open link preview dialog
+function openLinkPreview() {
   openLinkPreviewDialog(props.editor);
 }
 
-async function onEmbedConfirm(payload: { url: string }) {
+function onEmbedConfirm(payload: { url: string }) {
   if (!props.editor || !payload.url) return;
-  // Dynamically import toEmbedUrl to reduce initial bundle size
-  const { toEmbedUrl } = await import('../extensions/Embed');
   const embedUrl = toEmbedUrl(payload.url);
   if (embedUrl) {
     props.editor.chain().focus().insertContent({
@@ -131,8 +126,8 @@ const isDatePickerCell = computed(() => props.editor?.isActive('datePickerCell')
 const isCheckboxCell = computed(() => props.editor?.isActive('checkboxCell') ?? false);
 const canMerge = computed(() => {
   if (!props.editor) return false;
-  const { from, to } = props.editor.state.selection;
-  return from !== to; // Selection has more than one cell
+  // Check if we can merge cells - editor should have a proper selection within a table
+  return props.editor.can().chain().focus().mergeCells().run();
 });
 const canSplit = computed(() => {
   if (!props.editor) return false;
@@ -166,6 +161,11 @@ const imageDialogVisible = ref(false);
 function btn(action: () => void) {
   return (e: MouseEvent) => {
     e.preventDefault();
+    e.stopPropagation();
+    if (!props.editor) {
+      console.warn('[htmly toolbar] button clicked but editor is not ready');
+      return;
+    }
     action();
   };
 }
@@ -176,7 +176,10 @@ function setBlockStyle(value: string) {
     return;
   }
 
-  props.editor?.chain().focus().toggleHeading({ level: Number(value) as 1 | 2 | 3 }).run();
+  const level = parseInt(value, 10);
+  if (level >= 1 && level <= 6) {
+    props.editor?.chain().focus().toggleHeading({ level: level as 1 | 2 | 3 | 4 | 5 | 6 }).run();
+  }
 }
 
 function onColorChange(e: Event) {
@@ -284,6 +287,8 @@ function insertDatePickerColumn() {
       return;
     }
   }
+  // No table cell found - cannot insert date picker column
+  console.warn('insertDatePickerColumn: cursor is not inside a table cell');
 }
 
 // Insert a checkbox column type in the current table
@@ -314,6 +319,8 @@ function insertCheckboxColumn() {
       return;
     }
   }
+  // No table cell found - cannot insert checkbox column
+  console.warn('insertCheckboxColumn: cursor is not inside a table cell');
 }
 
 // Toggle the checkbox state
@@ -500,7 +507,9 @@ function insertMathSymbol(symbol: string) {
 
     <template v-if="mode === 'wysiwyg'">
       <div class="toolbar-group">
+        <label class="heading-label" for="heading-select">Style</label>
         <select
+          id="heading-select"
           class="heading-select"
           @change="e => setBlockStyle((e.target as HTMLSelectElement).value)"
           :value="editor?.isActive('heading', {level:1}) ? 1 : editor?.isActive('heading', {level:2}) ? 2 : editor?.isActive('heading', {level:3}) ? 3 : 0"
@@ -615,15 +624,25 @@ function insertMathSymbol(symbol: string) {
           <span class="btn-icon">⇥</span>
           <span class="btn-label">Right</span>
         </button>
+        <button
+          title="Justify"
+          :class="{ active: editor?.isActive({textAlign:'justify'}) }"
+          @mousedown="btn(() => editor?.chain().focus().setTextAlign('justify').run())"
+        >
+          <span class="btn-icon">☰</span>
+          <span class="btn-label">Justify</span>
+        </button>
       </div>
 
       <div class="toolbar-group">
         <label
           class="color-picker-label"
           title="Text Color"
+          for="text-color-input"
         >
           <span class="btn-icon"><span class="color-icon">A</span></span>
           <input
+            id="text-color-input"
             type="color"
             class="color-input"
             :value="currentColor"
@@ -641,6 +660,7 @@ function insertMathSymbol(symbol: string) {
         <label
           class="color-picker-label"
           title="Block Background Color"
+          for="block-bg-color-input"
         >
           <span class="btn-icon">
             <span class="block-bg-icon" :class="{ 'has-color': hasBlockBgColor }" :style="{ backgroundColor: currentBlockBgColor || 'transparent' }">
@@ -648,6 +668,7 @@ function insertMathSymbol(symbol: string) {
             </span>
           </span>
           <input
+            id="block-bg-color-input"
             type="color"
             class="color-input"
             :value="currentBlockBgColor || '#ffffff'"
@@ -677,7 +698,7 @@ function insertMathSymbol(symbol: string) {
         <button
           title="Remove Link"
           :disabled="!isLinkActive"
-          @mousedown="btn(unlink)"
+          @mousedown.prevent="btn(unlink)"
         >
           <span class="btn-icon">⛓‍💥</span>
           <span class="btn-label">Unlink</span>
@@ -731,7 +752,7 @@ function insertMathSymbol(symbol: string) {
           title="Embed"
           @mousedown="btn(openEmbedDialog)"
         >
-          <span class="btn-icon">🔗</span>
+          <span class="btn-icon">📎</span>
           <span class="btn-label">Embed</span>
         </button>
         <button
@@ -757,7 +778,7 @@ function insertMathSymbol(symbol: string) {
           <span class="btn-label">Inline</span>
         </button>
         <MathSymbolsDropdown
-          @insert-math-block="btn(() => editor?.chain().focus().insertMathBlock().run())"
+          @insert-math-block="editor?.chain().focus().insertMathBlock().run()"
           @insert-math-inline="insertMathInline"
           @insert-symbol="insertMathSymbol"
         />
@@ -963,6 +984,9 @@ function insertMathSymbol(symbol: string) {
 
     <div class="toolbar-spacer" />
 
+    <!-- Version indicator -->
+    <span class="version-indicator" title="Htmly version">v1.8.0-build-1</span>
+
     <!-- Save status indicator -->
     <span v-if="saveStatus === 'saving'" class="save-indicator saving" title="Saving...">💾 Saving...</span>
     <span v-else-if="saveStatus === 'saved'" class="save-indicator saved" title="Saved">✓ Saved</span>
@@ -1103,6 +1127,12 @@ button.active {
   cursor: pointer;
 }
 
+.heading-label {
+  font-size: 11px;
+  color: var(--vscode-editor-foreground, #ccc);
+  margin-right: 2px;
+}
+
 .color-picker-label {
   display: flex;
   align-items: center;
@@ -1152,6 +1182,16 @@ button.active {
   padding: 0 4px;
   cursor: default;
   flex-shrink: 0;
+}
+
+.version-indicator {
+  color: var(--vscode-descriptionForeground, #858585);
+  font-size: 10px;
+  font-family: var(--vscode-editor-font-family, monospace);
+  padding: 2px 6px;
+  cursor: default;
+  flex-shrink: 0;
+  user-select: none;
 }
 
 .save-indicator {

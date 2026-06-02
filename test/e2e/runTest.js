@@ -11,12 +11,17 @@ async function main() {
   await runTests({
     extensionDevelopmentPath,
     extensionTestsPath,
+    vscodeExecutablePath: '/Applications/Visual Studio Code.app/Contents/MacOS/Code',
     launchArgs: [
       testWorkspace,
       '--disable-workspace-trust',
       '--skip-welcome',
       '--skip-release-notes',
+      '--disable-content-security-policy',
     ],
+    environment: {
+      HTMLY_E2E: '1',
+    },
   });
 }
 
