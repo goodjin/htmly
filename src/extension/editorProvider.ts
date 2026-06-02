@@ -198,6 +198,8 @@ export class HtmlyEditorProvider implements vscode.CustomTextEditorProvider {
   /**
    * Trigger PDF export for the active document and return the result.
    * Used by E2E tests to verify PDF export functionality.
+   * Skips the save dialog (which would block in headless tests) and writes
+   * the PDF to a temp path.
    */
   public async triggerExport(): Promise<{ success: boolean; filePath?: string; error?: string }> {
     if (!this.activePanel) {
@@ -217,28 +219,50 @@ export class HtmlyEditorProvider implements vscode.CustomTextEditorProvider {
 
     const content = document.getText();
 
-    // Set up a one-time listener for exportResponse with timeout
-    return new Promise((resolve) => {
-      const timeout = setTimeout(() => {
-        subscription.dispose();
-        resolve({ success: false, error: 'Export timed out after 30 seconds' });
-      }, 30_000);
+    try {
+      // Initialize pdfmake (no-op if already initialized)
+      initializePdfMake();
 
-      const subscription = panel.webview.onDidReceiveMessage((msg: ExtToWebMsg) => {
-        if (msg.type === 'exportResponse') {
-          clearTimeout(timeout);
-          subscription.dispose();
-          resolve({ success: msg.success, filePath: msg.filePath, error: msg.error });
-        }
+      // Create config with defaults
+      const pdfConfig: PdfMakeConfig = createPdfMakeConfig({
+        pageSize: 'A4',
+        orientation: 'portrait',
+        margins: { top: 70, right: 70, bottom: 70, left: 70 },
+        includePageNumbers: false,
       });
 
-      // Trigger the export request (fire and forget - response comes via message)
-      this.handleExportRequest('pdf', content, docKey, panel, undefined, undefined, undefined).catch((err) => {
-        clearTimeout(timeout);
-        subscription.dispose();
-        resolve({ success: false, error: String(err) });
+      // Generate PDF (this is where the parseTable bug surfaces)
+      const pdfData = await new Promise<Buffer>((resolve, reject) => {
+        createPdfFromHtmlContent(
+          content,
+          pdfConfig,
+          (data) => resolve(data),
+          (error) => reject(error)
+        );
       });
-    });
+
+      // Write to a temp file so we can inspect it in tests
+      const tempDir = require('os').tmpdir();
+      const tempFile = require('path').join(tempDir, `htmly-pdf-export-${Date.now()}.pdf`);
+      await vscode.workspace.fs.writeFile(vscode.Uri.file(tempFile), pdfData);
+
+      // Notify the webview so existing useExport listeners also see the result
+      this.postMessage(panel, {
+        type: 'exportResponse',
+        success: true,
+        filePath: tempFile,
+      });
+
+      return { success: true, filePath: tempFile };
+    } catch (error) {
+      const errMsg = error instanceof Error ? error.message : String(error);
+      this.postMessage(panel, {
+        type: 'exportResponse',
+        success: false,
+        error: `PDF export failed: ${errMsg}`,
+      });
+      return { success: false, error: errMsg };
+    }
   }
 
   public async resolveCustomTextEditor(
