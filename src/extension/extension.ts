@@ -149,7 +149,8 @@ export async function activate(context: vscode.ExtensionContext) {
 
   if (process.env.HTMLY_E2E === '1') {
     context.subscriptions.push(
-      vscode.commands.registerCommand('htmly.test.getState', () => provider.getTestState())
+      vscode.commands.registerCommand('htmly.test.getState', () => provider.getTestState()),
+      vscode.commands.registerCommand('htmly.test.triggerExport', () => provider.triggerExport())
     );
   }
 }

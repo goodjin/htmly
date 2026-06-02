@@ -195,6 +195,52 @@ export class HtmlyEditorProvider implements vscode.CustomTextEditorProvider {
     };
   }
 
+  /**
+   * Trigger PDF export for the active document and return the result.
+   * Used by E2E tests to verify PDF export functionality.
+   */
+  public async triggerExport(): Promise<{ success: boolean; filePath?: string; error?: string }> {
+    if (!this.activePanel) {
+      return { success: false, error: 'No active panel' };
+    }
+
+    const entry = this.getActivePanelEntry();
+    if (!entry) {
+      return { success: false, error: 'No active document' };
+    }
+
+    const [docKey, panel] = entry;
+    const document = vscode.workspace.textDocuments.find(d => d.uri.toString() === docKey);
+    if (!document) {
+      return { success: false, error: 'Document not found' };
+    }
+
+    const content = document.getText();
+
+    // Set up a one-time listener for exportResponse with timeout
+    return new Promise((resolve) => {
+      const timeout = setTimeout(() => {
+        subscription.dispose();
+        resolve({ success: false, error: 'Export timed out after 30 seconds' });
+      }, 30_000);
+
+      const subscription = panel.webview.onDidReceiveMessage((msg: ExtToWebMsg) => {
+        if (msg.type === 'exportResponse') {
+          clearTimeout(timeout);
+          subscription.dispose();
+          resolve({ success: msg.success, filePath: msg.filePath, error: msg.error });
+        }
+      });
+
+      // Trigger the export request (fire and forget - response comes via message)
+      this.handleExportRequest('pdf', content, docKey, panel, undefined, undefined, undefined).catch((err) => {
+        clearTimeout(timeout);
+        subscription.dispose();
+        resolve({ success: false, error: String(err) });
+      });
+    });
+  }
+
   public async resolveCustomTextEditor(
     document: vscode.TextDocument,
     webviewPanel: vscode.WebviewPanel
@@ -2306,13 +2352,13 @@ export class HtmlyEditorProvider implements vscode.CustomTextEditorProvider {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}'; img-src ${webview.cspSource} data: blob:; font-src ${webview.cspSource}; frame-src ${webview.cspSource} data: blob:; child-src ${webview.cspSource} data: blob:; object-src 'none'; base-uri 'self'; form-action 'none';">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}'; img-src ${webview.cspSource} data: blob:; font-src ${webview.cspSource} data: https://cdn.jsdelivr.net; frame-src ${webview.cspSource} data: blob:; child-src ${webview.cspSource} data: blob:; object-src 'none'; base-uri 'self'; form-action 'none';">
   <link rel="stylesheet" href="${styleUri}">
   <title>Htmly</title>
 </head>
 <body>
   <div id="app"></div>
-  <script nonce="${nonce}" src="${scriptUri}"></script>
+  <script type="module" nonce="${nonce}" src="${scriptUri}"></script>
 </body>
 </html>`;
   }

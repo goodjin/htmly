@@ -307,13 +307,8 @@ interface PdfMakeList {
   ol?: PdfMakeListItem[];
 }
 
-interface PdfMakeTableRow {
-  table: {
-    widths: (string | number)[];
-    body: PdfMakeTextRun[][];
-  };
-  layout?: string;
-}
+// pdfmake table row is an array of cells (text runs)
+type PdfMakeTableRow = PdfMakeTextRun[];
 
 interface PdfMakeImage {
   image: string;
@@ -811,36 +806,25 @@ function parseTable(tableHtml: string): PdfMakeTable | null {
 
   const widths: (string | number)[] = Array(numCols).fill('*');
 
-  // Build table structure with header and body
-  const tableRows: PdfMakeTableRow[] = [];
+  // Build flat body array for pdfmake
+  // pdfmake expects body to be cell[][] where each cell is { text: string } or similar
+  const body: PdfMakeTextRun[][] = [];
 
-  // Add header row
-  if (headerRows.length > 0) {
-    tableRows.push({
-      table: {
-        widths,
-        body: headerRows,
-      },
-      layout: 'header',
-    });
+  // Add header rows
+  for (const row of headerRows) {
+    body.push(row.map(cell => ({ text: String(cell?.text ?? cell) })));
   }
 
   // Add body rows
   for (const row of bodyRows) {
-    tableRows.push({
-      table: {
-        widths,
-        body: [row],
-      },
-      layout: 'lightHorizontalLines',
-    });
+    body.push(row.map(cell => ({ text: String(cell?.text ?? cell) })));
   }
 
   return {
     table: {
-      headerRows: headerRows.length > 0 ? 1 : 0,
+      headerRows: headerRows.length,
       widths,
-      body: tableRows,
+      body,
     },
     layout: 'noBorders',
   };

@@ -596,13 +596,10 @@ function handleDeleteSnippet(id: string) {
 // Export handler
 function handleExportRequest(format: 'pdf' | 'markdown' | 'plaintext' | 'embedded' | 'site', options?: import('../../src/shared/types').PdfExportOptions, seoSettings?: import('../../src/shared/types').SeoSettings) {
   if (format === 'pdf') {
-    // PDF export with options
-    if (options) {
-      applyPdfExportOptions(options);
-    }
-    // PDF export is handled directly in the webview using window.print()
-    // The print CSS in global.css hides the editor UI and shows clean document
-    window.print();
+    // PDF export should go through the extension for proper handling
+    // The extension uses pdfmake library for accurate HTML-to-PDF conversion
+    // with proper support for page size, margins, headers, and footers
+    exportRequest(format, content.value, seoSettings, options);
     return;
   }
   
@@ -697,12 +694,12 @@ function applyPdfExportOptions(options: import('../../src/shared/types').PdfExpo
 
 // Crash recovery functions
 function handleRecoverDraft() {
-  if (crashRecoveryData.value) {
+  if (crashRecoveryData.value?.history?.entries) {
     // Initialize history from recovered state
     sharedHistory.initializeFromPersisted(crashRecoveryData.value.history);
     // Set content to the last known content
-    content.value = crashRecoveryData.value.history.entries[crashRecoveryData.value.history.currentIndex]?.content 
-      || crashRecoveryData.value.lastContent;
+    const entry = crashRecoveryData.value.history.entries[crashRecoveryData.value.history.currentIndex];
+    content.value = entry?.content ?? crashRecoveryData.value.lastContent ?? '';
     showCrashRecoveryDialog.value = false;
     clearCrashRecoveryData();
   }
@@ -982,6 +979,52 @@ onMounted(() => {
   
   // Store unsubscribe for cleanup
   historyUnsubscribe.value = unsubscribeHistory;
+
+  // === TEST-ONLY HOOKS (only exposed when HTMLY_E2E is set) ===
+  if (typeof process !== 'undefined' && process.env && process.env.HTMLY_E2E === '1') {
+    // Capture console.warn calls
+    const origWarn = console.warn;
+    const warnings: Array<{ args: string[]; ts: number }> = [];
+    console.warn = (...args: unknown[]) => {
+      warnings.push({ args: args.map(String), ts: Date.now() });
+      origWarn.apply(console, args);
+    };
+
+    // Expose test API on window
+    (window as unknown as Record<string, unknown>).__htmlyTest = {
+      clickToolbarButton: (selector: string) => {
+        const btn = document.querySelector(selector) as HTMLButtonElement | null;
+        if (!btn) return { ok: false, reason: 'button not found' };
+        btn.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+        return { ok: true };
+      },
+      getEditorState: () => ({
+        editor: !!tiptapRef.value?.editor,
+        isActive: {
+          bold: tiptapRef.value?.editor?.isActive('bold') ?? false,
+          italic: tiptapRef.value?.editor?.isActive('italic') ?? false,
+        },
+        mode: mode.value,
+        selection: tiptapRef.value?.editor?.state.selection
+          ? { from: tiptapRef.value.editor.state.selection.from, to: tiptapRef.value.editor.state.selection.to }
+          : null,
+      }),
+      getConsoleWarnings: () => warnings.slice(),
+      clearWarnings: () => warnings.length = 0,
+      triggerExport: (format: string) => {
+        return new Promise((resolve) => {
+          const unsubscribe = onMessage((msg: any) => {
+            if (msg.type === 'exportResponse') {
+              unsubscribe();
+              resolve({ success: msg.success, filePath: msg.filePath, error: msg.error });
+            }
+          });
+          exportRequest(format as 'pdf' | 'markdown' | 'plaintext' | 'embedded' | 'site', content.value);
+        });
+      },
+    };
+    console.log('[htmly] test hooks exposed on window.__htmlyTest');
+  }
 });
 
 const historyUnsubscribe = ref<(() => void) | null>(null);
