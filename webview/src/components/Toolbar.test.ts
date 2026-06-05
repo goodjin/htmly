@@ -202,6 +202,26 @@ describe('Toolbar.vue', () => {
       expect(wrapper.find('.toolbar').exists()).toBe(true);
       expect(wrapper.find('.mode-switcher').exists()).toBe(true);
     });
+
+    it('mode-switcher buttons emit setMode in preview mode even when editor is undefined', async () => {
+      const wrapper = mount(Toolbar, {
+        props: { ...defaultProps, mode: 'preview', autoHideToolbarInPreview: true },
+      });
+      const wysiwygBtn = wrapper.findAll('button').find(b => b.text().includes('WYSIWYG'))!;
+      await wysiwygBtn.trigger('mousedown');
+      expect(wrapper.emitted('setMode')).toBeTruthy();
+      expect(wrapper.emitted('setMode')!.at(-1)).toEqual(['wysiwyg']);
+    });
+
+    it('mode-switcher buttons are not gated by the btn() editor check in preview mode', async () => {
+      // editor is undefined (default), but mode-switcher must still emit
+      const wrapper = mount(Toolbar, {
+        props: { ...defaultProps, mode: 'preview', autoHideToolbarInPreview: true },
+      });
+      const sourceBtn = wrapper.findAll('button').find(b => b.text().includes('Source'))!;
+      await sourceBtn.trigger('mousedown');
+      expect(wrapper.emitted('setMode')!.at(-1)).toEqual(['source']);
+    });
   });
 
   describe('showButtonLabels setting', () => {

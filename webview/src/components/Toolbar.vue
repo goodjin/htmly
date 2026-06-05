@@ -474,7 +474,7 @@ function insertMathSymbol(symbol: string) {
       <button
         title="WYSIWYG Mode"
         :class="{ active: mode === 'wysiwyg' }"
-        @mousedown="btn(() => emit('setMode', 'wysiwyg'))"
+        @mousedown.prevent="emit('setMode', 'wysiwyg')"
       >
         <span class="btn-icon">👁</span>
         <span class="btn-label">WYSIWYG</span>
@@ -482,7 +482,7 @@ function insertMathSymbol(symbol: string) {
       <button
         title="Source Mode"
         :class="{ active: mode === 'source' }"
-        @mousedown="btn(() => emit('setMode', 'source'))"
+        @mousedown.prevent="emit('setMode', 'source')"
       >
         <span class="btn-icon">{}</span>
         <span class="btn-label">Source</span>
@@ -490,7 +490,7 @@ function insertMathSymbol(symbol: string) {
       <button
         title="Preview Mode"
         :class="{ active: mode === 'preview' }"
-        @mousedown="btn(() => emit('setMode', 'preview'))"
+        @mousedown.prevent="emit('setMode', 'preview')"
       >
         <span class="btn-icon">👁</span>
         <span class="btn-label">Preview</span>
@@ -498,7 +498,7 @@ function insertMathSymbol(symbol: string) {
       <button
         title="Split Mode"
         :class="{ active: mode === 'split' }"
-        @mousedown="btn(() => emit('setMode', 'split'))"
+        @mousedown.prevent="emit('setMode', 'split')"
       >
         <span class="btn-icon">⫿</span>
         <span class="btn-label">Split</span>
