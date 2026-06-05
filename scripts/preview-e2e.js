@@ -224,6 +224,27 @@ async function main() {
     vscodeExecutablePath
   );
 
+  // Create workspace settings to make Htmly the default HTML editor
+  const settingsDir = join(workspace, '.vscode');
+  if (!existsSync(settingsDir)) {
+    mkdirSync(settingsDir, { recursive: true });
+  }
+  
+  // Use proper VS Code settings format
+  writeFileSync(
+    join(settingsDir, 'settings.json'),
+    JSON.stringify({
+      'workbench.editorAssociations': {
+        '*.html': 'htmly.editor',
+        '*.htm': 'htmly.editor'
+      },
+      'files.associations': {
+        '*.html': 'html',
+        '*.htm': 'html'
+      }
+    }, null, 2)
+  );
+
   const fixturePaths = fixtures.map((f) => join(workspace, f.name));
 
   const args = [
@@ -232,6 +253,7 @@ async function main() {
     root,
     '--disable-workspace-trust',
     workspace,
+    '--new-window',
     ...fixturePaths,
   ];
 
@@ -250,11 +272,8 @@ async function main() {
     console.log(`              ${name}`);
   }
   console.log('');
-  console.log('  Open with Htmly Editor:');
-  console.log('    Right-click an HTML file tab');
-  console.log('    \u2192 "Reopen Editor With\u2026"');
-  console.log('    \u2192 "Htmly Editor"');
   console.log('');
+  console.log('  Files will open with Htmly Editor automatically');
 }
 
 main().catch((err) => {

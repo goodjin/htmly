@@ -328,7 +328,8 @@ export type ExtToWebMsg =
   | { type: 'versionHistory'; versions: VersionHistoryEntry[] }
   | { type: 'versionRestored'; versionNumber: number; content: string }
   | { type: 'versionDiff'; diff: VersionDiffResult }
-  | { type: 'versionDiffError'; error: string };
+  | { type: 'versionDiffError'; error: string }
+  | { type: 'runScript'; id: string; script: string };
 
 // Messages from webview → extension
 export type WebToExtMsg =
@@ -370,4 +371,8 @@ export type WebToExtMsg =
   | { type: 'openWikiLink'; pageName: string; existingPages: string[] }
   | { type: 'requestVersionHistory' }
   | { type: 'restoreVersion'; versionNumber: number }
-  | { type: 'requestVersionDiff'; oldVersion: number; newVersion: number };
+  | { type: 'requestVersionDiff'; oldVersion: number; newVersion: number }
+  // DIAGNOSTIC: webview console.log forwarded to the extension so the user
+  // can see logs in View → Output → htmly-debug (no DevTools required).
+  | { type: 'consoleLog'; level: 'log' | 'warn' | 'error' | 'info' | 'debug'; args: string[]; ts: number }
+  | { type: 'scriptResult'; id: string; result: unknown; error?: string };

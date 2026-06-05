@@ -5,6 +5,8 @@
  * Database is stored in the extension's globalStoragePath.
  */
 import * as vscode from 'vscode';
+import * as fs from 'fs';
+import * as path from 'path';
 import initSqlJs, { Database, SqlJsStatic } from 'sql.js';
 
 const DB_FILE_NAME = 'version-history.db';
@@ -45,17 +47,17 @@ function getDatabasePath(context: vscode.ExtensionContext): vscode.Uri {
 
 /**
  * Initialize the SQL.js module
+ * WASM file is bundled in dist/extension/ by build:extension script
  */
-async function initializeSqlJs(): Promise<SqlJsStatic> {
-  return await initSqlJs({
-    // sql.js needs to locate its WASM file
-    locateFile: (file: string) => {
-      // In VS Code extension, we use the bundled sql.js wasm file
-      // The wasm file is in node_modules/sql.js/dist/sql-wasm.wasm
-      // This will be resolved relative to the extension's location
-      return `https://cdn.jsdelivr.net/npm/sql.js@1.10.0/dist/${file}`;
-    }
-  });
+async function initializeSqlJs(context: vscode.ExtensionContext): Promise<SqlJsStatic> {
+  // context unused - WASM is loaded from bundled file, not from node_modules
+  void context;
+  
+  const wasmPath = path.join(__dirname, 'sql-wasm.wasm');
+  const wasmBinary = fs.readFileSync(wasmPath);
+  
+  // @ts-expect-error - sql.js types are incomplete, wasmBinary is supported at runtime
+  return await initSqlJs({ wasmBinary });
 }
 
 /**
@@ -190,7 +192,7 @@ export class VersionHistoryDatabase {
       }
       
       // Initialize SQL.js
-      const SQL = await initializeSqlJs();
+      const SQL = await initializeSqlJs(this.context);
       
       // Load or create database
       this.db = await loadOrCreateDatabase(this.context, SQL);

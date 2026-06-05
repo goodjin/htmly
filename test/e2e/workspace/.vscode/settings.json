@@ -1,0 +1,10 @@
+{
+  "workbench.editorAssociations": {
+    "*.html": "htmly.editor",
+    "*.htm": "htmly.editor"
+  },
+  "files.associations": {
+    "*.html": "html",
+    "*.htm": "html"
+  }
+}

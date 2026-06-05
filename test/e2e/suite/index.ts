@@ -231,23 +231,26 @@ function specialCharsFixture(): Fixture {
   };
 }
 
-/** 8. Large file (>500 KB) — should trigger readOnly / Source-only mode */
+/** 8. Large file (>5 MB) — should trigger readOnly / Source-only mode */
 function largeFileFixture(): Fixture {
-  const paragraphs: string[] = [];
-  for (let i = 0; i < 6000; i++) {
-    paragraphs.push(`    <p>Paragraph ${i}: ${'Lorem ipsum dolor sit amet. '.repeat(3)}</p>`);
-  }
-  const html = `<!doctype html>
-<html>
-  <head><meta charset="utf-8"><title>Large File</title></head>
-  <body>
-${paragraphs.join('\n')}
-  </body>
-</html>`;
+  const filler = '<p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. </p>\n';
+  const targetSize = 6 * 1024 * 1024; // 6MB > 5MB threshold
+  const repeatCount = Math.ceil(targetSize / filler.length);
+  const body = filler.repeat(repeatCount);
+  // Add markers for verifyLargeFileReadOnly assertions
+  const markerStart = '<p>Paragraph 0: Lorem ipsum dolor sit amet.</p>\n';
+  const markerEnd = '<p>Paragraph 5999: Lorem ipsum dolor sit amet.</p>\n';
+  const fullBody = markerStart + body + markerEnd;
+  const html = `<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>Large File</title></head>
+<body>
+${fullBody}
+</body></html>`;
 
+  const actualSize = Buffer.byteLength(html, 'utf8');
   assert.ok(
-    Buffer.byteLength(html, 'utf8') > 500 * 1024,
-    `Large fixture must exceed 500 KB (got ${Buffer.byteLength(html, 'utf8')} bytes)`
+    actualSize > 5 * 1024 * 1024,
+    `Large fixture must exceed 5 MB (got ${actualSize} bytes)`
   );
 
   return {
@@ -698,11 +701,18 @@ export async function run(): Promise<void> {
   // --- Test group 4: Edit in Source mode, verify in Visual ---
   await verifySourceEdit(workspaceFolder);
 
-  // --- Test group 5: btn() fix verification ---
+  // --- Test group 5: btn() fix verification (NOW STRICT: real clicks) ---
   await verifyBtnFix(workspaceFolder);
 
   // --- Test group 6: PDF export with table fix verification ---
   await verifyPdfExport(workspaceFolder);
+
+  // --- Test group 7: Bold button click — REAL click → state change ---
+  await verifyBtnClick(workspaceFolder);
+
+  // --- Test group 8: Source button click — REAL click → CodeMirror (reproduces
+  //     the user's reported "源代码按钮没反应" bug) ---
+  await verifySourceButtonClick(workspaceFolder);
 }
 
 // ---------------------------------------------------------------------------
@@ -933,18 +943,18 @@ async function verifySourceEdit(
 }
 
 /**
- * Test group 5: Verify btn() fix in Toolbar.vue
- * 
+ * Test group 5: Verify btn() fix in Toolbar.vue — STRICT
+ *
  * The fix added:
  * 1. e.stopPropagation() to prevent mousedown events from bubbling to editor
  * 2. An explicit props.editor check with early return and warning
- * 
- * These tests verify the editor functions correctly without errors during
- * rapid mode changes and opening/closing operations - the types of operations
- * that would have been affected by the btn() bug.
+ *
+ * Now we make this STRICT: actually click the Source / WYSIWYG buttons via
+ * the toolbar (via __htmlyTest.clickToolbarButton) and verify the DOM and
+ * mode state actually change. This replaces the previous version that only
+ * checked mode === 'wysiwyg' (a self-fulfilling assertion).
  */
 async function verifyBtnFix(workspaceFolder: vscode.WorkspaceFolder): Promise<void> {
-  // --- Test 1: Editor opens in wysiwyg mode without errors ---
   const testFilename = 'btn-test-basic.html';
   const testHtml = `<!doctype html>
 <html>
@@ -957,78 +967,59 @@ async function verifyBtnFix(workspaceFolder: vscode.WorkspaceFolder): Promise<vo
   const testUri = vscode.Uri.joinPath(workspaceFolder.uri, testFilename);
   await vscode.workspace.fs.writeFile(testUri, Buffer.from(testHtml, 'utf8'));
 
-  const testDoc = await vscode.workspace.openTextDocument(testUri);
+  await vscode.workspace.openTextDocument(testUri);
   await vscode.commands.executeCommand('vscode.openWith', testUri, 'htmly.editor');
 
-  // Wait for editor to be fully ready in wysiwyg mode
+  // Wait for editor in wysiwyg mode AND Tiptap actually mounted.
   await waitForState(
     (s) => s.active && s.documentUri === testUri.toString() && s.mode === 'wysiwyg',
     '[btn-fix] Should open in Visual mode'
   );
-  
-  // Wait extra time for editor to fully initialize (this is when btn() might have issues)
-  await sleep(1000);
+  await waitForEditor(15_000, '[btn-fix] Tiptap should mount');
 
-  // Verify state is correct
-  const state = await vscode.commands.executeCommand<HtmlyTestState>('htmly.test.getState');
-  assert.strictEqual(state?.active, true, '[btn-fix] Editor should be active');
-  assert.strictEqual(state?.mode, 'wysiwyg', '[btn-fix] Mode should be wysiwyg');
+  // --- Step 1: Click the Source button (toolbar) and wait for CodeMirror ---
+  const clickSource = await runScript<{ ok: boolean; reason?: string }>(
+    `window.__htmlyTest.clickToolbarButton('button[title="Source Mode"]')`
+  );
+  assert.ok(clickSource.ok, `[btn-fix] clickToolbarButton(Source) should succeed: ${JSON.stringify(clickSource)}`);
 
-  // --- Test 2: Mode cycling works correctly ---
-  // The original btn() bug would cause issues during mode changes
-  // because mousedown events could bubble up and interfere with editor state
-  // Note: extension modeOrder is ['wysiwyg', 'source', 'preview'], no 'split'
-  
-  // Single mode toggle to source
-  await vscode.commands.executeCommand('htmly.toggleMode');
+  await waitForDom(
+    `!!document.querySelector('.cm-editor')`,
+    15_000,
+    `[btn-fix] CodeMirror (.cm-editor) should appear after Source click`
+  );
+  // Tiptap should be gone now (v-if="mode === 'wysiwyg'").
+  const tiptapGone = await runScript<{ gone: boolean }>(
+    `({ gone: !document.querySelector('.tiptap.ProseMirror') })`
+  );
+  assert.strictEqual(
+    tiptapGone.gone,
+    true,
+    '[btn-fix] Tiptap should be unmounted after switching to Source'
+  );
+  // Extension ack should also report source.
   await waitForState(
     (s) => s.documentUri === testUri.toString() && s.mode === 'source',
-    '[btn-fix] Should switch to Source mode'
-  );
-  await sleep(200);
-  
-  // Toggle to preview
-  await vscode.commands.executeCommand('htmly.toggleMode');
-  await waitForState(
-    (s) => s.documentUri === testUri.toString() && s.mode === 'preview',
-    '[btn-fix] Should switch to Preview mode'
-  );
-  await sleep(200);
-  
-  // Toggle back to wysiwyg
-  await vscode.commands.executeCommand('htmly.toggleMode');
-  await waitForState(
-    (s) => s.documentUri === testUri.toString() && s.mode === 'wysiwyg',
-    '[btn-fix] Should cycle back to Visual mode'
-  );
-  await sleep(300);
-
-  // --- Test 3: Content is preserved after mode cycling ---
-  await vscode.commands.executeCommand('htmly.toggleMode');
-  await waitForState(
-    (s) => s.documentUri === testUri.toString() && s.mode === 'source',
-    '[btn-fix] Should switch to Source mode'
-  );
-  await sleep(300);
-
-  const content = testDoc.getText();
-  assert.ok(
-    content.includes('Test content for btn fix verification'),
-    `[btn-fix] Content should be preserved. Actual:\n${content}`
+    '[btn-fix] Extension ack should report source mode'
   );
 
-  // --- Test 4: Mode cycling with source edits preserves changes ---
-  // Cycle to visual, make an edit via source, cycle back
-  await vscode.commands.executeCommand('htmly.toggleMode'); // preview
-  await sleep(200);
-  await vscode.commands.executeCommand('htmly.toggleMode'); // wysiwyg
+  // --- Step 2: Click the WYSIWYG button and wait for Tiptap again ---
+  const clickWysiwyg = await runScript<{ ok: boolean; reason?: string }>(
+    `window.__htmlyTest.clickToolbarButton('button[title="WYSIWYG Mode"]')`
+  );
+  assert.ok(clickWysiwyg.ok, `[btn-fix] clickToolbarButton(WYSIWYG) should succeed: ${JSON.stringify(clickWysiwyg)}`);
+
+  await waitForDom(
+    `!!document.querySelector('.tiptap.ProseMirror')`,
+    15_000,
+    `[btn-fix] Tiptap should re-mount after WYSIWYG click`
+  );
   await waitForState(
     (s) => s.documentUri === testUri.toString() && s.mode === 'wysiwyg',
-    '[btn-fix] Should be back in Visual mode'
+    '[btn-fix] Extension ack should report wysiwyg mode'
   );
-  await sleep(300);
 
-  console.log('[btn-fix] All btn() fix verification tests passed - editor functions correctly without errors');
+  console.log('[btn-fix] STRICT: real Source/WYSIWYG clicks verified end-to-end');
 }
 
 /**
@@ -1098,6 +1089,231 @@ async function verifyPdfExport(workspaceFolder: vscode.WorkspaceFolder): Promise
   console.log('[pdf-export] PDF export with table succeeded - parseTable fix verified');
 }
 
+/**
+ * Test group 7: Verify clicking the bold button actually toggles Tiptap bold state.
+ * STRICT: real click via __htmlyTest.clickToolbarButton + real DOM/state assertion.
+ *
+ * The btn() fix in Toolbar.vue added e.stopPropagation() to prevent mousedown
+ * events from reaching the editor. We need to verify that when a user clicks
+ * the bold toolbar button, Tiptap actually receives the command and toggles
+ * bold correctly — including a "click again" round-trip to verify the toggle
+ * is reversible.
+ */
+async function verifyBtnClick(workspaceFolder: vscode.WorkspaceFolder): Promise<void> {
+  const testFilename = 'btn-click-test.html';
+  const testHtml = `<!doctype html>
+<html>
+  <head><meta charset="utf-8"><title>Btn Click Test</title></head>
+  <body>
+    <p>Hello world this is some text that should be selectable.</p>
+  </body>
+</html>`;
+
+  const testUri = vscode.Uri.joinPath(workspaceFolder.uri, testFilename);
+  await vscode.workspace.fs.writeFile(testUri, Buffer.from(testHtml, 'utf8'));
+
+  const testDoc = await vscode.workspace.openTextDocument(testUri);
+  await vscode.commands.executeCommand('vscode.openWith', testUri, 'htmly.editor');
+
+  // Wait for editor in wysiwyg mode.
+  await waitForState(
+    (s) => s.active && s.documentUri === testUri.toString() && s.mode === 'wysiwyg',
+    '[btn-click] Should open in Visual mode'
+  );
+
+  // The Tiptap editor is mounted by Vue asynchronously after the mode ref
+  // flips. We must wait for `.tiptap.ProseMirror` to actually exist before
+  // we can click anything. Without this the previous test was racing the
+  // mount and sometimes "passing" with click-but-no-state-change.
+  await waitForEditor(15_000, '[btn-click] Tiptap should mount');
+
+  // Select all text via Tiptap command (NOT via DOM)
+  await runScript(`
+    const editor = window.__htmlyTest.getEditorState().editor;
+    if (editor) {
+      editor.chain().focus().selectAll().run();
+    }
+  `);
+  await sleep(200);
+
+  // Record state BEFORE clicking bold
+  const before = await runScript<{
+    isBold: boolean;
+    html: string;
+    warnings: string[];
+  }>(`
+    const s = window.__htmlyTest.getEditorState();
+    ({
+      isBold: s.isActive.bold,
+      html: s.editor && s.editor.getHTML ? s.editor.getHTML() : '',
+      warnings: window.__htmlyTest.getConsoleWarnings()
+    })
+  `);
+
+  // Clear warnings right before the click
+  await runScript(`window.__htmlyTest.clearWarnings()`);
+
+  // REAL click: dispatch a mousedown on the Bold toolbar button.
+  const click1 = await runScript<{ ok: boolean; reason?: string }>(`
+    window.__htmlyTest.clickToolbarButton('button[title="Bold (Ctrl+B)"]')
+  `);
+  assert.ok(click1.ok, `[btn-click] click #1 should succeed: ${JSON.stringify(click1)}`);
+
+  await sleep(500);
+
+  // Record state AFTER first click
+  const afterClick1 = await runScript<{
+    isBold: boolean;
+    html: string;
+    warnings: string[];
+  }>(`
+    const s = window.__htmlyTest.getEditorState();
+    ({
+      isBold: s.isActive.bold,
+      html: s.editor && s.editor.getHTML ? s.editor.getHTML() : '',
+      warnings: window.__htmlyTest.getConsoleWarnings()
+    })
+  `);
+
+  assert.strictEqual(
+    afterClick1.isBold,
+    true,
+    `[btn-click] Bold should be active after click #1. ` +
+    `before=${JSON.stringify({ isBold: before.isBold, htmlLen: before.html.length })} ` +
+    `after=${JSON.stringify({ isBold: afterClick1.isBold, htmlLen: afterClick1.html.length, hasStrong: afterClick1.html.includes('<strong>') })} ` +
+    `warnings=${JSON.stringify(afterClick1.warnings)}`
+  );
+  assert.ok(
+    afterClick1.html.includes('<strong>'),
+    `[btn-click] HTML should contain <strong> after click #1. Got: ${afterClick1.html.slice(0, 300)}`
+  );
+
+  // Click again to UNBOLD — verify toggle works both ways
+  const click2 = await runScript<{ ok: boolean; reason?: string }>(`
+    window.__htmlyTest.clickToolbarButton('button[title="Bold (Ctrl+B)"]')
+  `);
+  assert.ok(click2.ok, `[btn-click] click #2 should succeed: ${JSON.stringify(click2)}`);
+
+  await sleep(500);
+
+  const afterClick2 = await runScript<{ isBold: boolean; html: string }>(`
+    const s = window.__htmlyTest.getEditorState();
+    ({
+      isBold: s.isActive.bold,
+      html: s.editor && s.editor.getHTML ? s.editor.getHTML() : ''
+    })
+  `);
+  assert.strictEqual(
+    afterClick2.isBold,
+    false,
+    `[btn-click] Bold should be toggled off after click #2. got: isBold=${afterClick2.isBold} htmlSnippet=${afterClick2.html.slice(0, 200)}`
+  );
+
+  // Final document content must include the original text (round-trip safety).
+  assert.ok(
+    testDoc.getText().includes('Hello world this is some text'),
+    '[btn-click] document content should still include the original paragraph'
+  );
+
+  console.log('[btn-click] STRICT: real Bold click + toggle verified');
+}
+
+/**
+ * Test group 8: Verify the Source toolbar button actually switches to Source mode.
+ * This directly reproduces the user's reported "源代码按钮没反应" bug. We click
+ * the button via the same __htmlyTest bridge the Bold test uses, and we verify
+ * BOTH the webview DOM (CodeMirror .cm-editor appears, Tiptap disappears) and
+ * the extension-side ack (mode === 'source').
+ */
+async function verifySourceButtonClick(workspaceFolder: vscode.WorkspaceFolder): Promise<void> {
+  const testFilename = 'source-click-test.html';
+  const testHtml = `<!doctype html>
+<html>
+  <head><meta charset="utf-8"><title>Source Click Test</title></head>
+  <body>
+    <p>Source click reproduction fixture.</p>
+  </body>
+</html>`;
+
+  const testUri = vscode.Uri.joinPath(workspaceFolder.uri, testFilename);
+  await vscode.workspace.fs.writeFile(testUri, Buffer.from(testHtml, 'utf8'));
+
+  await vscode.workspace.openTextDocument(testUri);
+  await vscode.commands.executeCommand('vscode.openWith', testUri, 'htmly.editor');
+
+  await waitForState(
+    (s) => s.active && s.documentUri === testUri.toString() && s.mode === 'wysiwyg',
+    '[source-click] Should open in Visual mode'
+  );
+  await waitForEditor(15_000, '[source-click] Tiptap should mount');
+
+  // Clear warnings before the click
+  await runScript(`window.__htmlyTest.clearWarnings()`);
+
+  // REAL click on the Source button
+  const click = await runScript<{ ok: boolean; reason?: string }>(`
+    window.__htmlyTest.clickToolbarButton('button[title="Source Mode"]')
+  `);
+  assert.ok(
+    click.ok,
+    `[source-click] clickToolbarButton(Source) should succeed: ${JSON.stringify(click)}`
+  );
+
+  // Wait for CodeMirror DOM to appear (the smoking-gun signal of a real mode switch).
+  await waitForDom(
+    `!!document.querySelector('.cm-editor')`,
+    15_000,
+    `[source-click] CodeMirror (.cm-editor) should appear after Source click`
+  );
+
+  // Tiptap should be unmounted.
+  const tiptapGone = await runScript<{ gone: boolean }>(
+    `({ gone: !document.querySelector('.tiptap.ProseMirror') })`
+  );
+  assert.strictEqual(
+    tiptapGone.gone,
+    true,
+    '[source-click] Tiptap should be unmounted after switching to Source'
+  );
+
+  // Extension should also ack the mode change.
+  await waitForState(
+    (s) => s.documentUri === testUri.toString() && s.mode === 'source',
+    '[source-click] Extension ack should report source mode'
+  );
+
+  // Click back to WYSIWYG and verify the round-trip.
+  const clickBack = await runScript<{ ok: boolean; reason?: string }>(`
+    window.__htmlyTest.clickToolbarButton('button[title="WYSIWYG Mode"]')
+  `);
+  assert.ok(
+    clickBack.ok,
+    `[source-click] clickToolbarButton(WYSIWYG) should succeed: ${JSON.stringify(clickBack)}`
+  );
+
+  await waitForEditor(15_000, '[source-click] Tiptap should re-mount after WYSIWYG click');
+  await waitForState(
+    (s) => s.documentUri === testUri.toString() && s.mode === 'wysiwyg',
+    '[source-click] Extension ack should report wysiwyg mode'
+  );
+
+  // Capture any warnings that were emitted during the click sequence.
+  const finalWarnings = await runScript<{ warnings: string[] }>(
+    `({ warnings: window.__htmlyTest.getConsoleWarnings() })`
+  );
+  const notReadyWarnings = finalWarnings.warnings.filter((w) =>
+    String(w).includes('editor is not ready')
+  );
+  if (notReadyWarnings.length > 0) {
+    console.log(
+      `[source-click] NOTE: ${notReadyWarnings.length} "editor is not ready" warnings during click:`,
+      notReadyWarnings
+    );
+  }
+
+  console.log('[source-click] STRICT: real Source/WYSIWYG click round-trip verified');
+}
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -1121,6 +1337,97 @@ async function waitForState(
   assert.fail(`${message} Last state: ${JSON.stringify(lastState)}`);
 }
 
+/**
+ * Wait until the Tiptap editor is actually mounted in the webview DOM.
+ *
+ * The editor only becomes queryable AFTER Vue's onMounted and useEditor's
+ * internal mount() complete — these run on the next microtask tick after
+ * the mode ref flips. A naive `await sleep(1500)` used to hide the race in
+ * some fixtures and surface it in others, producing flakey tests.
+ *
+ * This helper polls via runScript (the same channel the click tests use)
+ * so it is a true retry, not a fixed delay. Each individual runScript
+ * failure is swallowed because the webview is often still booting when we
+ * first probe it (the extension's runScript has a 10s ceiling; if the
+ * first probe fires before the webview's onMessage handler is set up we
+ * would otherwise spend that whole 10s on a single useless call).
+ */
+async function waitForEditor(timeoutMs = 15_000, message = 'Tiptap editor should mount'): Promise<void> {
+  const started = Date.now();
+  let lastResult: unknown = null;
+  let lastError: unknown = null;
+  while (Date.now() - started < timeoutMs) {
+    try {
+      // Short per-call ceiling so we can iterate even when the webview
+      // is still booting (the 10s default would freeze the poll loop).
+      lastResult = await runScript<boolean>(
+        `!!document.querySelector('.tiptap.ProseMirror')`,
+        1500
+      );
+      if (lastResult) return;
+    } catch (err) {
+      lastError = err;
+      // webview is still loading — keep polling
+    }
+    await sleep(200);
+  }
+  assert.fail(
+    `${message} (last DOM query returned ${JSON.stringify(lastResult)}, ` +
+    `last error: ${lastError instanceof Error ? lastError.message : String(lastError)})`
+  );
+}
+
+async function waitForDom(
+  expression: string,
+  timeoutMs = 15_000,
+  message = 'DOM predicate should become truthy'
+): Promise<unknown> {
+  const started = Date.now();
+  let last: unknown = null;
+  let lastError: unknown = null;
+  while (Date.now() - started < timeoutMs) {
+    try {
+      last = await runScript(expression, 1500);
+      if (last) return last;
+    } catch (err) {
+      lastError = err;
+      // webview is still loading — keep polling
+    }
+    await sleep(150);
+  }
+  assert.fail(
+    `${message} (last result: ${JSON.stringify(last)}, ` +
+    `last error: ${lastError instanceof Error ? lastError.message : String(lastError)})`
+  );
+}
+
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * E2E test bridge: execute a script in the webview context via __htmlyTest
+ * and return the result. Uses the htmly.test.runScript extension command.
+ *
+ * Pass `timeoutMs` to override the extension's 10s default. The poller
+ * helpers pass a small value (e.g. 1500ms) so they can iterate quickly
+ * while the webview is still booting; the click/assert calls pass
+ * undefined to get the full 10s ceiling.
+ */
+async function runScript<T>(script: string, timeoutMs?: number): Promise<T> {
+  const result = await vscode.commands.executeCommand<unknown>(
+    'htmly.test.runScript',
+    script,
+    timeoutMs
+  );
+  // The result may be a JSON-serialized string if it passed through VS Code IPC
+  if (typeof result === 'string') {
+    try {
+      return JSON.parse(result) as T;
+    } catch {
+      // If it's not JSON, return as-is (could be error message etc.)
+      return result as unknown as T;
+    }
+  }
+  return result as T;
 }

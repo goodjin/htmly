@@ -1,0 +1,106 @@
+{
+  "id": "htmly-optimization-execute-phase1",
+  "name": "Htmly Optimization - Phase 1: Quick Wins & Security",
+  "description": "Execute Phase 1 optimizations: Quick wins and critical security fixes",
+  "version": "1",
+  "inputs": {},
+  "outputs": {},
+  "error_policy": {
+    "strategy": "continue",
+    "max_attempts": 1
+  },
+  "steps": [
+    {
+      "id": "quickwin1-wikilink-xss",
+      "type": "implementation",
+      "capabilities": [
+        "security",
+        "webview",
+        "typescript"
+      ],
+      "agent": "hephaestus",
+      "prompt": "Fix the WikiLink XSS vulnerability in webview/src/extensions/WikiLink.ts\n\n**Problem**: Line 175 renders page name directly without escaping:\n```typescript\ntitle: `Open page: ${page}`,\n```\n\n**Fix**: Apply the existing escapeHtml() function (which already exists at line 240) to the page variable in the title attribute:\n```typescript\ntitle: `Open page: ${escapeHtml(page)}`,\n```\n\n**Steps**:\n1. Read webview/src/extensions/WikiLink.ts\n2. Find the renderHTML function\n3. Apply escapeHtml() to page in the title attribute\n4. Verify the fix compiles correctly\n\nThis is a P0 security fix - takes about 1 hour.",
+      "mutates": true,
+      "inputs": {},
+      "outputs": {},
+      "guards": [],
+      "next": "quickwin2-csp-enhancement"
+    },
+    {
+      "id": "quickwin2-csp-enhancement",
+      "type": "implementation",
+      "capabilities": [
+        "security",
+        "extension",
+        "typescript"
+      ],
+      "agent": "hephaestus",
+      "prompt": "Enhance CSP (Content Security Policy) in editorProvider.ts\n\n**Problem**: CSP header in getWebviewHtml() should be hardened.\n\n**Fix**: Add these CSP directives to the webview HTML:\n- `object-src 'none'`\n- `base-uri 'self'`\n- `form-action 'none'`\n\n**Steps**:\n1. Find the getWebviewHtml() method in src/extension/editorProvider.ts\n2. Locate the CSP meta tag in the returned HTML\n3. Add the missing security directives\n4. Verify the change\n\nThis is a Quick Win #2 - takes about 2 hours.",
+      "mutates": true,
+      "inputs": {},
+      "outputs": {},
+      "guards": [],
+      "next": "quickwin3-remove-dual-debounce"
+    },
+    {
+      "id": "quickwin3-remove-dual-debounce",
+      "type": "implementation",
+      "capabilities": [
+        "performance",
+        "webview",
+        "typescript"
+      ],
+      "agent": "hephaestus",
+      "prompt": "Remove redundant debounce in webview/App.vue\n\n**Problem**: Webview has 300ms debounce at line 136-138 AND extension has 500ms debounce in editorProvider.ts. This creates 800ms total latency when 500ms is sufficient.\n\n**Fix**: Remove the webview debounce in App.vue (lines 136-138) since the extension already handles debouncing:\n```typescript\n// Current (problematic):\ndebounceTimer = setTimeout(() => {\n  sendContentUpdate(newHtml);\n}, 300);\n\n// Remove this debounce wrapper, call sendContentUpdate directly\n```\n\n**Steps**:\n1. Read webview/src/App.vue\n2. Find the debounceTimer and debounce logic around line 136\n3. Remove the debounce wrapper, call sendContentUpdate directly\n4. Verify no other code depends on this debounce\n\nThis is Quick Win #3 - takes about 1 day.",
+      "mutates": true,
+      "inputs": {},
+      "outputs": {},
+      "guards": [],
+      "next": "quickwin4-centralize-constants"
+    },
+    {
+      "id": "quickwin4-centralize-constants",
+      "type": "implementation",
+      "capabilities": [
+        "maintainability",
+        "typescript"
+      ],
+      "agent": "hephaestus",
+      "prompt": "Create centralized constants module\n\n**Problem**: Magic numbers are scattered throughout the codebase:\n- MAX_HISTORY_ENTRIES = 100 (editorProvider.ts)\n- SAVE_DEBOUNCE_MS = 500 (editorProvider.ts)\n- LARGE_FILE_THRESHOLD = 500 * 1024 (editorProvider.ts)\n- HISTORY_DEBOUNCE_MS = 1000 (editorProvider.ts)\n\n**Fix**: Create a new file `src/shared/constants.ts` with all constants:\n```typescript\nexport const CONSTANTS = {\n  // History\n  MAX_HISTORY_ENTRIES: 100,\n  HISTORY_DEBOUNCE_MS: 1000,\n  // Save\n  SAVE_DEBOUNCE_MS: 500,\n  LARGE_FILE_THRESHOLD: 500 * 1024,\n  LARGE_SAVE_THRESHOLD: 100 * 1024,\n  // Webview debounce (for cases where it's still needed)\n  CONTENT_UPDATE_DEBOUNCE_MS: 300,\n} as const;\n\nexport type Constants = typeof CONSTANTS;\n```\n\n**Steps**:\n1. Create src/shared/constants.ts with centralized constants\n2. Update editorProvider.ts to import from the new constants module\n3. Verify all constants are properly imported\n\nThis is Quick Win #4 - takes about 2 hours.",
+      "mutates": true,
+      "inputs": {},
+      "outputs": {},
+      "guards": [],
+      "next": "quickwin5-circuit-breaker-infra"
+    },
+    {
+      "id": "quickwin5-circuit-breaker-infra",
+      "type": "implementation",
+      "capabilities": [
+        "reliability",
+        "typescript"
+      ],
+      "agent": "hephaestus",
+      "prompt": "Create CircuitBreaker and RetryPolicy infrastructure for reliability improvements\n\n**Problem**: 53+ catch blocks swallow errors silently without retry logic.\n\n**Fix**: Create foundational reliability components:\n\n1. Create `src/shared/circuitBreaker.ts`:\n```typescript\ntype CircuitState = 'closed' | 'open' | 'half-open';\n\nexport interface CircuitBreakerOptions {\n  failureThreshold?: number;  // Default: 5\n  successThreshold?: number;  // Default: 2  \n  timeout?: number;          // Default: 60000 (1 minute)\n}\n\nexport class CircuitBreaker {\n  private state: CircuitState = 'closed';\n  private failureCount = 0;\n  private successCount = 0;\n  private lastFailureTime: number | null = null;\n\n  constructor(private options: CircuitBreakerOptions = {}) {\n    this.options = {\n      failureThreshold: 5,\n      successThreshold: 2,\n      timeout: 60000,\n      ...options\n    };\n  }\n\n  async execute<T>(fn: () => Promise<T>): Promise<T> {\n    if (this.state === 'open') {\n      if (this.shouldAttemptReset()) {\n        this.state = 'half-open';\n      } else {\n        throw new Error('Circuit breaker is open');\n      }\n    }\n\n    try {\n      const result = await fn();\n      this.onSuccess();\n      return result;\n    } catch (error) {\n      this.onFailure();\n      throw error;\n    }\n  }\n\n  private onSuccess(): void {\n    this.failureCount = 0;\n    if (this.state === 'half-open') {\n      this.successCount++;\n      if (this.successCount >= (this.options.successThreshold ?? 2)) {\n        this.state = 'closed';\n        this.successCount = 0;\n      }\n    }\n  }\n\n  private onFailure(): void {\n    this.failureCount++;\n    this.lastFailureTime = Date.now();\n    if (this.failureCount >= (this.options.failureThreshold ?? 5)) {\n      this.state = 'open';\n    }\n  }\n\n  private shouldAttemptReset(): boolean {\n    if (!this.lastFailureTime) return true;\n    return Date.now() - this.lastFailureTime >= (this.options.timeout ?? 60000);\n  }\n\n  getState(): CircuitState {\n    return this.state;\n  }\n}\n```\n\n2. Create `src/shared/retryPolicy.ts`:\n```typescript\nexport interface RetryOptions {\n  maxAttempts?: number;      // Default: 3\n  initialDelayMs?: number;   // Default: 1000\n  maxDelayMs?: number;       // Default: 30000\n  backoffMultiplier?: number;// Default: 2\n}\n\nexport async function withRetry<T>(\n  fn: () => Promise<T>,\n  options: RetryOptions = {}\n): Promise<T> {\n  const opts = {\n    maxAttempts: 3,\n    initialDelayMs: 1000,\n    maxDelayMs: 30000,\n    backoffMultiplier: 2,\n    ...options\n  };\n\n  let lastError: Error | undefined;\n  let delay = opts.initialDelayMs;\n\n  for (let attempt = 1; attempt <= opts.maxAttempts; attempt++) {\n    try {\n      return await fn();\n    } catch (error) {\n      lastError = error as Error;\n      if (attempt < opts.maxAttempts) {\n        await sleep(delay);\n        delay = Math.min(delay * opts.backoffMultiplier, opts.maxDelayMs);\n      }\n    }\n  }\n\n  throw lastError;\n}\n\nfunction sleep(ms: number): Promise<void> {\n  return new Promise(resolve => setTimeout(resolve, ms));\n}\n```\n\n**Steps**:\n1. Create src/shared/circuitBreaker.ts\n2. Create src/shared/retryPolicy.ts  \n3. Export them from src/shared/index.ts (or create one if not exists)\n4. Verify compilation\n\nThis is Quick Win #5 - takes about 1 week.",
+      "mutates": true,
+      "inputs": {},
+      "outputs": {},
+      "guards": [],
+      "next": "phase1-report"
+    },
+    {
+      "id": "phase1-report",
+      "type": "documentation",
+      "capabilities": [
+        "documentation"
+      ],
+      "agent": "primary",
+      "prompt": "Create a Phase 1 execution report summarizing what was implemented.\n\n**Steps**:\n1. Read the summary report at docs/optimization/OPTIMIZATION_PLAN_SUMMARY.md\n2. List all completed optimizations from the workflow\n3. For each completed task, note:\n   - What was changed\n   - Files modified\n   - Estimated time saved/improvement\n\n4. Create docs/optimization/EXECUTION_REPORT_PHASE1.md with:\n   - Executive summary\n   - Completed items (with file changes)\n   - Benefits realized\n   - Notes for Phase 2\n\nDo not write code - only create the report documenting what was done.",
+      "mutates": false,
+      "inputs": {},
+      "outputs": {},
+      "guards": []
+    }
+  ],
+  "nodes": []
+}

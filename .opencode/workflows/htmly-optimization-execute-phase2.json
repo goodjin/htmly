@@ -1,0 +1,76 @@
+{
+  "id": "htmly-optimization-execute-phase2",
+  "name": "Htmly Optimization - Phase 2: Architecture & Maintainability",
+  "description": "Execute Phase 2 optimizations: DI Container, Architecture modularization, Test coverage",
+  "version": "1",
+  "inputs": {},
+  "outputs": {},
+  "error_policy": {
+    "strategy": "continue",
+    "max_attempts": 1
+  },
+  "steps": [
+    {
+      "id": "di-container",
+      "type": "implementation",
+      "capabilities": [
+        "architecture",
+        "typescript",
+        "maintainability"
+      ],
+      "agent": "hephaestus",
+      "prompt": "Create a lightweight Dependency Injection Container for htmly.\n\n**Goal**: Enable proper dependency injection to make modules testable and decoupled.\n\n**Design from architecture-optimization.md**:\n1. Create `src/di/container.ts` - Simple service container\n2. Create `src/di/serviceIdentifiers.ts` - Service identifier constants (Symbols)\n3. Create `src/di/index.ts` - Export container and helpers\n\n**Container Requirements**:\n```typescript\n// src/di/serviceIdentifiers.ts\nexport const SERVICE_IDS = {\n  BACKLINKS_INDEX: Symbol('BacklinksIndex'),\n  VERSION_HISTORY_DB: Symbol('VersionHistoryDb'),\n  KEYBINDING_MANAGER: Symbol('KeybindingManager'),\n  TEMPLATE_STORAGE: Symbol('TemplateStorage'),\n  SNIPPET_STORAGE: Symbol('SnippetStorage'),\n  EXPORT_UTILS: Symbol('ExportUtils'),\n  PDF_MAKE_UTILS: Symbol('PdfMakeUtils'),\n  DOCX_UTILS: Symbol('DocxUtils'),\n  CIRCUIT_BREAKER: Symbol('CircuitBreaker'),\n  RETRY_POLICY: Symbol('RetryPolicy'),\n} as const;\n\n// src/di/container.ts\nclass ServiceContainer {\n  private services = new Map<symbol, unknown>();\n  \n  register<T>(id: symbol, factory: () => T): void { ... }\n  \n  resolve<T>(id: symbol): T { ... }\n  \n  // For singleton services\n  registerSingleton<T>(id: symbol, factory: () => T): void { ... }\n}\n\nexport const container = new ServiceContainer();\n```\n\n**Steps**:\n1. Create `src/di/serviceIdentifiers.ts` with all service symbols\n2. Create `src/di/container.ts` with register/resolve/registerSingleton\n3. Create `src/di/index.ts` exporting container and SERVICE_IDS\n4. Update `backlinksIndex.ts` to accept container injection (but keep singleton export for backward compatibility)\n5. Verify TypeScript compiles\n\nThis enables the modularization of editorProvider.ts in subsequent tasks.",
+      "mutates": true,
+      "inputs": {},
+      "outputs": {},
+      "guards": [],
+      "next": "editor-provider-split"
+    },
+    {
+      "id": "editor-provider-split",
+      "type": "implementation",
+      "capabilities": [
+        "architecture",
+        "typescript",
+        "refactoring"
+      ],
+      "agent": "hephaestus",
+      "prompt": "Split the monolithic editorProvider.ts (2326 lines) into focused modules.\n\n**Goal**: Break editorProvider.ts into maintainable, single-responsibility modules.\n\n**Current Structure** (2326 lines handling everything):\n- Document lifecycle management\n- Mode switching\n- Save logic (debounce, immediate, large file)\n- History management\n- Export handling\n- Template/snippet handlers\n- Keybinding management\n- Backlinks integration\n- Version history\n- Many more...\n\n**Target Structure**:\n```\nsrc/extension/\n├── editorProvider.ts      # Main provider ( orchestration only)\n├── services/\n│   ├── DocumentSession.ts     # Per-document state management\n│   ├── SaveController.ts      # Save logic (debounce, immediate, large file)\n│   ├── HistoryController.ts   # History/undo/redo management  \n│   ├── ExportController.ts    # Export handling\n│   └── BacklinksService.ts    # Backlinks integration\n├── handlers/\n│   ├── templateHandlers.ts    # Template CRUD\n│   ├── snippetHandlers.ts     # Snippet CRUD\n│   ├── keybindingHandlers.ts  # Keybinding management\n│   └── versionHandlers.ts     # Version history\n└── index.ts                  # Re-export main provider\n```\n\n**Steps**:\n1. Read the current editorProvider.ts to understand all responsibilities\n2. Create `src/extension/services/DocumentSession.ts` - extract document state (panels, modeMap, ackModeMap)\n3. Create `src/extension/services/SaveController.ts` - extract save logic (debounce, executeSave, largeFileSave)\n4. Create `src/extension/services/HistoryController.ts` - extract history management (syncHistory, persistHistory, selectiveUndo)\n5. Create `src/extension/services/ExportController.ts` - extract export handling (handleExportRequest)\n6. Refactor editorProvider.ts to use these services (composition over inheritance)\n7. Keep backward compatibility by re-exporting from index.ts\n8. Verify TypeScript compiles and build passes\n\nThis is a large refactoring - focus on correctness over completeness. Extract the most problematic pieces first.",
+      "mutates": true,
+      "inputs": {},
+      "outputs": {},
+      "guards": [],
+      "next": "test-harness"
+    },
+    {
+      "id": "test-harness",
+      "type": "implementation",
+      "capabilities": [
+        "testing",
+        "typescript",
+        "architecture"
+      ],
+      "agent": "hephaestus",
+      "prompt": "Create test harness and mock infrastructure for editorProvider.ts and other modules.\n\n**Goal**: Enable unit testing of previously untestable modules.\n\n**Background from test-coverage-improvement.md**:\n- editorProvider.ts (2326 lines) has 0 tests\n- backlinksIndex.ts (219 lines) has 0 tests  \n- Singleton pattern makes modules hard to test\n\n**Required Components**:\n\n1. **Mock VS Code API** - `test/mocks/vscodeMock.ts`:\n```typescript\n// Mock VS Code API for unit tests\nexport function createVscodeMock() {\n  return {\n    workspace: {\n      getConfiguration: jest.fn(),\n      fs: { readFile: jest.fn(), writeFile: jest.fn(), ... },\n      onDidChangeTextDocument: jest.fn(),\n      onDidSaveTextDocument: jest.fn(),\n      textDocuments: [],\n    },\n    window: {\n      activeColorTheme: { kind: 1 },\n      onDidChangeActiveColorTheme: jest.fn(),\n      showWarningMessage: jest.fn(),\n      showInformationMessage: jest.fn(),\n      createStatusBarItem: jest.fn(),\n    },\n    commands: { registerCommand: jest.fn() },\n    Disposable: { from: jest.fn() },\n    Uri: { file: jest.fn(), parse: jest.fn(), joinPath: jest.fn() },\n  };\n}\n```\n\n2. **Mock Webview API** - `test/mocks/webviewMock.ts`:\n```typescript\nexport function createWebviewPanelMock() {\n  return {\n    webview: {\n      options: {},\n      html: '',\n      onDidReceiveMessage: jest.fn(),\n      postMessage: jest.fn(),\n    },\n    onDidChangeViewState: jest.fn(),\n    onDidDispose: jest.fn(),\n    dispose: jest.fn(),\n  };\n}\n```\n\n3. **Test fixtures** - `test/fixtures/`:\n- Sample HTML documents for testing\n- Sample history states\n- Sample version entries\n\n4. **Unit test for backlinksIndex** - `src/extension/backlinksIndex.test.ts`:\n```typescript\ndescribe('BacklinksIndex', () => {\n  it('should extract wiki links from content', () => {\n    const index = new BacklinksIndex();\n    index.setContext('/tmp', '/tmp/test.html');\n    // ... test cases\n  });\n});\n```\n\n**Steps**:\n1. Create `test/mocks/vscodeMock.ts` with comprehensive VS Code API mock\n2. Create `test/mocks/webviewMock.ts` with webview panel mock\n3. Create `test/fixtures/` directory with sample test data\n4. Create `src/extension/backlinksIndex.test.ts` - first unit test for a previously untested module\n5. Verify tests run with `npm run test`\n\nThis establishes the testing infrastructure for future improvements.",
+      "mutates": true,
+      "inputs": {},
+      "outputs": {},
+      "guards": [],
+      "next": "phase2-report"
+    },
+    {
+      "id": "phase2-report",
+      "type": "documentation",
+      "capabilities": [
+        "documentation"
+      ],
+      "agent": "primary",
+      "prompt": "Create a Phase 2 execution report summarizing what was implemented.\n\n**Steps**:\n1. Read the Phase 1 report at docs/optimization/EXECUTION_REPORT_PHASE1.md for context\n2. Read docs/optimization/architecture-optimization.md and docs/optimization/test-coverage-improvement.md\n3. List all completed Phase 2 tasks:\n   - DI Container\n   - Editor Provider modularization\n   - Test harness creation\n\n4. For each task, document:\n   - What was created/modified\n   - Files changed\n   - Benefits realized\n   - Limitations/tech debt remaining\n\n5. Create `docs/optimization/EXECUTION_REPORT_PHASE2.md` with:\n   - Executive summary\n   - Completed items with details\n   - Architecture diagram if applicable\n   - Benefits\n   - Notes for Phase 3\n\nDo not write code - only create the report.",
+      "mutates": false,
+      "inputs": {},
+      "outputs": {},
+      "guards": []
+    }
+  ],
+  "nodes": []
+}

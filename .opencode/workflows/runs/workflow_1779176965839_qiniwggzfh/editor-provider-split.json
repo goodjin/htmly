@@ -1,0 +1,14 @@
+{
+  "step": "editor-provider-split",
+  "status": "completed",
+  "agent": "hephaestus",
+  "sessionID": "ses_1c0c79269ffeTE71YLN4NUXyI5",
+  "path": "/Users/jin/github/htmly/.opencode/workflows/runs/workflow_1779176965839_qiniwggzfh/editor-provider-split.json",
+  "attempt": 1,
+  "time": {
+    "started": 1779177123219,
+    "updated": 1779179147748,
+    "completed": 1779179147748
+  },
+  "output": ""
+}

@@ -1,0 +1,14 @@
+{
+  "step": "test-harness",
+  "status": "completed",
+  "agent": "hephaestus",
+  "sessionID": "ses_1c0a8ade4ffejQe37wlSIF4ZOP",
+  "path": "/Users/jin/github/htmly/.opencode/workflows/runs/workflow_1779176965839_qiniwggzfh/test-harness.json",
+  "attempt": 1,
+  "time": {
+    "started": 1779179147799,
+    "updated": 1779179373560,
+    "completed": 1779179373560
+  },
+  "output": "## Node Result: test-harness\n\n### What I Did\n\nCreated comprehensive test infrastructure and mock utilities for htmly, enabling unit testing of previously untestable modules.\n\n### Files Created\n\n| File | Description |\n|------|-------------|\n| `test/mocks/vscodeMock.ts` | Mock VS Code API with `createVscodeMock()`, mock data factories for documents, settings, wiki pages, backlinks, and history state |\n| `test/mocks/webviewMock.ts` | Mock webview API with `createWebviewPanelMock()`, message helpers, and mock message factories for extension-webview communication |\n| `test/fixtures/sample-with-wiki-links.html` | HTML document with wiki links for testing backlink extraction |\n| `test/fixtures/sample-about-page.html` | Sample about page with wiki links |\n| `test/fixtures/sample-contact-page.html` | Sample contact page with multiple wiki links |\n| `test/fixtures/sample-no-links.html` | HTML without wiki links for edge case testing |\n| `test/fixtures/sample-history-state.json` | Sample history state for testing |\n| `test/fixtures/sample-version-v1.json` | Sample version entry v1 |\n| `test/fixtures/sample-version-v2.json` | Sample version entry v2 |\n| `src/extension/backlinksIndex.test.ts` | **24 unit tests** for BacklinksIndex module (previously had 0 tests) |\n\n### Important Findings\n\n1. **backlinksIndex.ts now testable**: Using the `createBacklinksIndex()` factory and `setBacklinksIndexInstance()` function, the module can be properly unit tested with mocked dependencies\n2. **Wiki link regex**: `/\\[\\[([^\\]]+)\\]\\]/g` correctly extracts page names from `[[Page Name]]` syntax\n3. **Self-references filtered**: The implementation correctly filters out self-referencing wiki links\n4. **Preview generation**: Strips HTML tags and truncates with ellipsis for long previews\n\n### Test Results\n\n```\n ✓ src/extension/backlinksIndex.test.ts (24 tests) \n ✓ All 11 test files (367 tests total)\n```\n\n### Blockers\n\nNone.\n\n### Node Goal Status\n\n**✅ COMPLETE** - Test harness established:\n- VS Code API mock infrastructure created\n- Webview API mock infrastructure created  \n- Test fixtures for common scenarios created\n- **First unit tests for backlinksIndex.ts** - a module that previously had 0 tests\n- All 367 tests pass"
+}

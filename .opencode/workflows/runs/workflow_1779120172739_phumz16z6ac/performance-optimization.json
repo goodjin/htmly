@@ -1,0 +1,14 @@
+{
+  "step": "performance-optimization",
+  "status": "completed",
+  "agent": "oracle",
+  "path": "/Users/jin/github/htmly/.opencode/workflows/runs/workflow_1779120172739_phumz16z6ac/performance-optimization.json",
+  "attempt": 1,
+  "time": {
+    "started": 1779120280175,
+    "updated": 1779120443212,
+    "completed": 1779120443212
+  },
+  "sessionID": "ses_1c42aed8fffeKpdAPnbQqCpue3",
+  "output": "---\n\n## Node Result: performance-optimization\n\n### What I Did\n\nAnalyzed three critical performance bottlenecks in the htmly codebase and created a detailed optimization design document at `docs/optimization/performance-optimization.md` (619 lines).\n\n### Key Findings\n\n| Issue | Location | Current Problem |\n|-------|----------|-----------------|\n| **Full workspace scan** | `backlinksIndex.ts:100-132` | Synchronous `fs.readFileSync()` on ALL HTML files for every edit |\n| **History memory** | `editorProvider.ts:61` | 100 entries × full HTML = 10MB+ per document |\n| **Redundant debounce** | `App.vue:136` + `editorProvider.ts:68` | 300ms + 500ms = 800ms total latency |\n\n### Important Findings\n\n1. **BacklinksIndex** (`backlinksIndex.ts:219`): Singleton with no incremental update - every `updateIndex()` does O(n×k) full scan where n=files, k=avg file size\n\n2. **Version History**: `MAX_HISTORY_ENTRIES=100` stores complete HTML snapshots, no diff-based storage\n\n3. **Dual Debounce Architecture**:\n   - Webview sends `contentUpdate` with 300ms debounce\n   - Extension saves with 500ms debounce\n   - Combined: up to 800ms from keystroke to disk\n\n### Changed Files\n\n- **Created**: `docs/optimization/performance-optimization.md` (619 lines)\n\n### Design Solutions\n\n| Issue | Solution |\n|-------|----------|\n| Full scan | Incremental index with SQLite + file checksum tracking + worker threads |\n| History memory | Diff-based storage: full snapshot every 10th entry, diffs for rest (~91% reduction) |\n| Debounce | Remove webview 300ms tier, keep single 500ms extension debounce |\n\n### Performance Targets\n\n| Metric | Current | Target |\n|--------|---------|--------|\n| Startup backlink index | O(n×k) full scan | O(1) cached |\n| Memory per history entry | ~50KB | ~2KB avg |\n| Keystroke → save latency | 800ms max | 500ms max |\n\n### Test Results\n\n- No tests modified (design document only)\n- No breaking changes (backward compatible via feature flags)\n\n### Blockers\n\nNone - design is complete and ready for implementation\n\n### Goal Status\n\n✅ **Complete** - Performance optimization design document delivered to `docs/optimization/performance-optimization.md`"
+}

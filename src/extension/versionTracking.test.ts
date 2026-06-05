@@ -49,7 +49,14 @@ vi.mock('vscode', () => ({
 }));
 
 // Mock sql.js before importing the module
-const mockDb: any = {
+interface MockDb {
+  run: ReturnType<typeof vi.fn>;
+  exec: ReturnType<typeof vi.fn>;
+  export: () => Uint8Array;
+  close: ReturnType<typeof vi.fn>;
+}
+
+const mockDb: MockDb = {
   run: vi.fn(),
   exec: vi.fn(),
   export: vi.fn(() => new Uint8Array([1, 2, 3])),
@@ -71,23 +78,23 @@ interface MockContext {
   globalStoragePath: string;
   subscriptions: vscode.Disposable[];
   workspaceState: {
-    get: any;
-    update: any;
-    keys: any;
+    get: (key: string) => unknown;
+    update: (key: string, value: unknown) => Promise<void>;
+    keys: () => string[];
   };
   globalState: {
-    get: any;
-    update: any;
-    keys: any;
-    setKeysForSync: any;
+    get: (key: string) => unknown;
+    update: (key: string, value: unknown) => Promise<void>;
+    keys: () => string[];
+    setKeysForSync: (keys: string[]) => void;
   };
   extensionPath: string;
   extensionUri: vscode.Uri;
   environmentValue: string | undefined;
   secrets: {
-    get: any;
-    store: any;
-    delete: any;
+    get: (key: string) => Promise<string | undefined>;
+    store: (key: string, value: string) => Promise<void>;
+    delete: (key: string) => Promise<void>;
   };
 }
 
@@ -171,7 +178,7 @@ describe('versionTracking', () => {
   describe('VAL-HISTORY-002: Version Saved on Save', () => {
     it('creates a new version entry when document is saved', async () => {
       // Initialize database
-      const db = new VersionHistoryDatabase(mockContext as any);
+      const db = new VersionHistoryDatabase(mockContext as unknown as vscode.ExtensionContext);
       await db.initialize();
       
       // Reset exec mock for version operations
@@ -221,7 +228,7 @@ describe('versionTracking', () => {
     });
     
     it('increments version number for subsequent saves', async () => {
-      const db = new VersionHistoryDatabase(mockContext as any);
+      const db = new VersionHistoryDatabase(mockContext as unknown as vscode.ExtensionContext);
       await db.initialize();
       
       // Simulate existing versions
@@ -254,7 +261,7 @@ describe('versionTracking', () => {
     });
     
     it('records timestamp when version is saved', async () => {
-      const db = new VersionHistoryDatabase(mockContext as any);
+      const db = new VersionHistoryDatabase(mockContext as unknown as vscode.ExtensionContext);
       await db.initialize();
       
       // Capture the timestamp that was passed
@@ -277,7 +284,7 @@ describe('versionTracking', () => {
     });
     
     it('stores full content snapshot (not just diff)', async () => {
-      const db = new VersionHistoryDatabase(mockContext as any);
+      const db = new VersionHistoryDatabase(mockContext as unknown as vscode.ExtensionContext);
       await db.initialize();
       
       const testContent = '<html><body><h1>Full Content Snapshot</h1><p>All content here</p></body></html>';
@@ -296,7 +303,7 @@ describe('versionTracking', () => {
     });
     
     it('getLatestVersion returns most recent version info', async () => {
-      const db = new VersionHistoryDatabase(mockContext as any);
+      const db = new VersionHistoryDatabase(mockContext as unknown as vscode.ExtensionContext);
       await db.initialize();
       
       // Mock version query
@@ -331,7 +338,7 @@ describe('versionTracking', () => {
   
   describe('initializeVersionHistory', () => {
     it('initializes database on extension activation', async () => {
-      const result = await initializeVersionHistory(mockContext as any);
+      const result = await initializeVersionHistory(mockContext as unknown as vscode.ExtensionContext);
       
       expect(result).toBe(true);
       expect(vscode.workspace.fs.stat).toHaveBeenCalled();

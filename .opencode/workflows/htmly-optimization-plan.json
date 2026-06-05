@@ -1,0 +1,102 @@
+{
+  "id": "htmly-optimization-plan",
+  "name": "Htmly Implementation Optimization Plan",
+  "description": "Design optimization solutions for each category of issues identified in the codebase",
+  "version": "1",
+  "inputs": {},
+  "outputs": {},
+  "error_policy": {
+    "strategy": "continue",
+    "max_attempts": 1
+  },
+  "steps": [
+    {
+      "id": "architecture-optimization",
+      "type": "planning",
+      "agent": "oracle",
+      "prompt": "Design an optimization solution for the architecture issues in htmly:\n\n1. **Singleton abuse with BacklinksIndex** - Multiple HTML files share the same global singleton, causing state pollution when setContext() and updateIndex() are called concurrently.\n\n2. **Editor Provider too large (2326 lines)** - editorProvider.ts handles editing, export, templates, snippets, history, keybindings all in one file, violating single responsibility principle.\n\n3. **Message passing lacks state consistency** - postMessage communication between Extension Host and Webview has no transactional or acknowledgment mechanism. The dual Map design (ackModeMap and modeMap) shows lack of trust in state synchronization.\n\nTasks:\n- Propose a proper dependency injection solution with a container/factory pattern\n- Design a scoped service per-document architecture to replace the global singleton\n- Suggest a command/message pattern with acknowledgments for state synchronization\n- Create a modular structure splitting editorProvider.ts into focused modules\n\nReturn a detailed design document with:\n1. Proposed architecture diagram/description\n2. Code structure recommendations\n3. Key interfaces and their responsibilities\n4. Migration strategy from current implementation\n\nOutput to: docs/optimization/architecture-optimization.md",
+      "mutates": false,
+      "inputs": {},
+      "outputs": {},
+      "guards": [],
+      "next": "performance-optimization"
+    },
+    {
+      "id": "performance-optimization",
+      "type": "planning",
+      "agent": "oracle",
+      "prompt": "Design an optimization solution for the performance issues in htmly:\n\n1. **Full workspace scan for backlinks** - Opening any HTML file triggers a full scan of ALL HTML files in the workspace, causing slow startup on large workspaces.\n   ```typescript\n   // Current: synchronous full scan\n   for (const filePath of htmlFiles) {\n     const content = fs.readFileSync(filePath, 'utf-8');\n   ```\n\n2. **Version history stored fully in memory** - MAX_HISTORY_ENTRIES=100 but each entry contains full HTML content, consuming massive memory for large documents.\n\n3. **Redundant debounce implementation** - Webview has 300ms debounce, Extension has 500ms debounce, adding unnecessary latency.\n\nTasks:\n- Design an incremental/indexed backlink update mechanism instead of full scan\n- Propose a diff-based history storage to minimize memory usage\n- Suggest a unified debounce strategy with proper tier coordination\n- Consider worker threads for background indexing\n\nReturn a detailed design document with:\n1. Proposed performance architecture\n2. Index data structures for backlinks\n3. Diff-based history storage format\n4. Debounce coordination strategy\n\nOutput to: docs/optimization/performance-optimization.md",
+      "mutates": false,
+      "inputs": {},
+      "outputs": {},
+      "guards": [],
+      "next": "security-hardening"
+    },
+    {
+      "id": "security-hardening",
+      "type": "planning",
+      "agent": "oracle",
+      "prompt": "Design a security hardening solution for the security issues in htmly:\n\n1. **HTML parsing uses regex instead of safe parser** - exportUtils.ts uses fragile regex for HTML parsing which could be exploited with malformed input.\n   ```typescript\n   markdown = markdown.replace(/<code[^>]*>([\\s\\S]*?)<\\/code>/gi, '`$1`');\n   ```\n\n2. **WikiLink XSS risk** - WikiLink.ts relies on escapeHtml but renders directly without proper sanitization.\n   ```typescript\n   title: `Open page: ${page}`, // title attribute not escaped\n   ```\n\n3. **Cloud storage credentials in plaintext** - S3/Cloudinary keys stored in config without encryption.\n   ```typescript\n   secretAccessKey: config.get<string>('cloudStorage.s3.secretAccessKey', ''),\n   ```\n\nTasks:\n- Propose using a safe HTML parser (like DOMPurify or sanitize-html) instead of regex\n- Design a Content Security Policy for the webview\n- Propose secure credential storage using VS Code's SecretStorage API\n- Create an input sanitization layer for all user content\n\nReturn a detailed design document with:\n1. Security architecture proposal\n2. HTML sanitization strategy\n3. Credential storage solution using VS Code Secrets\n4. CSP configuration for webview\n\nOutput to: docs/optimization/security-hardening.md",
+      "mutates": false,
+      "inputs": {},
+      "outputs": {},
+      "guards": [],
+      "next": "reliability-improvements"
+    },
+    {
+      "id": "reliability-improvements",
+      "type": "planning",
+      "agent": "oracle",
+      "prompt": "Design a reliability improvement solution for the issues in htmly:\n\n1. **Race condition with external file modifications** - External changes and user edits can happen simultaneously, webview has no conflict resolution.\n   ```typescript\n   vscode.workspace.onDidChangeTextDocument((e) => {\n     // No coordination with user's ongoing edits\n     this.postMessage(webviewPanel, { type: 'contentChanged', content: e.document.getText() });\n   });\n   ```\n\n2. **Silent exception swallowing** - backlinksIndex.ts catches exceptions but only logs them, potentially causing feature malfunction silently.\n   ```typescript\n   } catch (error) {\n     console.error('Error updating backlinks index:', error);\n   }\n   ```\n\n3. **Incomplete database migration** - versionHistoryDb.ts adds column but doesn't verify migration success.\n   ```typescript\n   if (hasAllRequiredColumns && !columns.includes('pinned')) {\n     db.run(ADD_PINNED_COLUMN);\n     // No verification of ALTER TABLE success\n   ```\n\nTasks:\n- Design an OT (Operational Transformation) or CRDT-based conflict resolution for collaborative editing\n- Propose a proper error handling and retry policy with circuit breaker pattern\n- Design database migration verification and rollback mechanism\n- Create a health check and monitoring system for background services\n\nReturn a detailed design document with:\n1. Conflict resolution strategy\n2. Error handling and retry policy design\n3. Database migration safety mechanism\n4. Health monitoring system\n\nOutput to: docs/optimization/reliability-improvements.md",
+      "mutates": false,
+      "inputs": {},
+      "outputs": {},
+      "guards": [],
+      "next": "maintainability-improvements"
+    },
+    {
+      "id": "maintainability-improvements",
+      "type": "planning",
+      "agent": "oracle",
+      "prompt": "Design a maintainability improvement solution for the issues in htmly:\n\n1. **Lack of dependency injection** - All modules directly reference concrete implementations, singletons make testing dependent on global state.\n\n2. **Magic numbers and strings scattered** - Constants like LARGE_FILE_THRESHOLD=500*1024, SAVE_DEBOUNCE_MS=500 are scattered throughout code.\n   ```typescript\n   private static readonly LARGE_FILE_THRESHOLD = 500 * 1024;\n   private static readonly SAVE_DEBOUNCE_MS = 500;\n   const HISTORY_DEBOUNCE_MS = 1000;\n   ```\n\n3. **Missing configuration caching** - Configuration is re-read on every message handling.\n   ```typescript\n   const getSettings = (): HtmlySettings => {\n     const config = vscode.workspace.getConfiguration('htmly');\n     // Called frequently without caching\n   ```\n\nTasks:\n- Propose a lightweight DI container or service locator pattern\n- Design a centralized constants management system\n- Create a configuration observer pattern with proper caching\n- Suggest IDE integration for constant management\n\nReturn a detailed design document with:\n1. Dependency injection architecture\n2. Constants management system design\n3. Configuration caching strategy\n4. Code organization recommendations\n\nOutput to: docs/optimization/maintainability-improvements.md",
+      "mutates": false,
+      "inputs": {},
+      "outputs": {},
+      "guards": [],
+      "next": "test-coverage-improvement"
+    },
+    {
+      "id": "test-coverage-improvement",
+      "type": "planning",
+      "agent": "oracle",
+      "prompt": "Design a test coverage improvement solution for the issues in htmly:\n\n1. **Core logic test gaps** - editorProvider.ts has no unit tests (only E2E), backlinksIndex.ts lacks concurrency tests, singleton modules are hard to test independently.\n\n2. **Testing difficulty due to singleton pattern** - Global singletons make modules depend on global state, requiring complex test setup/teardown.\n\nTasks:\n- Propose a testing strategy that breaks dependencies on singletons\n- Design a mock-friendly interface architecture\n- Create a test harness for editorProvider.ts\n- Suggest integration test patterns for Extension+Webview communication\n\nReturn a detailed design document with:\n1. Testing architecture proposal\n2. Mock interfaces and contracts\n3. Test fixture design\n4. Coverage improvement strategy\n\nOutput to: docs/optimization/test-coverage-improvement.md",
+      "mutates": false,
+      "inputs": {},
+      "outputs": {},
+      "guards": [],
+      "next": "design-rationalization"
+    },
+    {
+      "id": "design-rationalization",
+      "type": "planning",
+      "agent": "oracle",
+      "prompt": "Design a design rationalization solution for the issues in htmly:\n\n1. **Template/snippet storage in workspace instead of extension directory** - Templates stored in .htmly/templates/ can be accidentally deleted by users.\n   ```typescript\n   export const TEMPLATES_DIR = '.htmly/templates';\n   ```\n\n2. **Version history uses workspaceState instead of globalStorage** - Version history should persist across workspace, not tied to specific workspace.\n   ```typescript\n   await this.context.workspaceState.update(HISTORY_STATE_KEY, {...});\n   ```\n\n3. **History export goes to globalStorage not user-specified location** - Export creates files in extension directory, not where user expects.\n   ```typescript\n   const exportPath = vscode.Uri.joinPath(\n     this.context.globalStorageUri || this.context.extensionUri,\n     `${baseName}-history-${Date.now()}.json`\n   );\n   ```\n\nTasks:\n- Propose proper storage separation: built-in vs user data\n- Design a user data storage strategy following VS Code conventions\n- Create an export location preference system\n- Consider cross-workspace template/snippet sharing\n\nReturn a detailed design document with:\n1. Storage architecture redesign\n2. User data vs extension data separation\n3. Export location preference system\n4. Cross-workspace sharing strategy\n\nOutput to: docs/optimization/design-rationalization.md",
+      "mutates": false,
+      "inputs": {},
+      "outputs": {},
+      "guards": [],
+      "next": "report"
+    },
+    {
+      "id": "report",
+      "type": "documentation",
+      "agent": "primary",
+      "prompt": "Create a summary report combining all the optimization plans from previous steps. Read all the generated optimization documents from docs/optimization/ and create an executive summary at docs/optimization/OPTIMIZATION_PLAN_SUMMARY.md.\n\nThe report should include:\n1. Executive summary of all 7 optimization categories\n2. Priority ranking of optimizations (high/medium/low)\n3. Estimated implementation effort for each\n4. Dependencies between optimization tasks\n5. Quick wins that can be implemented immediately\n\nDo not write code - only create the summary document.",
+      "mutates": false,
+      "inputs": {},
+      "outputs": {},
+      "guards": []
+    }
+  ],
+  "nodes": []
+}

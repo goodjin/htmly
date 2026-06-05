@@ -24,7 +24,14 @@ const MODE_ICONS: Record<EditorMode, string> = {
 export async function activate(context: vscode.ExtensionContext) {
   // Initialize version history database
   await initializeVersionHistory(context);
-  
+
+  // DIAGNOSTIC: create the htmly-debug output channel up-front so it
+  // appears in the View → Output dropdown even before any logs are
+  // emitted. Disposed on deactivation by the subscriptions list.
+  const debugChannel = vscode.window.createOutputChannel('htmly-debug');
+  context.subscriptions.push(debugChannel);
+  debugChannel.appendLine(`[${new Date().toISOString()}] [htmly ext] extension activated`);
+
   const provider = new HtmlyEditorProvider(context);
   context.subscriptions.push(provider.register());
 
@@ -150,7 +157,11 @@ export async function activate(context: vscode.ExtensionContext) {
   if (process.env.HTMLY_E2E === '1') {
     context.subscriptions.push(
       vscode.commands.registerCommand('htmly.test.getState', () => provider.getTestState()),
-      vscode.commands.registerCommand('htmly.test.triggerExport', () => provider.triggerExport())
+      vscode.commands.registerCommand('htmly.test.triggerExport', () => provider.triggerExport()),
+      vscode.commands.registerCommand(
+        'htmly.test.runScript',
+        (script: string, timeoutMs?: number) => provider.runScript(script, timeoutMs)
+      )
     );
   }
 }

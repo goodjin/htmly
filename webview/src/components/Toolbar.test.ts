@@ -149,39 +149,58 @@ describe('Toolbar.vue', () => {
   });
 
   describe('autoHideToolbarInPreview setting', () => {
-    it('hides toolbar when autoHideToolbarInPreview is true and mode is preview', () => {
+    it('keeps the toolbar and mode-switcher visible in preview mode (so user is not stuck) but hides rich-text groups', () => {
       const wrapper = mount(Toolbar, {
         props: { ...defaultProps, mode: 'preview', autoHideToolbarInPreview: true },
       });
-      expect(wrapper.find('.toolbar').exists()).toBe(false);
+      // Toolbar root must remain visible so the user can switch out of preview mode
+      expect(wrapper.find('.toolbar').exists()).toBe(true);
+      // The mode-switcher (WYSIWYG / Source / Preview / Split) must always be present
+      expect(wrapper.find('.mode-switcher').exists()).toBe(true);
+      // Rich-text-only groups (e.g. Bold) must be hidden in preview mode
+      const richTextButtons = wrapper.findAll('button').filter(b =>
+        b.text().includes('Bold') ||
+        b.text().includes('Italic') ||
+        b.text().includes('Underline') ||
+        b.text().includes('Bullet') ||
+        b.text().includes('Align Left') ||
+        b.text().includes('Templates')
+      );
+      expect(richTextButtons.length).toBe(0);
     });
 
-    it('shows toolbar when autoHideToolbarInPreview is false and mode is preview', () => {
+    it('shows the full toolbar in preview mode when autoHideToolbarInPreview is false', () => {
       const wrapper = mount(Toolbar, {
         props: { ...defaultProps, mode: 'preview', autoHideToolbarInPreview: false },
       });
       expect(wrapper.find('.toolbar').exists()).toBe(true);
+      expect(wrapper.find('.mode-switcher').exists()).toBe(true);
     });
 
-    it('shows toolbar in wysiwyg mode regardless of autoHideToolbarInPreview', () => {
+    it('shows the full toolbar in wysiwyg mode regardless of autoHideToolbarInPreview', () => {
       const wrapper = mount(Toolbar, {
         props: { ...defaultProps, mode: 'wysiwyg', autoHideToolbarInPreview: true },
       });
       expect(wrapper.find('.toolbar').exists()).toBe(true);
+      // In wysiwyg mode, rich-text groups should still render
+      const boldBtn = wrapper.findAll('button').find(b => b.text().includes('Bold'));
+      expect(boldBtn).toBeDefined();
     });
 
-    it('shows toolbar in source mode regardless of autoHideToolbarInPreview', () => {
+    it('shows the toolbar in source mode regardless of autoHideToolbarInPreview', () => {
       const wrapper = mount(Toolbar, {
         props: { ...defaultProps, mode: 'source', autoHideToolbarInPreview: true },
       });
       expect(wrapper.find('.toolbar').exists()).toBe(true);
+      expect(wrapper.find('.mode-switcher').exists()).toBe(true);
     });
 
-    it('shows toolbar in split mode regardless of autoHideToolbarInPreview', () => {
+    it('shows the toolbar in split mode regardless of autoHideToolbarInPreview', () => {
       const wrapper = mount(Toolbar, {
         props: { ...defaultProps, mode: 'split', autoHideToolbarInPreview: true },
       });
       expect(wrapper.find('.toolbar').exists()).toBe(true);
+      expect(wrapper.find('.mode-switcher').exists()).toBe(true);
     });
   });
 
@@ -471,8 +490,11 @@ describe('Toolbar.vue', () => {
       const wrapper = mount(Toolbar, {
         props: { ...defaultProps, mode: 'preview', autoHideToolbarInPreview: true },
       });
-      // Toolbar is hidden in preview mode
-      expect(wrapper.find('.toolbar').exists()).toBe(false);
+      // Toolbar root stays visible (so the user can switch out of preview),
+      // but rich-text math buttons remain hidden
+      expect(wrapper.find('.toolbar').exists()).toBe(true);
+      const mathDropdown = wrapper.findComponent({ name: 'MathSymbolsDropdown' });
+      expect(mathDropdown.exists()).toBe(false);
     });
   });
 });

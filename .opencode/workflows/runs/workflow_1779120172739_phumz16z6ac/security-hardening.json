@@ -1,0 +1,14 @@
+{
+  "step": "security-hardening",
+  "status": "completed",
+  "agent": "oracle",
+  "path": "/Users/jin/github/htmly/.opencode/workflows/runs/workflow_1779120172739_phumz16z6ac/security-hardening.json",
+  "attempt": 1,
+  "time": {
+    "started": 1779120443218,
+    "updated": 1779120574664,
+    "completed": 1779120574664
+  },
+  "sessionID": "ses_1c42870a8ffeizqOeil2Ku3wpx",
+  "output": "---\n\n## Node Result: security-hardening\n\n### What I Did\nAnalyzed three critical security vulnerabilities in the htmly codebase and created a detailed security hardening design document.\n\n### Key Findings\n\n| Vulnerability | Severity | Location | Current Problem |\n|--------------|----------|----------|-----------------|\n| **Regex-based HTML parsing** | High | `exportUtils.ts:68-460` | Fragile regex can be bypassed with malformed input (ReDoS possible) |\n| **WikiLink XSS** | Medium | `WikiLink.ts:175` | `title: \\`Open page: ${page}\\`` - page not escaped in renderHTML |\n| **Credential plaintext storage** | High | `editorProvider.ts:238-250` | S3/Cloudinary keys stored in VS Code config without encryption |\n\n### Important Findings\n\n1. **escapeHtml exists but isn't used consistently** - WikiLink.ts has `escapeHtml()` function at line 240, but `renderHTML()` at line 175 doesn't use it\n2. **Current CSP is partially strict** - Line 2307 has nonce-based script protection, but lacks `object-src: 'none'`, `base-uri`, and `form-action` restrictions\n3. **No secure credential storage** - Credentials stored in plaintext in VS Code global settings\n\n### Changed Files\n- **Created**: `docs/optimization/security-hardening.md` (884 lines)\n\n### Design Solutions\n\n| Issue | Solution |\n|-------|----------|\n| Regex HTML parsing | DOMPurify (webview) + sanitize-html (extension host) |\n| WikiLink XSS | Apply existing `escapeHtml()` in `renderHTML()` |\n| Credential storage | VS Code `SecretStorage` API with migration path |\n| CSP | Enhanced with `object-src: none`, `base-uri: self`, `form-action: none` |\n\n### Migration Strategy (4-week phased approach)\n1. **Week 1**: Fix WikiLink XSS (escapeHtml), enhance CSP\n2. **Week 2**: CredentialService with SecretStorage + migration\n3. **Week 3**: Replace regex in exportUtils with sanitize-html\n4. **Week 4**: Security testing and verification\n\n### Test Results\n- No tests modified (design document only)\n- No breaking changes (backward compatible via migration paths)\n\n### Blockers\nNone - design is complete and ready for implementation review\n\n### Goal Status\n✅ **Complete** - Security hardening design document delivered to `docs/optimization/security-hardening.md`"
+}

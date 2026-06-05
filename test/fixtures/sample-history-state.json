@@ -1,0 +1,20 @@
+{
+  "entries": [
+    {
+      "content": "<h1>Document Title</h1><p>Initial version of the document.</p>",
+      "timestamp": 1640000000000,
+      "cursorPosition": 0
+    },
+    {
+      "content": "<h1>Document Title</h1><p>Updated version with more content.</p>",
+      "timestamp": 1640000100000,
+      "cursorPosition": 0.25
+    },
+    {
+      "content": "<h1>Document Title</h1><p>Final version with all changes.</p>",
+      "timestamp": 1640000200000,
+      "cursorPosition": 0.5
+    }
+  ],
+  "currentIndex": 2
+}

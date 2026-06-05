@@ -8,6 +8,14 @@ import type { BacklinkInfo, WikiPage } from '../shared/types';
 const WIKI_LINK_REGEX = /\[\[([^\]]+)\]\]/g;
 
 /**
+ * Factory function to create a BacklinksIndex instance
+ * Can be used with the DI container for testability
+ */
+export function createBacklinksIndex(): BacklinksIndex {
+  return new BacklinksIndex();
+}
+
+/**
  * BacklinksIndex - tracks which pages link to which other pages
  */
 export class BacklinksIndex {
@@ -215,5 +223,34 @@ export class BacklinksIndex {
   }
 }
 
-// Singleton instance
-export const backlinksIndex = new BacklinksIndex();
+// Singleton instance for backward compatibility
+// This instance can be overridden via DI container for testing
+let singletonInstance: BacklinksIndex | null = null;
+
+function getSingleton(): BacklinksIndex {
+  if (!singletonInstance) {
+    singletonInstance = new BacklinksIndex();
+  }
+  return singletonInstance;
+}
+
+// Proxy that delegates to singleton for backward compatibility
+// while allowing instance override via setInstance
+export const backlinksIndex = new Proxy({} as BacklinksIndex, {
+  get(_target, prop) {
+    const instance = getSingleton();
+    const value = (instance as unknown as Record<string | symbol, unknown>)[prop];
+    if (typeof value === 'function') {
+      return value.bind(instance);
+    }
+    return value;
+  },
+  set(_target, prop, value) {
+    (getSingleton() as unknown as Record<string | symbol, unknown>)[prop] = value;
+    return true;
+  }
+});
+
+export function setBacklinksIndexInstance(instance: BacklinksIndex): void {
+  singletonInstance = instance;
+}

@@ -1,0 +1,14 @@
+{
+  "step": "architecture-optimization",
+  "status": "completed",
+  "agent": "oracle",
+  "path": "/Users/jin/github/htmly/.opencode/workflows/runs/workflow_1779120172739_phumz16z6ac/architecture-optimization.json",
+  "attempt": 1,
+  "time": {
+    "started": 1779120172743,
+    "updated": 1779120280167,
+    "completed": 1779120280167
+  },
+  "sessionID": "ses_1c42c9136ffe8HkDm6KCzfw7q7",
+  "output": "## Node Result: architecture-optimization\n\n### What I Did\nAnalyzed the htmly codebase to understand three critical architectural issues and created a detailed optimization design document.\n\n### Key Findings\n\n1. **BacklinksIndex Singleton** (`src/extension/backlinksIndex.ts:219`)\n   - Global `backlinksIndex` singleton is shared across all HTML documents\n   - `setContext(workspaceRoot, documentUri)` overwrites shared state - concurrent calls from multiple documents cause race conditions\n   - `updateIndex()` operates on whatever document was last set as context\n\n2. **EditorProvider Size** (`src/extension/editorProvider.ts` - 2326 lines)\n   - Handles editing, export, templates, snippets, history, keybindings all in one file\n   - Dual Map design for mode tracking: `modeMap` (optimistic) + `ackModeMap` (acknowledged)\n   - No acknowledgment mechanism - webview sends mode changes, extension trusts them implicitly\n\n3. **Message Passing Issues**\n   - `modeMap`/`ackModeMap` dual design reveals lack of trust in message delivery\n   - No transactional semantics, no timeout/retry logic\n   - 154 `postMessage` calls throughout the file with fire-and-forget semantics\n\n### Changed Files\n- **Created**: `docs/optimization/architecture-optimization.md` (505 lines)\n\n### Design Recommendations\n\n| Issue | Solution |\n|-------|----------|\n| Singleton abuse | DI Container + Document-scoped services via `DocumentSessionFactory` |\n| EditorProvider size | Split into: `documentSession.ts`, `modeController.ts`, `saveController.ts`, `handlers/*.ts` |\n| Message passing | `MessageBus` with acknowledgment protocol, request/response pattern for critical messages |\n\n### Migration Strategy (5-week phased approach)\n1. **Week 1**: DI container + `BacklinksService` (document-scoped)\n2. **Week 2**: MessageBus with acknowledgment protocol\n3. **Week 3-4**: EditorProvider modularization\n4. **Week 5**: Webview `MessageGateway` integration\n\n### Test Results\n- No tests modified (design document only)\n- No breaking changes (backward compatibility maintained via deprecation path)\n\n### Blockers\nNone - design is complete and ready for implementation review\n\n### Goal Status\n✅ **Complete** - Architecture optimization design document delivered to `docs/optimization/architecture-optimization.md`"
+}

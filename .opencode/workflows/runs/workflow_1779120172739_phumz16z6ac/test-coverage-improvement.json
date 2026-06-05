@@ -1,0 +1,14 @@
+{
+  "step": "test-coverage-improvement",
+  "status": "completed",
+  "agent": "oracle",
+  "path": "/Users/jin/github/htmly/.opencode/workflows/runs/workflow_1779120172739_phumz16z6ac/test-coverage-improvement.json",
+  "attempt": 2,
+  "time": {
+    "started": 1779163712614,
+    "updated": 1779163844870,
+    "completed": 1779163844870
+  },
+  "sessionID": "ses_1c1943396ffejNSen6ESHAB8uA",
+  "output": "---\n\n## Node Result: test-coverage-improvement\n\n### What I Did\n\nAnalyzed the htmly codebase testing gaps and updated the comprehensive test coverage improvement design document. Verified that:\n- `editorProvider.ts` (2326 lines) has **zero** unit tests\n- `backlinksIndex.ts` (219 lines) has **zero** tests\n- Both are critical gaps in the test suite\n\n### Key Findings\n\n| Finding | Location | Impact |\n|---------|----------|--------|\n| **editorProvider.ts has NO tests** | Entire file (2326 lines) | Critical - core editing logic untested |\n| **backlinksIndex.ts has NO tests** | Entire file (219 lines) | High - backlinks logic untested |\n| **Singleton blocks testing** | `backlinksIndex.ts:219` | High - global state requires complex mocking |\n| **154 `postMessage` calls** | `editorProvider.ts:130+` | Medium - non-deterministic integration tests |\n| **Dual modeMap design** | `editorProvider.ts:71-72` | Medium - increases testing complexity |\n\n### Positive Findings\n\n1. **`getTestState()` exists** (`editorProvider.ts:179`) - built for testing\n2. **Well-typed message contracts** (`types.ts:288-373`) - 40+ message types defined\n3. **Vitest already configured** - no setup needed\n4. **Similar test patterns exist** - `versionHistoryDb.test.ts` shows good practices\n\n### Changed Files\n- **Updated**: `docs/optimization/test-coverage-improvement.md` (969 lines)\n\n### Design Components Created\n\n| Component | Purpose |\n|-----------|---------|\n| `interfaces.ts` | Mock interface definitions for all services |\n| `MockBacklinksIndex.ts` | Configurable backlinks mock with call tracking |\n| `MockMessageBus.ts` | Message bus mock with acknowledgment support |\n| `EditorProviderTestFixture.ts` | Test harness for editorProvider |\n| `backlinksIndex.concurrency.test.ts` | Race condition test suite |\n| `editorProvider.test.ts` | Unit test skeleton |\n| `editorProvider.integration.test.ts` | Message passing integration tests |\n\n### Test Results\n- No tests executed (design document only)\n- No breaking changes\n\n### Blockers\nNone - design is complete and ready for implementation\n\n### Goal Status\n✅ **Complete** - Test coverage improvement design document delivered to `docs/optimization/test-coverage-improvement.md`"
+}

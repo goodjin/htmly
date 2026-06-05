@@ -1,0 +1,14 @@
+index-CdL6Wicg.js:8215 
+ GET vscode-webview://1hf6vfniklsee8ndf4k951mnghet23l67o0i4ovhi9b5f0eon7el/EmbedDialog.css net::ERR_ABORTED 403 (Forbidden)
+index-CdL6Wicg.js:8215 
+ GET vscode-webview://1hf6vfniklsee8ndf4k951mnghet23l67o0i4ovhi9b5f0eon7el/LinkPreviewDialog.css net::ERR_ABORTED 403 (Forbidden)
+index-CdL6Wicg.js:8215 
+ GET vscode-webview://1hf6vfniklsee8ndf4k951mnghet23l67o0i4ovhi9b5f0eon7el/EmbedDialog.js net::ERR_ABORTED 403 (Forbidden)
+index-CdL6Wicg.js:2041 Error: Unable to preload CSS for /EmbedDialog.css
+    at HTMLLinkElement.<anonymous> (index-CdL6Wicg.js:8221:25)
+index-CdL6Wicg.js:2041 Error: Unable to preload CSS for /LinkPreviewDialog.css
+    at HTMLLinkElement.<anonymous> (index-CdL6Wicg.js:8221:25)
+index-CdL6Wicg.js:8215 
+ GET vscode-webview://1hf6vfniklsee8ndf4k951mnghet23l67o0i4ovhi9b5f0eon7el/Embed.js net::ERR_ABORTED 403 (Forbidden)
+index-CdL6Wicg.js:8215 
+ GET vscode-webview://1hf6vfniklsee8ndf4k951mnghet23l67o0i4ovhi9b5f0eon7el/LinkPreviewDialog.js net::ERR_ABORTED 403 (Forbidden)
