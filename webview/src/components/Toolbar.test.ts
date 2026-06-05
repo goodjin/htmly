@@ -517,4 +517,169 @@ describe('Toolbar.vue', () => {
       expect(mathDropdown.exists()).toBe(false);
     });
   });
+
+  describe('Rich text buttons click behavior (regression for 8e0fd75 btn() guard)', () => {
+    // Regression coverage for the root cause: `@mousedown="btn(() => …)"` is
+    // compiled by Vue into `$event => _ctx.btn(…)`, so the closure returned
+    // by `btn()` is discarded and the action never runs. The fix removes
+    // `btn()` from the template (the binding is now `@mousedown.prevent="…"`
+    // pointing directly at the expression), so mousedown must actually call
+    // through to `editor.chain().focus().<command>().run()`.
+    //
+    // The original `createMockEditor()` returns a fresh chain object per call,
+    // so it can't answer "was toggleBold ever called?" — we wrap a stable spy
+    // chain below for that.
+    function createChainSpyEditor() {
+      const run = vi.fn();
+      const toggleBold = vi.fn(() => ({ run }));
+      const toggleItalic = vi.fn(() => ({ run }));
+      const toggleUnderline = vi.fn(() => ({ run }));
+      const toggleStrike = vi.fn(() => ({ run }));
+      const toggleHighlight = vi.fn(() => ({ run }));
+      const toggleBulletList = vi.fn(() => ({ run }));
+      const toggleOrderedList = vi.fn(() => ({ run }));
+      const toggleBlockquote = vi.fn(() => ({ run }));
+      const toggleCodeBlock = vi.fn(() => ({ run }));
+      const setTextAlign = vi.fn(() => ({ run }));
+      const toggleHeading = vi.fn(() => ({ run }));
+      const setParagraph = vi.fn(() => ({ run }));
+      const focus = vi.fn(() => ({
+        toggleBold,
+        toggleItalic,
+        toggleUnderline,
+        toggleStrike,
+        toggleHighlight,
+        toggleBulletList,
+        toggleOrderedList,
+        toggleBlockquote,
+        toggleCodeBlock,
+        setTextAlign,
+        toggleHeading,
+        setParagraph,
+      }));
+      const chain = vi.fn(() => ({ focus }));
+      return {
+        chain, focus, run,
+        toggleBold, toggleItalic, toggleUnderline, toggleStrike, toggleHighlight,
+        toggleBulletList, toggleOrderedList, toggleBlockquote, toggleCodeBlock,
+        setTextAlign, toggleHeading, setParagraph,
+        isActive: () => false,
+        getAttributes: () => ({}),
+        state: { selection: { from: 0, to: 0 } },
+      };
+    }
+
+    function clickButtonByText(wrapper: any, text: string) {
+      const btn = wrapper.findAll('button').find((b: any) => b.text().includes(text));
+      if (!btn) throw new Error(`Button with text "${text}" not found`);
+      return btn;
+    }
+
+    it('clicking Bold invokes editor.chain().focus().toggleBold().run()', async () => {
+      const editor = createChainSpyEditor();
+      const wrapper = mount(Toolbar, {
+        props: { ...defaultProps, mode: 'wysiwyg', editor: editor as any },
+      });
+      await clickButtonByText(wrapper, 'Bold').trigger('mousedown');
+
+      expect(editor.chain).toHaveBeenCalledTimes(1);
+      expect(editor.focus).toHaveBeenCalledTimes(1);
+      expect(editor.toggleBold).toHaveBeenCalledTimes(1);
+      expect(editor.run).toHaveBeenCalledTimes(1);
+      // Sibling commands must not be invoked
+      expect(editor.toggleItalic).not.toHaveBeenCalled();
+      expect(editor.toggleUnderline).not.toHaveBeenCalled();
+      expect(editor.toggleStrike).not.toHaveBeenCalled();
+    });
+
+    it('clicking Italic invokes editor.chain().focus().toggleItalic().run()', async () => {
+      const editor = createChainSpyEditor();
+      const wrapper = mount(Toolbar, {
+        props: { ...defaultProps, mode: 'wysiwyg', editor: editor as any },
+      });
+      await clickButtonByText(wrapper, 'Italic').trigger('mousedown');
+
+      expect(editor.chain).toHaveBeenCalledTimes(1);
+      expect(editor.focus).toHaveBeenCalledTimes(1);
+      expect(editor.toggleItalic).toHaveBeenCalledTimes(1);
+      expect(editor.run).toHaveBeenCalledTimes(1);
+      expect(editor.toggleBold).not.toHaveBeenCalled();
+      expect(editor.toggleUnderline).not.toHaveBeenCalled();
+    });
+
+    it('clicking Underline invokes editor.chain().focus().toggleUnderline().run()', async () => {
+      const editor = createChainSpyEditor();
+      const wrapper = mount(Toolbar, {
+        props: { ...defaultProps, mode: 'wysiwyg', editor: editor as any },
+      });
+      await clickButtonByText(wrapper, 'Underline').trigger('mousedown');
+
+      expect(editor.chain).toHaveBeenCalledTimes(1);
+      expect(editor.focus).toHaveBeenCalledTimes(1);
+      expect(editor.toggleUnderline).toHaveBeenCalledTimes(1);
+      expect(editor.run).toHaveBeenCalledTimes(1);
+      expect(editor.toggleBold).not.toHaveBeenCalled();
+      expect(editor.toggleItalic).not.toHaveBeenCalled();
+    });
+
+    it('clicking Bullet List invokes editor.chain().focus().toggleBulletList().run()', async () => {
+      // Sanity-check a non-formatting rich-text command to confirm the fix
+      // works for every @mousedown.prevent binding, not just inline marks.
+      const editor = createChainSpyEditor();
+      const wrapper = mount(Toolbar, {
+        props: { ...defaultProps, mode: 'wysiwyg', editor: editor as any },
+      });
+      await clickButtonByText(wrapper, 'Bullet').trigger('mousedown');
+
+      expect(editor.chain).toHaveBeenCalledTimes(1);
+      expect(editor.focus).toHaveBeenCalledTimes(1);
+      expect(editor.toggleBulletList).toHaveBeenCalledTimes(1);
+      expect(editor.run).toHaveBeenCalledTimes(1);
+    });
+
+    it('clicking Align Center invokes editor.chain().focus().setTextAlign("center").run()', async () => {
+      const editor = createChainSpyEditor();
+      const wrapper = mount(Toolbar, {
+        props: { ...defaultProps, mode: 'wysiwyg', editor: editor as any },
+      });
+      await clickButtonByText(wrapper, 'Center').trigger('mousedown');
+
+      expect(editor.chain).toHaveBeenCalledTimes(1);
+      expect(editor.focus).toHaveBeenCalledTimes(1);
+      expect(editor.setTextAlign).toHaveBeenCalledTimes(1);
+      expect(editor.setTextAlign).toHaveBeenCalledWith('center');
+      expect(editor.run).toHaveBeenCalledTimes(1);
+    });
+
+    it('selecting Heading 1 invokes editor.chain().focus().toggleHeading({ level: 1 }).run()', async () => {
+      // Heading is a <select @change> binding, not a button mousedown. This
+      // pins that the editor call still goes through after the rewrite.
+      const editor = createChainSpyEditor();
+      const wrapper = mount(Toolbar, {
+        props: { ...defaultProps, mode: 'wysiwyg', editor: editor as any },
+      });
+      const headingSelect = wrapper.find('select.heading-select');
+      expect(headingSelect.exists()).toBe(true);
+      await headingSelect.setValue('1');
+
+      expect(editor.chain).toHaveBeenCalledTimes(1);
+      expect(editor.focus).toHaveBeenCalledTimes(1);
+      expect(editor.toggleHeading).toHaveBeenCalledTimes(1);
+      expect(editor.toggleHeading).toHaveBeenCalledWith({ level: 1 });
+      expect(editor.run).toHaveBeenCalledTimes(1);
+    });
+
+    it('rich-text click is NOT swallowed when editor prop is undefined', async () => {
+      // After dropping the `btn()` wrapper entirely, every action template
+      // uses `editor?.chain()...` optional chaining, so an undefined editor
+      // must be a silent no-op (no thrown error). This pins that behavior:
+      // mousedown on Bold with editor=undefined completes without throwing.
+      const wrapper = mount(Toolbar, {
+        props: { ...defaultProps, mode: 'wysiwyg' /* editor: undefined */ },
+      });
+      const boldBtn = clickButtonByText(wrapper, 'Bold');
+      await expect(boldBtn.trigger('mousedown')).resolves.toBeUndefined();
+      expect(wrapper.find('.toolbar').exists()).toBe(true);
+    });
+  });
 });

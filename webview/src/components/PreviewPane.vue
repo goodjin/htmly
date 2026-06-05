@@ -676,7 +676,7 @@ const previewContent = computed(() => {
   flex: 1;
   min-height: 0;
   display: flex;
-  justify-content: center;
+  justify-content: safe center;
   align-items: flex-start;
   overflow: auto;
   padding: 8px;

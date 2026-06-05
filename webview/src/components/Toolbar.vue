@@ -158,18 +158,6 @@ const linkInitialText = ref('');
 
 const imageDialogVisible = ref(false);
 
-function btn(action: () => void) {
-  return (e: MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (!props.editor) {
-      console.warn('[htmly toolbar] button clicked but editor is not ready');
-      return;
-    }
-    action();
-  };
-}
-
 function setBlockStyle(value: string) {
   if (value === '0') {
     props.editor?.chain().focus().setParagraph().run();
@@ -525,7 +513,7 @@ function insertMathSymbol(symbol: string) {
         <button
           title="Bold (Ctrl+B)"
           :class="{ active: editor?.isActive('bold') }"
-          @mousedown="btn(() => editor?.chain().focus().toggleBold().run())"
+          @mousedown.prevent="editor?.chain().focus().toggleBold().run()"
         >
           <span class="btn-icon"><b>B</b></span>
           <span class="btn-label">Bold</span>
@@ -533,7 +521,7 @@ function insertMathSymbol(symbol: string) {
         <button
           title="Italic (Ctrl+I)"
           :class="{ active: editor?.isActive('italic') }"
-          @mousedown="btn(() => editor?.chain().focus().toggleItalic().run())"
+          @mousedown.prevent="editor?.chain().focus().toggleItalic().run()"
         >
           <span class="btn-icon"><i>I</i></span>
           <span class="btn-label">Italic</span>
@@ -541,7 +529,7 @@ function insertMathSymbol(symbol: string) {
         <button
           title="Underline (Ctrl+U)"
           :class="{ active: editor?.isActive('underline') }"
-          @mousedown="btn(() => editor?.chain().focus().toggleUnderline().run())"
+          @mousedown.prevent="editor?.chain().focus().toggleUnderline().run()"
         >
           <span class="btn-icon"><u>U</u></span>
           <span class="btn-label">Underline</span>
@@ -549,7 +537,7 @@ function insertMathSymbol(symbol: string) {
         <button
           title="Strikethrough (Ctrl+Shift+X)"
           :class="{ active: editor?.isActive('strike') }"
-          @mousedown="btn(() => editor?.chain().focus().toggleStrike().run())"
+          @mousedown.prevent="editor?.chain().focus().toggleStrike().run()"
         >
           <span class="btn-icon"><s>S</s></span>
           <span class="btn-label">Strike</span>
@@ -557,7 +545,7 @@ function insertMathSymbol(symbol: string) {
         <button
           title="Highlight"
           :class="{ active: editor?.isActive('highlight') }"
-          @mousedown="btn(() => editor?.chain().focus().toggleHighlight().run())"
+          @mousedown.prevent="editor?.chain().focus().toggleHighlight().run()"
         >
           <span class="btn-icon"><mark>H</mark></span>
           <span class="btn-label">Highlight</span>
@@ -568,7 +556,7 @@ function insertMathSymbol(symbol: string) {
         <button
           title="Bullet List"
           :class="{ active: editor?.isActive('bulletList') }"
-          @mousedown="btn(() => editor?.chain().focus().toggleBulletList().run())"
+          @mousedown.prevent="editor?.chain().focus().toggleBulletList().run()"
         >
           <span class="btn-icon">•</span>
           <span class="btn-label">Bullet</span>
@@ -576,7 +564,7 @@ function insertMathSymbol(symbol: string) {
         <button
           title="Ordered List"
           :class="{ active: editor?.isActive('orderedList') }"
-          @mousedown="btn(() => editor?.chain().focus().toggleOrderedList().run())"
+          @mousedown.prevent="editor?.chain().focus().toggleOrderedList().run()"
         >
           <span class="btn-icon">1.</span>
           <span class="btn-label">Numbered</span>
@@ -584,7 +572,7 @@ function insertMathSymbol(symbol: string) {
         <button
           title="Blockquote"
           :class="{ active: editor?.isActive('blockquote') }"
-          @mousedown="btn(() => editor?.chain().focus().toggleBlockquote().run())"
+          @mousedown.prevent="editor?.chain().focus().toggleBlockquote().run()"
         >
           <span class="btn-icon">❝</span>
           <span class="btn-label">Quote</span>
@@ -592,7 +580,7 @@ function insertMathSymbol(symbol: string) {
         <button
           title="Code Block"
           :class="{ active: editor?.isActive('codeBlock') }"
-          @mousedown="btn(() => editor?.chain().focus().toggleCodeBlock().run())"
+          @mousedown.prevent="editor?.chain().focus().toggleCodeBlock().run()"
         >
           <span class="btn-icon">{}</span>
           <span class="btn-label">Code</span>
@@ -603,7 +591,7 @@ function insertMathSymbol(symbol: string) {
         <button
           title="Align Left"
           :class="{ active: editor?.isActive({textAlign:'left'}) }"
-          @mousedown="btn(() => editor?.chain().focus().setTextAlign('left').run())"
+          @mousedown.prevent="editor?.chain().focus().setTextAlign('left').run()"
         >
           <span class="btn-icon">⇤</span>
           <span class="btn-label">Left</span>
@@ -611,7 +599,7 @@ function insertMathSymbol(symbol: string) {
         <button
           title="Align Center"
           :class="{ active: editor?.isActive({textAlign:'center'}) }"
-          @mousedown="btn(() => editor?.chain().focus().setTextAlign('center').run())"
+          @mousedown.prevent="editor?.chain().focus().setTextAlign('center').run()"
         >
           <span class="btn-icon">≡</span>
           <span class="btn-label">Center</span>
@@ -619,7 +607,7 @@ function insertMathSymbol(symbol: string) {
         <button
           title="Align Right"
           :class="{ active: editor?.isActive({textAlign:'right'}) }"
-          @mousedown="btn(() => editor?.chain().focus().setTextAlign('right').run())"
+          @mousedown.prevent="editor?.chain().focus().setTextAlign('right').run()"
         >
           <span class="btn-icon">⇥</span>
           <span class="btn-label">Right</span>
@@ -627,7 +615,7 @@ function insertMathSymbol(symbol: string) {
         <button
           title="Justify"
           :class="{ active: editor?.isActive({textAlign:'justify'}) }"
-          @mousedown="btn(() => editor?.chain().focus().setTextAlign('justify').run())"
+          @mousedown.prevent="editor?.chain().focus().setTextAlign('justify').run()"
         >
           <span class="btn-icon">☰</span>
           <span class="btn-label">Justify</span>
@@ -652,7 +640,7 @@ function insertMathSymbol(symbol: string) {
         </label>
         <button
           title="Remove Text Color"
-          @mousedown="btn(() => editor?.chain().focus().unsetColor().run())"
+          @mousedown.prevent="editor?.chain().focus().unsetColor().run()"
         >
           <span class="btn-icon">✕</span>
           <span class="btn-label">No Color</span>
@@ -679,8 +667,7 @@ function insertMathSymbol(symbol: string) {
         <button
           v-if="hasBlockBgColor"
           title="Clear Block Background Color"
-          @mousedown="btn(onClearBlockBgColor)"
-        >
+          @mousedown.prevent="onClearBlockBgColor"        >
           <span class="btn-icon">✕</span>
           <span class="btn-label">Clear BG</span>
         </button>
@@ -698,8 +685,7 @@ function insertMathSymbol(symbol: string) {
         <button
           title="Remove Link"
           :disabled="!isLinkActive"
-          @mousedown.prevent="btn(unlink)"
-        >
+          @mousedown.prevent="unlink"        >
           <span class="btn-icon">⛓‍💥</span>
           <span class="btn-label">Unlink</span>
         </button>
@@ -715,56 +701,55 @@ function insertMathSymbol(symbol: string) {
         </button>
         <button
           title="Insert Table"
-          @mousedown="btn(() => editor?.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run())"
+          @mousedown.prevent="editor?.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()"
         >
           <span class="btn-icon">⊞</span>
           <span class="btn-label">Table</span>
         </button>
         <button
           title="Horizontal Rule"
-          @mousedown="btn(() => editor?.chain().focus().setHorizontalRule().run())"
+          @mousedown.prevent="editor?.chain().focus().setHorizontalRule().run()"
         >
           <span class="btn-icon">—</span>
           <span class="btn-label">HR</span>
         </button>
         <button
           title="Callout"
-          @mousedown="btn(() => editor?.chain().focus().insertCallout().run())"
+          @mousedown.prevent="editor?.chain().focus().insertCallout().run()"
         >
           <span class="btn-icon">💡</span>
           <span class="btn-label">Callout</span>
         </button>
         <button
           title="Cover Image"
-          @mousedown="btn(() => emit('openCoverDialog'))"
+          @mousedown.prevent="emit('openCoverDialog')"
         >
           <span class="btn-icon">🖼</span>
           <span class="btn-label">Cover</span>
         </button>
         <button
           title="Toggle"
-          @mousedown="btn(() => editor?.chain().focus().insertToggle().run())"
+          @mousedown.prevent="editor?.chain().focus().insertToggle().run()"
         >
           <span class="btn-icon">▶</span>
           <span class="btn-label">Toggle</span>
         </button>
         <button
           title="Embed"
-          @mousedown="btn(openEmbedDialog)"
-        >
+          @mousedown.prevent="openEmbedDialog"        >
           <span class="btn-icon">📎</span>
           <span class="btn-label">Embed</span>
         </button>
         <button
           title="Link Preview"
-          @mousedown="btn(() => openLinkPreview())"
+          @mousedown.prevent="openLinkPreview()"
         >
           <span class="btn-icon">🔗</span>
           <span class="btn-label">Preview</span>
         </button>
         <button
           title="Footnote (Ctrl+Shift+F)"
-          @mousedown="btn(() => editor?.chain().focus().insertFootnote().run())"
+          @mousedown.prevent="editor?.chain().focus().insertFootnote().run()"
         >
           <span class="btn-icon">¹</span>
           <span class="btn-label">Footnote</span>
@@ -772,8 +757,7 @@ function insertMathSymbol(symbol: string) {
         <button
           title="Inline Math ($...$)"
           :class="{ active: editor?.isActive('mathInline') }"
-          @mousedown="btn(insertMathInline)"
-        >
+          @mousedown.prevent="insertMathInline"        >
           <span class="btn-icon">$x$</span>
           <span class="btn-label">Inline</span>
         </button>
@@ -793,7 +777,7 @@ function insertMathSymbol(symbol: string) {
         <button
           title="Table of Contents"
           :class="{ active: showTOC }"
-          @mousedown="btn(() => emit('toggleTOC'))"
+          @mousedown.prevent="emit('toggleTOC')"
         >
           <span class="btn-icon">📑</span>
           <span class="btn-label">TOC</span>
@@ -801,14 +785,14 @@ function insertMathSymbol(symbol: string) {
         <button
           title="Backlinks"
           :class="{ active: showBacklinks }"
-          @mousedown="btn(() => emit('toggleBacklinks'))"
+          @mousedown.prevent="emit('toggleBacklinks')"
         >
           <span class="btn-icon">🔗</span>
           <span class="btn-label">Links</span>
         </button>
         <button
           title="Templates (Ctrl+T)"
-          @mousedown="btn(() => emit('toggleTemplate'))"
+          @mousedown.prevent="emit('toggleTemplate')"
         >
           <span class="btn-icon">📋</span>
           <span class="btn-label">Templates</span>
@@ -816,7 +800,7 @@ function insertMathSymbol(symbol: string) {
         <button
           title="Version History"
           :class="{ active: showVersionHistory }"
-          @mousedown="btn(() => emit('toggleVersionHistory'))"
+          @mousedown.prevent="emit('toggleVersionHistory')"
         >
           <span class="btn-icon">🕐</span>
           <span class="btn-label">Versions</span>
@@ -824,7 +808,7 @@ function insertMathSymbol(symbol: string) {
         <button
           title="Undo History"
           :class="{ active: showHistory }"
-          @mousedown="btn(() => emit('toggleHistory'))"
+          @mousedown.prevent="emit('toggleHistory')"
         >
           <span class="btn-icon">↩</span>
           <span class="btn-label">History</span>
@@ -835,51 +819,44 @@ function insertMathSymbol(symbol: string) {
       <div v-if="isTableActive" class="toolbar-group">
         <button
           title="Add Row Below"
-          @mousedown="btn(addTableRow)"
-        >
+          @mousedown.prevent="addTableRow"        >
           <span class="btn-icon">+Row</span>
           <span class="btn-label">Add Row</span>
         </button>
         <button
           title="Delete Row"
-          @mousedown="btn(deleteTableRow)"
-        >
+          @mousedown.prevent="deleteTableRow"        >
           <span class="btn-icon">-Row</span>
           <span class="btn-label">Del Row</span>
         </button>
         <button
           title="Add Column After"
-          @mousedown="btn(addTableColumn)"
-        >
+          @mousedown.prevent="addTableColumn"        >
           <span class="btn-icon">+Col</span>
           <span class="btn-label">Add Col</span>
         </button>
         <button
           title="Delete Column"
-          @mousedown="btn(deleteTableColumn)"
-        >
+          @mousedown.prevent="deleteTableColumn"        >
           <span class="btn-icon">-Col</span>
           <span class="btn-label">Del Col</span>
         </button>
         <button
           title="Merge Cells"
-          @mousedown="btn(mergeTableCells)"
-        >
+          @mousedown.prevent="mergeTableCells"        >
           <span class="btn-icon">⤫</span>
           <span class="btn-label">Merge</span>
         </button>
         <button
           title="Split Cell"
-          @mousedown="btn(splitTableCells)"
-        >
+          @mousedown.prevent="splitTableCells"        >
           <span class="btn-icon">⤧</span>
           <span class="btn-label">Split</span>
         </button>
         <button
           title="Toggle Header Row"
           :class="{ active: isTableHeader }"
-          @mousedown="btn(toggleTableHeaderRow)"
-        >
+          @mousedown.prevent="toggleTableHeaderRow"        >
           <span class="btn-icon">Hdr</span>
           <span class="btn-label">Hdr Row</span>
         </button>
@@ -915,22 +892,19 @@ function insertMathSymbol(symbol: string) {
         <button
           v-if="isSortActive"
           title="Clear Sort"
-          @mousedown="btn(clearTableSort)"
-        >
+          @mousedown.prevent="clearTableSort"        >
           <span class="btn-icon">✕</span>
           <span class="btn-label">Clear</span>
         </button>
         <button
           title="Insert Date Picker Column"
-          @mousedown="btn(insertDatePickerColumn)"
-        >
+          @mousedown.prevent="insertDatePickerColumn"        >
           <span class="btn-icon">📅</span>
           <span class="btn-label">Date</span>
         </button>
         <button
           title="Insert Checkbox Column"
-          @mousedown="btn(insertCheckboxColumn)"
-        >
+          @mousedown.prevent="insertCheckboxColumn"        >
           <span class="btn-icon">☑</span>
           <span class="btn-label">Checkbox</span>
         </button>
@@ -938,8 +912,7 @@ function insertMathSymbol(symbol: string) {
           v-if="isCheckboxCell"
           title="Toggle Checkbox"
           :class="{ active: isCheckboxCell }"
-          @mousedown="btn(toggleCurrentCheckbox)"
-        >
+          @mousedown.prevent="toggleCurrentCheckbox"        >
           <span class="btn-icon">☑</span>
           <span class="btn-label">Toggle</span>
         </button>
@@ -949,21 +922,21 @@ function insertMathSymbol(symbol: string) {
       <div v-if="isColumnActive" class="toolbar-group">
         <button
           title="Add Column Left"
-          @mousedown="btn(() => editor?.chain().focus().addColumnLeft().run())"
+          @mousedown.prevent="editor?.chain().focus().addColumnLeft().run()"
         >
           <span class="btn-icon">+←Col</span>
           <span class="btn-label">Add Left</span>
         </button>
         <button
           title="Add Column Right"
-          @mousedown="btn(() => editor?.chain().focus().addColumnRight().run())"
+          @mousedown.prevent="editor?.chain().focus().addColumnRight().run()"
         >
           <span class="btn-icon">Col→+</span>
           <span class="btn-label">Add Right</span>
         </button>
         <button
           title="Delete Column"
-          @mousedown="btn(() => editor?.chain().focus().deleteColumn().run())"
+          @mousedown.prevent="editor?.chain().focus().deleteColumn().run()"
         >
           <span class="btn-icon">-Col</span>
           <span class="btn-label">Del Col</span>
