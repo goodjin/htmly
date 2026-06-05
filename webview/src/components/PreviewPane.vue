@@ -37,7 +37,7 @@ const devicePresets: Record<Device, DevicePreset | null> = {
 
 const selectedDevice = ref<Device>('desktop');
 const customWidth = ref(800);
-const selectedDpr = ref<1 | 2 | 3>(2);
+const selectedDpr = ref<1 | 2 | 3>(1);
 
 // Performance monitoring for stress testing (VAL-CROSS-002)
 const perfMonitor = usePerformanceMonitor({
@@ -154,21 +154,25 @@ const currentPreset = computed<DevicePreset & { dpr: number }>(() => ({
   dpr: selectedDpr.value,
 }));
 
-// Calculate iframe dimensions based on DPR for crisp rendering
+// Calculate iframe dimensions based on DPR for zoom
 const frameDimensions = computed(() => {
   const preset = currentPreset.value;
   return {
     width: preset.width,
     height: Math.round(preset.width * 0.6), // Default aspect ratio
-    scale: 1 / preset.dpr, // Scale down for higher DPR displays
+    scale: preset.dpr, // DPR now behaves as a zoom factor (1x = 100%, 2x = 200%, 3x = 300%)
   };
 });
 
 // Apply DPR scaling via CSS transform
+// The wrapper's outer dimensions grow with the scale so the parent viewport's
+// overflow:auto scroll area matches the rendered content. The transform itself
+// is applied to the iframe (not the wrapper) so the layout size of the wrapper
+// equals the visual size of the content.
 const frameStyle = computed(() => {
   const dims = frameDimensions.value;
   const scale = dims.scale;
-  
+
   if (scale === 1) {
     // No scaling needed for 1x
     return {
@@ -177,8 +181,30 @@ const frameStyle = computed(() => {
       transform: 'none',
     };
   }
-  
-  // For 2x/3x DPR, scale the iframe and adjust dimensions
+
+  // For 2x/3x zoom, grow the wrapper to the visual content size and scale the iframe inside
+  return {
+    width: `${dims.width * scale}px`,
+    height: `${dims.height * scale}px`,
+    transform: 'none',
+  };
+});
+
+// Style for the iframe: keep its layout size at the original width/height and
+// use a CSS transform to scale it visually to match the wrapper. This keeps
+// the wrapper's layout box equal to the rendered content's visual box.
+const iframeStyle = computed(() => {
+  const dims = frameDimensions.value;
+  const scale = dims.scale;
+
+  if (scale === 1) {
+    return {
+      width: `${dims.width}px`,
+      height: `${dims.height}px`,
+      transform: 'none',
+    };
+  }
+
   return {
     width: `${dims.width}px`,
     height: `${dims.height}px`,
@@ -518,6 +544,7 @@ const previewContent = computed(() => {
           ref="iframeRef"
           :key="refreshKey"
           class="preview-frame"
+          :style="iframeStyle"
           :title="`HTML Preview - ${currentPreset.label} (${currentPreset.width}px @ ${currentPreset.dpr}x)`"
           sandbox="allow-scripts allow-same-origin"
           :srcdoc="previewContent"
@@ -661,7 +688,6 @@ const previewContent = computed(() => {
   border-radius: 4px;
   transition: transform 0.2s ease;
   flex-shrink: 0;
-  overflow: hidden;
 }
 
 .preview-frame {

@@ -122,20 +122,26 @@ describe('PreviewPane.vue', () => {
       expect(frameWrapper.attributes('data-dpr')).toBe('1');
     });
 
-    it('switches to 2x DPR and applies scale(0.5) transform', async () => {
+    it('switches to 2x DPR and applies scale(2) transform', async () => {
       const wrapper = mount(PreviewPane, {
         props: { html: '<p>Test</p>' },
       });
 
-      // Default is 2x, should already be selected
+      // Set DPR directly via setData since button click may not work in test env
+      await wrapper.setData({ selectedDpr: 2 });
+      await flushPromises();
+
       const frameWrapper = wrapper.find('.preview-frame-wrapper');
       expect(frameWrapper.attributes('data-dpr')).toBe('2');
-      
-      const style = frameWrapper.attributes('style');
-      expect(style).toContain('scale(0.5)');
+
+      // The transform is applied to the iframe, not the wrapper, so the wrapper
+      // grows to the visual content size and the iframe carries the scale.
+      const iframe = wrapper.find('iframe');
+      const style = iframe.attributes('style');
+      expect(style).toContain('scale(2)');
     });
 
-    it('switches to 3x DPR and applies scale(0.333) transform', async () => {
+    it('switches to 3x DPR and applies scale(3) transform', async () => {
       const wrapper = mount(PreviewPane, {
         props: { html: '<p>Test</p>' },
       });
@@ -146,10 +152,25 @@ describe('PreviewPane.vue', () => {
 
       const frameWrapper = wrapper.find('.preview-frame-wrapper');
       expect(frameWrapper.attributes('data-dpr')).toBe('3');
-      
-      const style = frameWrapper.attributes('style');
-      // 1/3 ≈ 0.333... (full precision is 0.3333333333333333)
-      expect(style).toContain('scale(0.3333');
+
+      const iframe = wrapper.find('iframe');
+      const style = iframe.attributes('style');
+      expect(style).toContain('scale(3)');
+    });
+
+    it('defaults to 1x DPR with no scale transform', async () => {
+      const wrapper = mount(PreviewPane, {
+        props: { html: '<p>Test</p>' },
+      });
+
+      const frameWrapper = wrapper.find('.preview-frame-wrapper');
+      // Default should now be 1x (100% zoom)
+      expect(frameWrapper.attributes('data-dpr')).toBe('1');
+
+      const iframe = wrapper.find('iframe');
+      const style = iframe.attributes('style') || '';
+      // 1x should not apply a scale transform
+      expect(style).not.toContain('scale(');
     });
   });
 

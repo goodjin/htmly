@@ -87,16 +87,16 @@ describe('VAL-CROSS-001: Export button visibility across editor modes', () => {
   });
 
   describe('Export button in Preview mode', () => {
-    it('hides export button in Preview mode when autoHideToolbarInPreview is true', () => {
-      // When autoHideToolbarInPreview=true and mode=preview, toolbar is hidden entirely
+    it('keeps export button visible in Preview mode even when autoHideToolbarInPreview is true (toolbar root stays so user is not stuck)', () => {
+      // The toolbar root and mode-switcher must remain visible in preview mode so the
+      // user can switch back to WYSIWYG/Source/Split. The export button is part of
+      // the always-visible toolbar shell, so it stays too.
       const wrapper = mount(Toolbar, {
         props: { ...defaultToolbarProps, mode: 'preview', autoHideToolbarInPreview: true },
       });
-      // Toolbar div should not exist when toolbarHidden=true
-      expect(wrapper.find('.toolbar').exists()).toBe(false);
-      // Therefore export button is also not present
+      expect(wrapper.find('.toolbar').exists()).toBe(true);
       const exportBtn = wrapper.findAll('button').find(b => b.text().includes('Export'));
-      expect(exportBtn).toBeUndefined();
+      expect(exportBtn).toBeDefined();
     });
 
     it('shows export button in Preview mode when autoHideToolbarInPreview is false', () => {

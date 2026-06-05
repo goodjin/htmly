@@ -2,7 +2,12 @@
   "name": "htmly",
   "displayName": "Htmly",
   "description": "A WYSIWYG HTML editor for VSCode — edit visually or in source, always synced",
-  "version": "1.8.1",
+  "version": "1.8.3",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jinshan/htmly.git"
+  },
   "publisher": "jinshan",
   "engines": {
     "vscode": "^1.80.0"
@@ -222,6 +227,11 @@
               "additionalProperties": false
             }
           }
+        },
+        "htmly.debug": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable diagnostic logging from the Htmly webview/editor. When enabled, webview console output is forwarded to the 'htmly-debug' Output Channel (View → Output → htmly-debug). Set to false to silence logs in production."
         }
       }
     },
@@ -254,7 +264,7 @@
   "scripts": {
     "vscode:prepublish": "npm run build",
     "build": "npm run build:extension && npm run build:webview",
-    "build:extension": "esbuild ./src/extension/index.ts --bundle --outfile=dist/extension/index.js --external:vscode --format=cjs --platform=node --minify",
+    "build:extension": "esbuild ./src/extension/index.ts --bundle --outfile=dist/extension/index.js --external:vscode --format=cjs --platform=node --minify && cp node_modules/sql.js/dist/sql-wasm.wasm dist/extension/",
     "build:webview": "cd webview && npm run build",
     "dev:extension": "esbuild ./src/extension/index.ts --bundle --outfile=dist/extension/index.js --external:vscode --format=cjs --platform=node --watch",
     "dev:webview": "cd webview && npm run dev",

@@ -2,7 +2,7 @@
  * Spell Check Extension for CodeMirror
  * Provides visual feedback for misspelled words in source mode
  */
-import { ViewPlugin, Decoration, type DecorationSet, type EditorView } from '@codemirror/view';
+import { ViewPlugin, Decoration, EditorView, type DecorationSet } from '@codemirror/view';
 import { RangeSetBuilder, StateField, StateEffect } from '@codemirror/state';
 import type { Extension } from '@codemirror/state';
 

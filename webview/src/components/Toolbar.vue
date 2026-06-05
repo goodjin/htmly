@@ -468,7 +468,7 @@ function insertMathSymbol(symbol: string) {
 </script>
 
 <template>
-  <div v-if="!toolbarHidden" class="toolbar" :class="{ 'hide-labels': !showButtonLabels }">
+  <div class="toolbar" :class="{ 'hide-labels': !showButtonLabels }">
     <!-- Mode switcher group - visible in all modes -->
     <div class="toolbar-group mode-switcher">
       <button
@@ -505,7 +505,7 @@ function insertMathSymbol(symbol: string) {
       </button>
     </div>
 
-    <template v-if="mode === 'wysiwyg'">
+    <template v-if="mode === 'wysiwyg' && !toolbarHidden">
       <div class="toolbar-group">
         <label class="heading-label" for="heading-select">Style</label>
         <select

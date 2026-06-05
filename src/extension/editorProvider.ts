@@ -62,6 +62,9 @@ import {
   LARGE_FILE_THRESHOLD,
   LARGE_SAVE_THRESHOLD,
 } from '../shared/constants';
+import * as os from 'os';
+import * as path from 'path';
+import * as fs from 'fs';
 
 const HISTORY_STATE_KEY = 'htmly.history';
 const CRASH_RECOVERY_KEY = 'htmly.crashRecovery';
@@ -84,6 +87,42 @@ export class HtmlyEditorProvider implements vscode.CustomTextEditorProvider {
   private historyStateMap = new Map<string, HistoryState>();
   private historyTimers = new Map<string, NodeJS.Timeout>();
   private pendingHistory = new Map<string, HistoryState>();
+
+  // E2E test bridge: pending script request resolvers
+  private pendingScriptRequests = new Map<string, { resolve: (v: unknown) => void; reject: (e: Error) => void }>();
+
+  // DIAGNOSTIC: dedicated output channel for webview-side logs. Created
+  // lazily on first use so the channel does not show up in the Output
+  // dropdown for users who do not enable htmly.debug.
+  private static debugChannel: vscode.OutputChannel | undefined;
+
+  private static getDebugChannel(): vscode.OutputChannel {
+    if (!HtmlyEditorProvider.debugChannel) {
+      HtmlyEditorProvider.debugChannel = vscode.window.createOutputChannel('htmly-debug');
+    }
+    return HtmlyEditorProvider.debugChannel;
+  }
+
+  /** Read the htmly.debug setting. Defaults to true. */
+  private static isDebugEnabled(): boolean {
+    return vscode.workspace.getConfiguration('htmly').get<boolean>('debug', true);
+  }
+
+  /** Write a diagnostic line to the htmly-debug output channel if enabled. */
+  private static debugLog(line: string): void {
+    if (!HtmlyEditorProvider.isDebugEnabled()) return;
+    const ch = HtmlyEditorProvider.getDebugChannel();
+    ch.appendLine(`[${new Date().toISOString()}] ${line}`);
+    // Also write to a file so external observers (e.g. the E2E test
+    // process) can read the full message stream. Useful for the
+    // "E2E times out, we cannot see why" scenario.
+    try {
+      const file = path.join(os.tmpdir(), 'htmly-debug.log');
+      fs.appendFileSync(file, `[${new Date().toISOString()}] ${line}\n`);
+    } catch {
+      /* file logging is best-effort */
+    }
+  }
 
   constructor(private readonly context: vscode.ExtensionContext) {}
 
@@ -242,8 +281,8 @@ export class HtmlyEditorProvider implements vscode.CustomTextEditorProvider {
       });
 
       // Write to a temp file so we can inspect it in tests
-      const tempDir = require('os').tmpdir();
-      const tempFile = require('path').join(tempDir, `htmly-pdf-export-${Date.now()}.pdf`);
+      const tempDir = os.tmpdir();
+      const tempFile = path.join(tempDir, `htmly-pdf-export-${Date.now()}.pdf`);
       await vscode.workspace.fs.writeFile(vscode.Uri.file(tempFile), pdfData);
 
       // Notify the webview so existing useExport listeners also see the result
@@ -263,6 +302,34 @@ export class HtmlyEditorProvider implements vscode.CustomTextEditorProvider {
       });
       return { success: false, error: errMsg };
     }
+  }
+
+  /**
+   * E2E test bridge: execute an arbitrary script in the webview context
+   * and return the result. Used to call __htmlyTest methods.
+   *
+   * The default timeout is 10s. Tests that poll (e.g. waitForEditor)
+   * should pass a much smaller value so the poll loop can iterate.
+   */
+  public runScript(script: string, timeoutMs = 10_000): Promise<unknown> {
+    return new Promise((resolve, reject) => {
+      if (!this.activePanel) {
+        reject(new Error('No active panel'));
+        return;
+      }
+
+      const id = `script-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      this.pendingScriptRequests.set(id, { resolve, reject });
+
+      this.postMessage(this.activePanel, { type: 'runScript', id, script });
+
+      setTimeout(() => {
+        if (this.pendingScriptRequests.has(id)) {
+          this.pendingScriptRequests.delete(id);
+          reject(new Error(`Script timed out: ${script.slice(0, 50)}...`));
+        }
+      }, timeoutMs);
+    });
   }
 
   public async resolveCustomTextEditor(
@@ -330,6 +397,11 @@ export class HtmlyEditorProvider implements vscode.CustomTextEditorProvider {
 
     // Webview → Extension
     webviewPanel.webview.onDidReceiveMessage(async (msg: WebToExtMsg) => {
+      // DIAGNOSTIC: log every inbound message. The set grows quickly so
+      // we also include msg.type in the preview to make grepping easy.
+      HtmlyEditorProvider.debugLog(
+        `MSG_RECV docKey=${docKey.slice(-40)} type=${msg.type} preview=${JSON.stringify(msg).slice(0, 200)}`
+      );
       switch (msg.type) {
         case 'ready': {
           // Check for crash recovery
@@ -532,6 +604,32 @@ export class HtmlyEditorProvider implements vscode.CustomTextEditorProvider {
         case 'requestVersionDiff':
           await this.handleRequestVersionDiff(docKey, msg.oldVersion, msg.newVersion, webviewPanel);
           break;
+
+        case 'scriptResult': {
+          const pending = this.pendingScriptRequests.get(msg.id);
+          if (pending) {
+            this.pendingScriptRequests.delete(msg.id);
+            if (msg.error) {
+              pending.reject(new Error(msg.error));
+            } else {
+              pending.resolve(msg.result);
+            }
+          }
+          break;
+        }
+
+        case 'consoleLog': {
+          // DIAGNOSTIC: forward the webview's console output to the
+          // htmly-debug output channel. Gated by the htmly.debug
+          // configuration so non-debugging users pay zero overhead.
+          // Format: [level] [ts] [args joined]
+          // The join uses space; multi-line args use \n which the
+          // output channel renders as actual line breaks.
+          if (!HtmlyEditorProvider.isDebugEnabled()) break;
+          const line = `[webview ${msg.level}] ${msg.args.join(' ')}`;
+          HtmlyEditorProvider.getDebugChannel().appendLine(line);
+          break;
+        }
       }
     });
 
@@ -1334,6 +1432,13 @@ export class HtmlyEditorProvider implements vscode.CustomTextEditorProvider {
   }
 
   private postMessage(panel: vscode.WebviewPanel, msg: ExtToWebMsg): void {
+    // DIAGNOSTIC: log every outbound message. Helpful to correlate
+    // "extension says setMode → webview ignores" scenarios.
+    const docEntry = [...this.panels.entries()].find(([, p]) => p === panel);
+    const docKeyShort = docEntry ? docEntry[0].slice(-50) : '<unknown>';
+    HtmlyEditorProvider.debugLog(
+      `MSG_SEND docKey=${docKeyShort} type=${msg.type} preview=${JSON.stringify(msg).slice(0, 200)}`
+    );
     panel.webview.postMessage(msg);
   }
 
@@ -2376,7 +2481,7 @@ export class HtmlyEditorProvider implements vscode.CustomTextEditorProvider {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}'; img-src ${webview.cspSource} data: blob:; font-src ${webview.cspSource} data: https://cdn.jsdelivr.net; frame-src ${webview.cspSource} data: blob:; child-src ${webview.cspSource} data: blob:; object-src 'none'; base-uri 'self'; form-action 'none';">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}' ${process.env.HTMLY_E2E === '1' ? "'unsafe-eval'" : ''}; img-src ${webview.cspSource} data: blob:; font-src ${webview.cspSource} data: https://cdn.jsdelivr.net; frame-src ${webview.cspSource} data: blob:; child-src ${webview.cspSource} data: blob:; object-src 'none'; base-uri 'self'; form-action 'none';">
   <link rel="stylesheet" href="${styleUri}">
   <title>Htmly</title>
 </head>
