@@ -420,12 +420,13 @@ describe('Toolbar.vue', () => {
       expect(indicator.classes()).toContain('saving');
     });
 
-    it('displays emoji for saving status', () => {
+    it('displays text for saving status (no emoji/icon, per icon migration)', () => {
       const wrapper = mount(Toolbar, {
         props: { ...defaultProps, saveStatus: 'saving' },
       });
       const savingIndicator = wrapper.find('.save-indicator.saving');
-      expect(savingIndicator.text()).toContain('💾');
+      expect(savingIndicator.text()).toContain('Saving...');
+      expect(savingIndicator.text()).not.toContain('💾');
     });
   });
 

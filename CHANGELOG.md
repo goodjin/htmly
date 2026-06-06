@@ -5,6 +5,29 @@ All notable changes to **htmly** will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.5] - 2026-06-07
+
+### Added
+
+- **Toolbar icons upgraded to Lucide vector icons** (`webview/src/components/Toolbar.vue`)
+  - 50+ buttons migrated from Unicode/Emoji to `@lucide/vue` inline SVG components (Bold, Italic, Underline, Strikethrough, Highlighter, List, ListOrdered, Quote, Code2, AlignLeft, AlignCenter, AlignRight, AlignJustify, Palette, Ban, Eraser, Link, Unlink, Image, Table2, Minus, Lightbulb, ImagePlus, ChevronRight, Paperclip, Globe, Superscript, FunctionSquare, PaintbrushVertical, BookOpen, Library, History, Undo2, Rows, Columns3, Combine, Split, Heading, ArrowUp, ArrowDown, Calendar, CheckSquare, ToggleRight, ChevronsLeft, ChevronsRight, Download, Circle, and more).
+  - Save-indicator `💾` emoji removed in favor of the text-based indicator.
+
+- **MathSymbolsDropdown trigger arrow synced to Lucide** (`webview/src/components/MathSymbolsDropdown.vue`)
+  - `▼` Unicode arrow replaced with `<ChevronDown />` component for consistent icon style.
+
+### Fixed
+
+- **Deprecated `lucide-vue-next` replaced with `@lucide/vue`** (`webview/package.json`)
+  - Migrated to `@lucide/vue@1.17.0`, eliminating deprecation warnings from the toolchain.
+
+- **Toolbar.test.ts save-indicator assertions adapted** (`webview/src/components/Toolbar.test.ts`)
+  - Assertions updated from emoji `💾` to text-based string after icon cleanup.
+
+### Changed
+
+- Build bundle increased by +24 KB (1,792.05 kB total) with 66 tree-shaken Lucide icon references and 171 SVG paths.
+
 ## [1.8.4] - 2026-06-06
 
 ### Added

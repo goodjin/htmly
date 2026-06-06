@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount } from 'vue';
+import { ChevronDown } from '@lucide/vue';
 
 const emit = defineEmits<{
   insertSymbol: [symbol: string];
@@ -219,7 +220,7 @@ onBeforeUnmount(() => {
       @click.stop="toggle"
     >
       <span class="btn-icon">∑</span>
-      <span class="dropdown-arrow">▼</span>
+      <span class="dropdown-arrow"><ChevronDown :size="12" :stroke-width="2" /></span>
     </button>
 
     <div

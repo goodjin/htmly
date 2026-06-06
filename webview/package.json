@@ -54,6 +54,7 @@
     "highlight.js": "^11.11.1",
     "katex": "^0.16.45",
     "lowlight": "^3.3.0",
+    "@lucide/vue": "^1.17.0",
     "turndown": "^7.2.4",
     "vue": "^3.4.0"
   },

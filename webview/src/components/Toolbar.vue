@@ -11,6 +11,60 @@ import EmbedDialog from './EmbedDialog.vue';
 import LinkPreviewDialog from './LinkPreviewDialog.vue';
 import { openLinkPreviewDialog } from '../extensions/LinkPreview';
 import { toEmbedUrl } from '../extensions/Embed';
+import {
+  LayoutTemplate,
+  Code,
+  Eye,
+  Columns2,
+  Bold,
+  Italic,
+  Underline,
+  Strikethrough,
+  Highlighter,
+  List,
+  ListOrdered,
+  Quote,
+  Code2,
+  AlignLeft,
+  AlignCenter,
+  AlignRight,
+  AlignJustify,
+  Palette,
+  Ban,
+  PaintBucket,
+  Eraser,
+  Link,
+  Unlink,
+  Image,
+  Table2,
+  Minus,
+  Lightbulb,
+  ImagePlus,
+  ChevronRight,
+  Paperclip,
+  Globe,
+  Superscript,
+  FunctionSquare,
+  PaintbrushVertical,
+  BookOpen,
+  Library,
+  History,
+  Undo2,
+  Combine,
+  Split,
+  Heading,
+  ArrowUp,
+  ArrowDown,
+  Calendar,
+  CheckSquare,
+  ToggleRight,
+  Rows,
+  Columns3,
+  ChevronsLeft,
+  ChevronsRight,
+  Download,
+  Circle,
+} from '@lucide/vue';
 
 const props = defineProps<{
   editor: Editor | undefined;
@@ -514,7 +568,7 @@ function onToolbarPointerUp() {
         :class="{ active: mode === 'wysiwyg' }"
         @mousedown.prevent="emit('setMode', 'wysiwyg')"
       >
-        <span class="btn-icon">👁</span>
+        <span class="btn-icon"><LayoutTemplate :size="14" :stroke-width="2" /></span>
         <span class="btn-label">WYSIWYG</span>
       </button>
       <button
@@ -522,7 +576,7 @@ function onToolbarPointerUp() {
         :class="{ active: mode === 'source' }"
         @mousedown.prevent="emit('setMode', 'source')"
       >
-        <span class="btn-icon">{}</span>
+        <span class="btn-icon"><Code :size="14" :stroke-width="2" /></span>
         <span class="btn-label">Source</span>
       </button>
       <button
@@ -530,7 +584,7 @@ function onToolbarPointerUp() {
         :class="{ active: mode === 'preview' }"
         @mousedown.prevent="emit('setMode', 'preview')"
       >
-        <span class="btn-icon">👁</span>
+        <span class="btn-icon"><Eye :size="14" :stroke-width="2" /></span>
         <span class="btn-label">Preview</span>
       </button>
       <button
@@ -538,7 +592,7 @@ function onToolbarPointerUp() {
         :class="{ active: mode === 'split' }"
         @mousedown.prevent="emit('setMode', 'split')"
       >
-        <span class="btn-icon">⫿</span>
+        <span class="btn-icon"><Columns2 :size="14" :stroke-width="2" /></span>
         <span class="btn-label">Split</span>
       </button>
     </div>
@@ -565,7 +619,7 @@ function onToolbarPointerUp() {
           :class="{ active: editor?.isActive('bold') }"
           @mousedown.prevent="editor?.chain().focus().toggleBold().run()"
         >
-          <span class="btn-icon"><b>B</b></span>
+          <span class="btn-icon"><Bold :size="14" :stroke-width="2" /></span>
           <span class="btn-label">Bold</span>
         </button>
         <button
@@ -573,7 +627,7 @@ function onToolbarPointerUp() {
           :class="{ active: editor?.isActive('italic') }"
           @mousedown.prevent="editor?.chain().focus().toggleItalic().run()"
         >
-          <span class="btn-icon"><i>I</i></span>
+          <span class="btn-icon"><Italic :size="14" :stroke-width="2" /></span>
           <span class="btn-label">Italic</span>
         </button>
         <button
@@ -581,7 +635,7 @@ function onToolbarPointerUp() {
           :class="{ active: editor?.isActive('underline') }"
           @mousedown.prevent="editor?.chain().focus().toggleUnderline().run()"
         >
-          <span class="btn-icon"><u>U</u></span>
+          <span class="btn-icon"><Underline :size="14" :stroke-width="2" /></span>
           <span class="btn-label">Underline</span>
         </button>
         <button
@@ -589,7 +643,7 @@ function onToolbarPointerUp() {
           :class="{ active: editor?.isActive('strike') }"
           @mousedown.prevent="editor?.chain().focus().toggleStrike().run()"
         >
-          <span class="btn-icon"><s>S</s></span>
+          <span class="btn-icon"><Strikethrough :size="14" :stroke-width="2" /></span>
           <span class="btn-label">Strike</span>
         </button>
         <button
@@ -597,7 +651,7 @@ function onToolbarPointerUp() {
           :class="{ active: editor?.isActive('highlight') }"
           @mousedown.prevent="editor?.chain().focus().toggleHighlight().run()"
         >
-          <span class="btn-icon"><mark>H</mark></span>
+          <span class="btn-icon"><Highlighter :size="14" :stroke-width="2" /></span>
           <span class="btn-label">Highlight</span>
         </button>
       </div>
@@ -608,7 +662,7 @@ function onToolbarPointerUp() {
           :class="{ active: editor?.isActive('bulletList') }"
           @mousedown.prevent="editor?.chain().focus().toggleBulletList().run()"
         >
-          <span class="btn-icon">•</span>
+          <span class="btn-icon"><List :size="14" :stroke-width="2" /></span>
           <span class="btn-label">Bullet</span>
         </button>
         <button
@@ -616,7 +670,7 @@ function onToolbarPointerUp() {
           :class="{ active: editor?.isActive('orderedList') }"
           @mousedown.prevent="editor?.chain().focus().toggleOrderedList().run()"
         >
-          <span class="btn-icon">1.</span>
+          <span class="btn-icon"><ListOrdered :size="14" :stroke-width="2" /></span>
           <span class="btn-label">Numbered</span>
         </button>
         <button
@@ -624,7 +678,7 @@ function onToolbarPointerUp() {
           :class="{ active: editor?.isActive('blockquote') }"
           @mousedown.prevent="editor?.chain().focus().toggleBlockquote().run()"
         >
-          <span class="btn-icon">❝</span>
+          <span class="btn-icon"><Quote :size="14" :stroke-width="2" /></span>
           <span class="btn-label">Quote</span>
         </button>
         <button
@@ -632,7 +686,7 @@ function onToolbarPointerUp() {
           :class="{ active: editor?.isActive('codeBlock') }"
           @mousedown.prevent="editor?.chain().focus().toggleCodeBlock().run()"
         >
-          <span class="btn-icon">{}</span>
+          <span class="btn-icon"><Code2 :size="14" :stroke-width="2" /></span>
           <span class="btn-label">Code</span>
         </button>
       </div>
@@ -643,7 +697,7 @@ function onToolbarPointerUp() {
           :class="{ active: editor?.isActive({textAlign:'left'}) }"
           @mousedown.prevent="editor?.chain().focus().setTextAlign('left').run()"
         >
-          <span class="btn-icon">⇤</span>
+          <span class="btn-icon"><AlignLeft :size="14" :stroke-width="2" /></span>
           <span class="btn-label">Left</span>
         </button>
         <button
@@ -651,7 +705,7 @@ function onToolbarPointerUp() {
           :class="{ active: editor?.isActive({textAlign:'center'}) }"
           @mousedown.prevent="editor?.chain().focus().setTextAlign('center').run()"
         >
-          <span class="btn-icon">≡</span>
+          <span class="btn-icon"><AlignCenter :size="14" :stroke-width="2" /></span>
           <span class="btn-label">Center</span>
         </button>
         <button
@@ -659,7 +713,7 @@ function onToolbarPointerUp() {
           :class="{ active: editor?.isActive({textAlign:'right'}) }"
           @mousedown.prevent="editor?.chain().focus().setTextAlign('right').run()"
         >
-          <span class="btn-icon">⇥</span>
+          <span class="btn-icon"><AlignRight :size="14" :stroke-width="2" /></span>
           <span class="btn-label">Right</span>
         </button>
         <button
@@ -667,7 +721,7 @@ function onToolbarPointerUp() {
           :class="{ active: editor?.isActive({textAlign:'justify'}) }"
           @mousedown.prevent="editor?.chain().focus().setTextAlign('justify').run()"
         >
-          <span class="btn-icon">☰</span>
+          <span class="btn-icon"><AlignJustify :size="14" :stroke-width="2" /></span>
           <span class="btn-label">Justify</span>
         </button>
       </div>
@@ -678,7 +732,7 @@ function onToolbarPointerUp() {
           title="Text Color"
           for="text-color-input"
         >
-          <span class="btn-icon"><span class="color-icon">A</span></span>
+          <span class="btn-icon"><Palette :size="14" :stroke-width="2" /></span>
           <input
             id="text-color-input"
             type="color"
@@ -692,7 +746,7 @@ function onToolbarPointerUp() {
           title="Remove Text Color"
           @mousedown.prevent="editor?.chain().focus().unsetColor().run()"
         >
-          <span class="btn-icon">✕</span>
+          <span class="btn-icon"><Ban :size="14" :stroke-width="2" /></span>
           <span class="btn-label">No Color</span>
         </button>
         <label
@@ -718,7 +772,7 @@ function onToolbarPointerUp() {
           v-if="hasBlockBgColor"
           title="Clear Block Background Color"
           @mousedown.prevent="onClearBlockBgColor"        >
-          <span class="btn-icon">✕</span>
+          <span class="btn-icon"><Eraser :size="14" :stroke-width="2" /></span>
           <span class="btn-label">Clear BG</span>
         </button>
       </div>
@@ -729,14 +783,14 @@ function onToolbarPointerUp() {
           :class="{ active: isLinkActive }"
           @mousedown.prevent="openLinkDialog"
         >
-          <span class="btn-icon">🔗</span>
+          <span class="btn-icon"><Link :size="14" :stroke-width="2" /></span>
           <span class="btn-label">Link</span>
         </button>
         <button
           title="Remove Link"
           :disabled="!isLinkActive"
           @mousedown.prevent="unlink"        >
-          <span class="btn-icon">⛓‍💥</span>
+          <span class="btn-icon"><Unlink :size="14" :stroke-width="2" /></span>
           <span class="btn-label">Unlink</span>
         </button>
       </div>
@@ -746,69 +800,69 @@ function onToolbarPointerUp() {
           title="Insert Image"
           @mousedown.prevent="imageDialogVisible = true"
         >
-          <span class="btn-icon">🖼</span>
+          <span class="btn-icon"><Image :size="14" :stroke-width="2" /></span>
           <span class="btn-label">Image</span>
         </button>
         <button
           title="Insert Table"
           @mousedown.prevent="editor?.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()"
         >
-          <span class="btn-icon">⊞</span>
+          <span class="btn-icon"><Table2 :size="14" :stroke-width="2" /></span>
           <span class="btn-label">Table</span>
         </button>
         <button
           title="Horizontal Rule"
           @mousedown.prevent="editor?.chain().focus().setHorizontalRule().run()"
         >
-          <span class="btn-icon">—</span>
+          <span class="btn-icon"><Minus :size="14" :stroke-width="2" /></span>
           <span class="btn-label">HR</span>
         </button>
         <button
           title="Callout"
           @mousedown.prevent="editor?.chain().focus().insertCallout().run()"
         >
-          <span class="btn-icon">💡</span>
+          <span class="btn-icon"><Lightbulb :size="14" :stroke-width="2" /></span>
           <span class="btn-label">Callout</span>
         </button>
         <button
           title="Cover Image"
           @mousedown.prevent="emit('openCoverDialog')"
         >
-          <span class="btn-icon">🖼</span>
+          <span class="btn-icon"><ImagePlus :size="14" :stroke-width="2" /></span>
           <span class="btn-label">Cover</span>
         </button>
         <button
           title="Toggle"
           @mousedown.prevent="editor?.chain().focus().insertToggle().run()"
         >
-          <span class="btn-icon">▶</span>
+          <span class="btn-icon"><ChevronRight :size="14" :stroke-width="2" /></span>
           <span class="btn-label">Toggle</span>
         </button>
         <button
           title="Embed"
           @mousedown.prevent="openEmbedDialog"        >
-          <span class="btn-icon">📎</span>
+          <span class="btn-icon"><Paperclip :size="14" :stroke-width="2" /></span>
           <span class="btn-label">Embed</span>
         </button>
         <button
           title="Link Preview"
           @mousedown.prevent="openLinkPreview()"
         >
-          <span class="btn-icon">🔗</span>
+          <span class="btn-icon"><Globe :size="14" :stroke-width="2" /></span>
           <span class="btn-label">Preview</span>
         </button>
         <button
           title="Footnote (Ctrl+Shift+F)"
           @mousedown.prevent="editor?.chain().focus().insertFootnote().run()"
         >
-          <span class="btn-icon">¹</span>
+          <span class="btn-icon"><Superscript :size="14" :stroke-width="2" /></span>
           <span class="btn-label">Footnote</span>
         </button>
         <button
           title="Inline Math ($...$)"
           :class="{ active: editor?.isActive('mathInline') }"
           @mousedown.prevent="insertMathInline"        >
-          <span class="btn-icon">$x$</span>
+          <span class="btn-icon"><FunctionSquare :size="14" :stroke-width="2" /></span>
           <span class="btn-label">Inline</span>
         </button>
         <MathSymbolsDropdown
@@ -821,7 +875,7 @@ function onToolbarPointerUp() {
           :class="{ active: formatPainterActive }"
           @click="onFormatPainterClick"
         >
-          <span class="btn-icon">🎨</span>
+          <span class="btn-icon"><PaintbrushVertical :size="14" :stroke-width="2" /></span>
           <span class="btn-label">Paint</span>
         </button>
         <button
@@ -829,7 +883,7 @@ function onToolbarPointerUp() {
           :class="{ active: showTOC }"
           @mousedown.prevent="emit('toggleTOC')"
         >
-          <span class="btn-icon">📑</span>
+          <span class="btn-icon"><BookOpen :size="14" :stroke-width="2" /></span>
           <span class="btn-label">TOC</span>
         </button>
         <button
@@ -837,14 +891,14 @@ function onToolbarPointerUp() {
           :class="{ active: showBacklinks }"
           @mousedown.prevent="emit('toggleBacklinks')"
         >
-          <span class="btn-icon">🔗</span>
+          <span class="btn-icon"><Library :size="14" :stroke-width="2" /></span>
           <span class="btn-label">Links</span>
         </button>
         <button
           title="Templates (Ctrl+T)"
           @mousedown.prevent="emit('toggleTemplate')"
         >
-          <span class="btn-icon">📋</span>
+          <span class="btn-icon"><LayoutTemplate :size="14" :stroke-width="2" /></span>
           <span class="btn-label">Templates</span>
         </button>
         <button
@@ -852,7 +906,7 @@ function onToolbarPointerUp() {
           :class="{ active: showVersionHistory }"
           @mousedown.prevent="emit('toggleVersionHistory')"
         >
-          <span class="btn-icon">🕐</span>
+          <span class="btn-icon"><History :size="14" :stroke-width="2" /></span>
           <span class="btn-label">Versions</span>
         </button>
         <button
@@ -860,7 +914,7 @@ function onToolbarPointerUp() {
           :class="{ active: showHistory }"
           @mousedown.prevent="emit('toggleHistory')"
         >
-          <span class="btn-icon">↩</span>
+          <span class="btn-icon"><Undo2 :size="14" :stroke-width="2" /></span>
           <span class="btn-label">History</span>
         </button>
       </div>
@@ -870,44 +924,44 @@ function onToolbarPointerUp() {
         <button
           title="Add Row Below"
           @mousedown.prevent="addTableRow"        >
-          <span class="btn-icon">+Row</span>
+          <span class="btn-icon"><Rows :size="14" :stroke-width="2" /></span>
           <span class="btn-label">Add Row</span>
         </button>
         <button
           title="Delete Row"
           @mousedown.prevent="deleteTableRow"        >
-          <span class="btn-icon">-Row</span>
+          <span class="btn-icon"><Minus :size="14" :stroke-width="2" /></span>
           <span class="btn-label">Del Row</span>
         </button>
         <button
           title="Add Column After"
           @mousedown.prevent="addTableColumn"        >
-          <span class="btn-icon">+Col</span>
+          <span class="btn-icon"><Columns3 :size="14" :stroke-width="2" /></span>
           <span class="btn-label">Add Col</span>
         </button>
         <button
           title="Delete Column"
           @mousedown.prevent="deleteTableColumn"        >
-          <span class="btn-icon">-Col</span>
+          <span class="btn-icon"><Minus :size="14" :stroke-width="2" /></span>
           <span class="btn-label">Del Col</span>
         </button>
         <button
           title="Merge Cells"
           @mousedown.prevent="mergeTableCells"        >
-          <span class="btn-icon">⤫</span>
+          <span class="btn-icon"><Combine :size="14" :stroke-width="2" /></span>
           <span class="btn-label">Merge</span>
         </button>
         <button
           title="Split Cell"
           @mousedown.prevent="splitTableCells"        >
-          <span class="btn-icon">⤧</span>
+          <span class="btn-icon"><Split :size="14" :stroke-width="2" /></span>
           <span class="btn-label">Split</span>
         </button>
         <button
           title="Toggle Header Row"
           :class="{ active: isTableHeader }"
           @mousedown.prevent="toggleTableHeaderRow"        >
-          <span class="btn-icon">Hdr</span>
+          <span class="btn-icon"><Heading :size="14" :stroke-width="2" /></span>
           <span class="btn-label">Hdr Row</span>
         </button>
         <label
@@ -928,7 +982,7 @@ function onToolbarPointerUp() {
           :class="{ active: isSortActive && tableSortDirection === 'asc' }"
           @mousedown="(e) => { e.preventDefault(); sortTableAsc(e); }"
         >
-          <span class="btn-icon">▲</span>
+          <span class="btn-icon"><ArrowUp :size="14" :stroke-width="2" /></span>
           <span class="btn-label">Sort ↑</span>
         </button>
         <button
@@ -936,26 +990,26 @@ function onToolbarPointerUp() {
           :class="{ active: isSortActive && tableSortDirection === 'desc' }"
           @mousedown="(e) => { e.preventDefault(); sortTableDesc(e); }"
         >
-          <span class="btn-icon">▼</span>
+          <span class="btn-icon"><ArrowDown :size="14" :stroke-width="2" /></span>
           <span class="btn-label">Sort ↓</span>
         </button>
         <button
           v-if="isSortActive"
           title="Clear Sort"
           @mousedown.prevent="clearTableSort"        >
-          <span class="btn-icon">✕</span>
+          <span class="btn-icon"><Eraser :size="14" :stroke-width="2" /></span>
           <span class="btn-label">Clear</span>
         </button>
         <button
           title="Insert Date Picker Column"
           @mousedown.prevent="insertDatePickerColumn"        >
-          <span class="btn-icon">📅</span>
+          <span class="btn-icon"><Calendar :size="14" :stroke-width="2" /></span>
           <span class="btn-label">Date</span>
         </button>
         <button
           title="Insert Checkbox Column"
           @mousedown.prevent="insertCheckboxColumn"        >
-          <span class="btn-icon">☑</span>
+          <span class="btn-icon"><CheckSquare :size="14" :stroke-width="2" /></span>
           <span class="btn-label">Checkbox</span>
         </button>
         <button
@@ -963,7 +1017,7 @@ function onToolbarPointerUp() {
           title="Toggle Checkbox"
           :class="{ active: isCheckboxCell }"
           @mousedown.prevent="toggleCurrentCheckbox"        >
-          <span class="btn-icon">☑</span>
+          <span class="btn-icon"><ToggleRight :size="14" :stroke-width="2" /></span>
           <span class="btn-label">Toggle</span>
         </button>
       </div>
@@ -974,21 +1028,21 @@ function onToolbarPointerUp() {
           title="Add Column Left"
           @mousedown.prevent="editor?.chain().focus().addColumnLeft().run()"
         >
-          <span class="btn-icon">+←Col</span>
+          <span class="btn-icon"><ChevronsLeft :size="14" :stroke-width="2" /></span>
           <span class="btn-label">Add Left</span>
         </button>
         <button
           title="Add Column Right"
           @mousedown.prevent="editor?.chain().focus().addColumnRight().run()"
         >
-          <span class="btn-icon">Col→+</span>
+          <span class="btn-icon"><ChevronsRight :size="14" :stroke-width="2" /></span>
           <span class="btn-label">Add Right</span>
         </button>
         <button
           title="Delete Column"
           @mousedown.prevent="editor?.chain().focus().deleteColumn().run()"
         >
-          <span class="btn-icon">-Col</span>
+          <span class="btn-icon"><Minus :size="14" :stroke-width="2" /></span>
           <span class="btn-label">Del Col</span>
         </button>
       </div>
@@ -1000,7 +1054,7 @@ function onToolbarPointerUp() {
         title="Export Document"
         @mousedown.prevent="openExportDialog"
       >
-        <span class="btn-icon">📤</span>
+        <span class="btn-icon"><Download :size="14" :stroke-width="2" /></span>
         <span class="btn-label">Export</span>
       </button>
     </div>
@@ -1011,10 +1065,10 @@ function onToolbarPointerUp() {
     <span class="version-indicator" title="Htmly version">v1.8.0-build-1</span>
 
     <!-- Save status indicator -->
-    <span v-if="saveStatus === 'saving'" class="save-indicator saving" title="Saving...">💾 Saving...</span>
+    <span v-if="saveStatus === 'saving'" class="save-indicator saving" title="Saving...">Saving...</span>
     <span v-else-if="saveStatus === 'saved'" class="save-indicator saved" title="Saved">✓ Saved</span>
     <span v-else-if="saveStatus === 'error'" class="save-indicator error" title="Save failed">✗ Error</span>
-    <span v-else-if="dirty" class="dirty-indicator" title="Unsaved changes">●</span>
+    <span v-else-if="dirty" class="dirty-indicator" title="Unsaved changes"><Circle :size="8" :stroke-width="0" fill="currentColor" /></span>
   </div>
 
   <LinkDialog
