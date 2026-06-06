@@ -5,6 +5,13 @@ All notable changes to **htmly** will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.6] - 2026-06-07
+
+### Removed
+
+- **工具栏版本标识（version-indicator）** (`webview/src/components/Toolbar.vue`)
+  - 移除了工具栏中的版本号指示器 span，保持工具栏整洁。
+
 ## [1.8.5] - 2026-06-07
 
 ### Added

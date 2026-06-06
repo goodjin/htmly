@@ -1061,9 +1061,6 @@ function onToolbarPointerUp() {
 
     <div class="toolbar-spacer" />
 
-    <!-- Version indicator -->
-    <span class="version-indicator" title="Htmly version">v1.8.0-build-1</span>
-
     <!-- Save status indicator -->
     <span v-if="saveStatus === 'saving'" class="save-indicator saving" title="Saving...">Saving...</span>
     <span v-else-if="saveStatus === 'saved'" class="save-indicator saved" title="Saved">✓ Saved</span>
