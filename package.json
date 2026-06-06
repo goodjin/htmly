@@ -2,7 +2,7 @@
   "name": "htmly",
   "displayName": "Htmly",
   "description": "A WYSIWYG HTML editor for VSCode — edit visually or in source, always synced",
-  "version": "1.8.3",
+  "version": "1.8.4",
   "license": "MIT",
   "repository": {
     "type": "git",

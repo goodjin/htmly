@@ -289,7 +289,7 @@ onBeforeUnmount(() => {
   background: transparent;
   border: 1px solid transparent;
   color: var(--vscode-editor-foreground, #ccc);
-  border-radius: 3px;
+  border-radius: var(--radius-md);
   padding: 3px 6px;
   cursor: pointer;
   font-size: 13px;
@@ -299,6 +299,12 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: center;
   gap: 2px;
+  transition:
+    background-color var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out),
+    transform var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out);
 }
 
 .dropdown-arrow {
@@ -309,6 +315,12 @@ onBeforeUnmount(() => {
 .math-symbols-trigger:hover {
   background: var(--vscode-toolbar-hoverBackground, #2a2d2e);
   border-color: var(--vscode-panel-border, #3c3c3c);
+  box-shadow: var(--shadow-1);
+}
+
+.math-symbols-trigger:focus-visible {
+  outline: 2px solid var(--vscode-focusBorder, #0e639c);
+  outline-offset: 1px;
 }
 
 .math-symbols-trigger.active {
@@ -323,14 +335,35 @@ onBeforeUnmount(() => {
   transform: translateX(-50%);
   background: var(--vscode-editorWidget-background, #252526);
   border: 1px solid var(--vscode-editorWidget-border, #454545);
-  border-radius: 6px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-2);
   z-index: 10001;
   min-width: 280px;
   max-height: 360px;
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  transition: opacity var(--duration-fast) var(--ease-out),
+    transform var(--duration-fast) var(--ease-out);
+  animation: mathDropdownEnter var(--duration-fast) var(--ease-out) backwards;
+}
+
+@keyframes mathDropdownEnter {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-4px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .math-symbols-dropdown {
+    animation: none;
+    transition: none;
+  }
 }
 
 .math-symbols-header {
@@ -428,11 +461,20 @@ onBeforeUnmount(() => {
   min-width: 28px;
   height: 32px;
   color: var(--vscode-editor-foreground, #ccc);
+  transition:
+    background-color var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out),
+    transform var(--duration-fast) var(--ease-out);
 }
 
 .math-symbol-btn:hover {
   background: var(--vscode-toolbar-hoverBackground, #2a2d2e);
   border-color: var(--vscode-panel-border, #3c3c3c);
+}
+
+.math-symbol-btn:focus-visible {
+  outline: 2px solid var(--vscode-focusBorder, #0e639c);
+  outline-offset: 1px;
 }
 
 .math-symbols-footer {

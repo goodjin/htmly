@@ -138,5 +138,90 @@ if (typeof Element !== 'undefined' && Element.prototype && !Element.prototype.ge
   };
 }
 
+// localStorage polyfill
+// Node.js 25+ ships a built-in `localStorage` global (Web Storage API), but
+// without a valid `--localstorage-file` argument it is an empty plain object
+// with no `Storage` interface. Vitest's jsdom environment detects that
+// `localStorage` already exists on `globalThis` and therefore does not
+// override it with jsdom's `Storage` instance. Components such as
+// `ExportDialog.vue` and `useExportPresets.ts` then crash with
+// `localStorage.getItem is not a function`. Install a memory-based `Storage`
+// implementation whenever the existing global lacks the required methods.
+class MemoryStorage implements Storage {
+  private store = new Map<string, string>();
+
+  get length(): number {
+    return this.store.size;
+  }
+
+  clear(): void {
+    this.store.clear();
+  }
+
+  getItem(key: string): string | null {
+    return this.store.has(key) ? this.store.get(key)! : null;
+  }
+
+  key(index: number): string | null {
+    return Array.from(this.store.keys())[index] ?? null;
+  }
+
+  removeItem(key: string): void {
+    this.store.delete(key);
+  }
+
+  setItem(key: string, value: string): void {
+    this.store.set(key, String(value));
+  }
+}
+
+function installLocalStoragePolyfill(): void {
+  const current = (globalThis as unknown as { localStorage?: Storage }).localStorage;
+  const hasUsableInterface =
+    current !== undefined &&
+    current !== null &&
+    typeof current.getItem === 'function' &&
+    typeof current.setItem === 'function' &&
+    typeof current.removeItem === 'function' &&
+    typeof current.clear === 'function';
+
+  if (hasUsableInterface) {
+    return;
+  }
+
+  const polyfill = new MemoryStorage();
+
+  try {
+    Object.defineProperty(globalThis, 'localStorage', {
+      value: polyfill,
+      writable: true,
+      configurable: true,
+      enumerable: true,
+    });
+  } catch {
+    // Fall back to a direct assignment if defineProperty is rejected
+    // (e.g. when the property is non-configurable in this runtime).
+    (globalThis as unknown as { localStorage: Storage }).localStorage = polyfill;
+  }
+
+  // Also expose it on `window`/`self` so jsdom-bound components see the same
+  // instance regardless of which global they read from.
+  const win = (globalThis as unknown as { window?: typeof globalThis & { localStorage?: Storage } }).window;
+  if (win && win !== globalThis) {
+    try {
+      Object.defineProperty(win, 'localStorage', {
+        value: polyfill,
+        writable: true,
+        configurable: true,
+        enumerable: true,
+      });
+    } catch {
+      (win as unknown as { localStorage: Storage }).localStorage = polyfill;
+    }
+  }
+}
+
+installLocalStoragePolyfill();
+
 // Export for potential direct usage
-export { createMockElement };
+export { createMockElement, installLocalStoragePolyfill, MemoryStorage };

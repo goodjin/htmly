@@ -1,0 +1,34 @@
+/*
+ * Design Tokens — webview-only visual system baseline.
+ *
+ * These custom properties are scoped to the webview and consumed via
+ * var(--*). They intentionally do NOT alias or override any host
+ * (VS Code) theme variable. The host theme always takes precedence:
+ * any --vscode-* token must be used as-is, and this file never
+ * defines a competing name.
+ *
+ * Shadow colors are derived from --vscode-foreground through
+ * color-mix(in srgb, ...) so elevation stays theme-agnostic across
+ * light, dark, and high-contrast themes.
+ */
+
+:root {
+  /* ---- Corner radius scale ----------------------------------------- */
+  --radius-sm: 4px; /* small surfaces, color preview swatches */
+  --radius-md: 6px; /* buttons */
+  --radius-lg: 8px; /* mode-switcher, chip containers */
+
+  /* ---- Elevation / shadow scale ------------------------------------ */
+  /* Tinted with --vscode-foreground to follow active theme. */
+  --shadow-1: 0 1px 2px color-mix(in srgb, var(--vscode-foreground, #ccc) 12%, transparent); /* hover micro-lift */
+  --shadow-2: 0 4px 12px color-mix(in srgb, var(--vscode-foreground, #ccc) 18%, transparent); /* active, popovers */
+
+  /* ---- Motion easings ---------------------------------------------- */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);      /* standard deceleration */
+  --ease-back: cubic-bezier(0.34, 1.56, 0.64, 1); /* overshoot / spring-in */
+
+  /* ---- Motion durations -------------------------------------------- */
+  --duration-fast: 120ms; /* micro-interactions, swatch hover */
+  --duration-base: 180ms; /* button states, chip transitions */
+  --duration-slow: 260ms; /* popovers, dialogs, mode-switcher */
+}

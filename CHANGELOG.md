@@ -5,6 +5,24 @@ All notable changes to **htmly** will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.4] - 2026-06-06
+
+### Added
+
+- **Toolbar visual system** (`webview/src/styles/tokens.css`, `webview/src/components/Toolbar.vue`, `webview/src/main.ts`)
+  - New `tokens.css` defines the webview-only design-token baseline: corner-radius scale (`--radius-sm/md/lg`), tinted elevation shadows (`--shadow-1/2`) derived from `--vscode-foreground` via `color-mix()` so they stay theme-agnostic across light / dark / high-contrast, and motion tokens (`--ease-out`, `--ease-back`, durations).
+  - `Toolbar.vue` consumes the tokens: restyle to a unified pill / chip aesthetic, explicit `:hover` / `:focus-visible` ring, and a keyframe-driven "press-down → release" interaction so tool buttons feel physical.
+  - Redundant `:active` style removed in favor of the keyframe-driven transform.
+  - `main.ts` imports `tokens.css` once at the webview root.
+
+- **`MathSymbolsDropdown` popover styling aligned to the new token system** (`webview/src/components/MathSymbolsDropdown.vue`)
+  - Surface background, border, radius, shadow, and open / close transition now read from the same tokens as `Toolbar.vue`. Fade + slight translate-in entrance, matches toolbar chip rhythm.
+
+### Fixed
+
+- **Vitest jsdom environment crashed 50 `ExportDialog` tests with `localStorage.getItem is not a function`** (`webview/src/test-setup.ts`)
+  - Node 25+ ships a built-in `localStorage` global; without a valid `--localstorage-file` flag it is an empty object, which jsdom refuses to overwrite. The new `installLocalStoragePolyfill()` detects the missing `Storage` interface and installs a `MemoryStorage` implementation on both `globalThis` and `window`. Brings the 50 affected `ExportDialog` tests back to green without changing any component code.
+
 ## [1.8.3] - 2026-06-05
 
 ### Fixed

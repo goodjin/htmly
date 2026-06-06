@@ -453,10 +453,60 @@ function insertMathSymbol(symbol: string) {
   // Insert the symbol at current cursor position
   props.editor.chain().focus().insertContent(symbol).run();
 }
+
+// Press-bounce animation: drives a `.is-pressed` class on pointerdown so
+// the CSS `@keyframes toolbar-pop` plays the press-down → overshoot →
+// settle motion reliably. Chromium can freeze CSS animations triggered
+// by `:active` mid-play, so we drive the class from JS instead. The
+// reflow trick (`offsetWidth` read between remove/add) forces the
+// animation to restart on every click, even rapid back-to-back presses.
+// Delegated via a single `@pointerdown` listener on the root `.toolbar`
+// div; `@pointerup` / `@pointerleave` cancel any in-flight reset.
+let popResetTimer: ReturnType<typeof setTimeout> | null = null;
+
+function findEnabledButton(target: EventTarget | null): HTMLButtonElement | null {
+  if (!(target instanceof Element)) return null;
+  const btn = target.closest('button');
+  return btn instanceof HTMLButtonElement && !btn.disabled ? btn : null;
+}
+
+function triggerPop(btn: HTMLButtonElement) {
+  if (popResetTimer !== null) {
+    clearTimeout(popResetTimer);
+    popResetTimer = null;
+  }
+  // Remove the class, force a synchronous reflow, then re-add so the
+  // keyframes restart from frame 0 even when re-triggered before the
+  // previous run finishes.
+  btn.classList.remove('is-pressed');
+  void btn.offsetWidth;
+  btn.classList.add('is-pressed');
+  popResetTimer = setTimeout(() => {
+    btn.classList.remove('is-pressed');
+    popResetTimer = null;
+  }, 240);
+}
+
+function onToolbarPointerDown(e: PointerEvent) {
+  const btn = findEnabledButton(e.target);
+  if (btn) triggerPop(btn);
+}
+
+function onToolbarPointerUp() {
+  if (popResetTimer !== null) {
+    clearTimeout(popResetTimer);
+    popResetTimer = null;
+  }
+}
 </script>
 
 <template>
-  <div class="toolbar" :class="{ 'hide-labels': !showButtonLabels }">
+  <div
+    class="toolbar"
+    :class="{ 'hide-labels': !showButtonLabels }"
+    @pointerdown="onToolbarPointerDown"
+    @pointerup="onToolbarPointerUp"
+  >
     <!-- Mode switcher group - visible in all modes -->
     <div class="toolbar-group mode-switcher">
       <button
@@ -1018,9 +1068,11 @@ function insertMathSymbol(symbol: string) {
 
 .mode-switcher {
   background: var(--vscode-toolbar-hoverBackground, #2a2d2e);
-  border-radius: 4px;
+  border-radius: var(--radius-lg);
   padding: 2px 4px;
   border-right: none;
+  box-shadow: var(--shadow-1);
+  transition: box-shadow var(--duration-base) var(--ease-out);
 }
 
 .mode-switcher button {
@@ -1040,16 +1092,23 @@ button {
   background: transparent;
   border: 1px solid transparent;
   color: var(--vscode-editor-foreground, #ccc);
-  border-radius: 3px;
-  padding: 3px 7px;
+  border-radius: var(--radius-md);
+  padding: 4px 8px;
   cursor: pointer;
   font-size: 13px;
   min-width: 28px;
-  display: flex;
+  display: inline-flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 1px;
+  gap: 2px;
+  will-change: transform;
+  transition:
+    background-color var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out),
+    transform var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out);
 }
 
 .btn-icon {
@@ -1072,32 +1131,71 @@ button {
 button:hover {
   background: var(--vscode-toolbar-hoverBackground, #2a2d2e);
   border-color: var(--vscode-panel-border, #3c3c3c);
+  box-shadow: var(--shadow-1);
+}
+
+button:focus-visible {
+  outline: 2px solid var(--vscode-focusBorder, #0e639c);
+  outline-offset: 1px;
 }
 
 button:disabled,
 .heading-select:disabled {
-  cursor: default;
+  cursor: not-allowed;
   opacity: 0.45;
+  transition: none;
 }
 
 button:disabled:hover {
   background: transparent;
   border-color: transparent;
+  box-shadow: none;
 }
 
 button.active {
   background: var(--vscode-button-background, #0e639c);
   color: var(--vscode-button-foreground, #fff);
+  box-shadow: var(--shadow-2);
+}
+
+/* Springy pop animation driven by the .is-pressed class
+   (toggled by onToolbarPointerDown in <script setup>). Plays the full
+   press-down → overshoot → settle motion on every click. */
+@keyframes toolbar-pop {
+  0%   { transform: scale(1); }
+  35%  { transform: scale(0.92); }
+  70%  { transform: scale(1.06); }
+  100% { transform: scale(1); }
+}
+
+button.is-pressed:not(:disabled) {
+  animation: toolbar-pop var(--duration-base) var(--ease-out);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  button.is-pressed {
+    animation: none;
+  }
 }
 
 .heading-select {
   background: var(--vscode-dropdown-background, #3c3c3c);
   color: var(--vscode-dropdown-foreground, #ccc);
   border: 1px solid var(--vscode-dropdown-border, #555);
-  border-radius: 3px;
-  padding: 3px 4px;
+  border-radius: var(--radius-md);
+  padding: 4px 6px;
   font-size: 12px;
   cursor: pointer;
+  transition:
+    background-color var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-fast) var(--ease-out);
+}
+
+.heading-select:focus-visible {
+  outline: 2px solid var(--vscode-focusBorder, #0e639c);
+  outline-offset: 1px;
+  border-color: var(--vscode-focusBorder, #0e639c);
 }
 
 .heading-label {
@@ -1111,15 +1209,25 @@ button.active {
   align-items: center;
   gap: 2px;
   cursor: pointer;
-  padding: 3px 5px;
+  padding: 4px 6px;
   border: 1px solid transparent;
-  border-radius: 3px;
+  border-radius: var(--radius-md);
   position: relative;
+  transition:
+    background-color var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-fast) var(--ease-out);
 }
 
 .color-picker-label:hover {
   background: var(--vscode-toolbar-hoverBackground, #2a2d2e);
   border-color: var(--vscode-panel-border, #3c3c3c);
+  box-shadow: var(--shadow-1);
+}
+
+.color-picker-label:focus-within {
+  outline: 2px solid var(--vscode-focusBorder, #0e639c);
+  outline-offset: 1px;
 }
 
 .color-picker-label.disabled {
@@ -1170,7 +1278,7 @@ button.active {
 .save-indicator {
   font-size: 12px;
   padding: 2px 8px;
-  border-radius: 3px;
+  border-radius: var(--radius-md);
   flex-shrink: 0;
   animation: fadeIn 150ms ease-out;
 }
@@ -1204,21 +1312,31 @@ button.active {
   align-items: center;
   gap: 2px;
   cursor: pointer;
-  padding: 3px 5px;
+  padding: 4px 6px;
   border: 1px solid transparent;
-  border-radius: 3px;
+  border-radius: var(--radius-md);
   position: relative;
+  transition:
+    background-color var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-fast) var(--ease-out);
 }
 
 .cell-bg-label:hover {
   background: var(--vscode-toolbar-hoverBackground, #2a2d2e);
   border-color: var(--vscode-panel-border, #3c3c3c);
+  box-shadow: var(--shadow-1);
+}
+
+.cell-bg-label:focus-within {
+  outline: 2px solid var(--vscode-focusBorder, #0e639c);
+  outline-offset: 1px;
 }
 
 .cell-bg-preview {
   width: 16px;
   height: 16px;
-  border-radius: 2px;
+  border-radius: var(--radius-sm);
   border: 1px solid var(--vscode-panel-border, #3c3c3c);
   display: inline-block;
 }
@@ -1227,7 +1345,7 @@ button.active {
 .block-bg-icon {
   width: 16px;
   height: 16px;
-  border-radius: 2px;
+  border-radius: var(--radius-sm);
   border: 1px solid var(--vscode-panel-border, #3c3c3c);
   display: flex;
   align-items: center;
